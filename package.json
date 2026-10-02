@@ -1,8 +1,8 @@
 {
-  "name": "bbs-club-barberia-v2",
+  "name": "bbs-club-barberia-final",
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "build": "git clone https://github.com/flutter/flutter.git -b stable /tmp/flutter && export PATH=$PATH:/tmp/flutter/bin:/tmp/flutter/bin/cache/dart-sdk/bin && flutter pub get && flutter build web --release --wasm --no-wasm-dry-run"
+    "build": "echo STARTING_FLUTTER_WASM_BUILD && git clone https://github.com/flutter/flutter.git -b stable /tmp/flutter && export PATH=$PATH:/tmp/flutter/bin:/tmp/flutter/bin/cache/dart-sdk/bin && flutter pub get && flutter build web --release --wasm --no-wasm-dry-run && echo BUILD_COMPLETED_SUCCESSFULLY"
   }
 }
