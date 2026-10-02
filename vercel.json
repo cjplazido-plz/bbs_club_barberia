@@ -1,0 +1,16 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "pubspec.yaml",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "build/web",
+        "buildCommand": "git clone https://github.com/flutter/flutter.git -b stable /tmp/flutter && export PATH=$PATH:/tmp/flutter/bin:/tmp/flutter/bin/cache/dart-sdk/bin && flutter pub get && flutter build web --release"
+      }
+    }
+  ],
+  "routes": [
+    { "src": "/(.*)", "dest": "/index.html" }
+  ]
+}
