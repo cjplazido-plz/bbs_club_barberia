@@ -1,7 +1,8 @@
 {
-  "name": "barberflow",
+  "name": "bbs-club-barberia",
   "version": "1.0.0",
+  "private": true,
   "scripts": {
-    "build": "git clone https://github.com/flutter/flutter.git -b stable /tmp/flutter && export PATH=$PATH:/tmp/flutter/bin:/tmp/flutter/bin/cache/dart-sdk/bin && flutter pub get && flutter build web --release"
+    "build": "flutter pub get && flutter build web --release --wasm"
   }
 }
