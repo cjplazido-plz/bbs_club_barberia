@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="BarberFlow POS - Sistema de gestión para barberías BBS Club F.C">
-
+  
   <!-- PWA Meta Tags -->
   <meta name="theme-color" content="#303f9f">
   <meta name="mobile-web-app-capable" content="yes">
@@ -13,25 +13,20 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="BarberFlow">
   <meta name="application-name" content="BarberFlow POS">
-
+  
   <!-- Viewport para móviles -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-
+  
   <title>BarberFlow POS - BBS Club F.C</title>
-
+  
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
-
+  
   <!-- Manifest para PWA -->
   <link rel="manifest" href="manifest.json">
-
-  <!-- Preconnect para mejor rendimiento -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-
+  
   <style>
-    /* Splash screen mientras carga Flutter */
     body {
       margin: 0;
       padding: 0;
@@ -42,30 +37,30 @@
       align-items: center;
       min-height: 100vh;
     }
-
+    
     #splash-screen {
       text-align: center;
       color: white;
       animation: fadeIn 0.5s ease-in;
     }
-
+    
     #splash-screen .logo {
       font-size: 64px;
       margin-bottom: 16px;
     }
-
+    
     #splash-screen h1 {
       font-size: 24px;
       margin: 0 0 8px 0;
       font-weight: 600;
     }
-
+    
     #splash-screen p {
       font-size: 14px;
       opacity: 0.8;
       margin: 0;
     }
-
+    
     .loader {
       width: 40px;
       height: 40px;
@@ -75,25 +70,20 @@
       animation: spin 1s ease-in-out infinite;
       margin: 24px auto 0;
     }
-
+    
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
-
+    
     @keyframes fadeIn {
       from { opacity: 0; }
       to { opacity: 1; }
     }
-
-    /* Ocultar splash cuando Flutter carga */
+    
     body.flutter-loaded #splash-screen {
       display: none;
     }
   </style>
-
-  <script>
-    var serviceWorkerVersion = null;
-  </script>
 </head>
 <body>
   <!-- Splash Screen personalizado -->
@@ -107,30 +97,21 @@
   <script src="flutter.js" defer></script>
   <script>
     window.addEventListener('load', function(ev) {
-      // Registrar Service Worker para PWA
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('flutter-first-frame', function() {
-          navigator.serviceWorker.register('flutter_service_worker.js?v=1').then(function(registration) {
-            console.log('✅ Service Worker registrado:', registration.scope);
-          }).catch(function(error) {
-            console.log('⚠️ Service Worker no registrado:', error);
-          });
-        });
-      }
-
-      // Cargar Flutter
-      _flutter.loader.loadEntrypoint({
-        onEntrypointLoaded: function(engineInitializer) {
-          engineInitializer.initializeEngine().then(function(appRunner) {
-            // Ocultar splash screen
-            document.body.classList.add('flutter-loaded');
-            appRunner.runApp();
-          });
+      // Cargar Flutter de forma simplificada
+      _flutter.loader.load({
+        onEntrypointLoaded: async function(engineInitializer) {
+          const appRunner = await engineInitializer.initializeEngine();
+          
+          // Ocultar splash screen
+          document.body.classList.add('flutter-loaded');
+          
+          // Ejecutar la app
+          await appRunner.runApp();
         }
       });
     });
-
-    // Prevenir zoom en móviles (mejor UX tipo app nativa)
+    
+    // Prevenir zoom en móviles
     document.addEventListener('gesturestart', function(e) {
       e.preventDefault();
     });
