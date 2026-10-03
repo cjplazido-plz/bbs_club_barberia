@@ -83,6 +83,19 @@
     body.flutter-loaded #splash-screen {
       display: none;
     }
+    
+    #error-message {
+      display: none;
+      background: rgba(255, 255, 255, 0.1);
+      padding: 20px;
+      border-radius: 8px;
+      margin-top: 20px;
+      max-width: 400px;
+    }
+    
+    #error-message.show {
+      display: block;
+    }
   </style>
 </head>
 <body>
@@ -93,23 +106,63 @@
     <p>BBS Club F.C - Cargando...</p>
     <div class="loader"></div>
   </div>
+  
+  <!-- Mensaje de error -->
+  <div id="error-message">
+    <h2 style="color: #ff6b6b; margin-top: 0;">⚠️ Error al cargar</h2>
+    <p id="error-text" style="color: white; margin-bottom: 16px;"></p>
+    <button onclick="location.reload()" style="background: #4ecdc4; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600;">
+      🔄 Recargar
+    </button>
+  </div>
 
   <script src="flutter.js" defer></script>
   <script>
     window.addEventListener('load', function(ev) {
-      // Cargar Flutter de forma simplificada
-      _flutter.loader.load({
-        onEntrypointLoaded: async function(engineInitializer) {
-          const appRunner = await engineInitializer.initializeEngine();
-          
-          // Ocultar splash screen
-          document.body.classList.add('flutter-loaded');
-          
-          // Ejecutar la app
-          await appRunner.runApp();
-        }
-      });
+      console.log('📄 Página cargada, inicializando Flutter...');
+      
+      // Verificar si flutter.js se cargó
+      if (typeof _flutter === 'undefined') {
+        console.error('❌ flutter.js no se cargó correctamente');
+        showError('No se pudo cargar flutter.js. Verifica tu conexión a internet.');
+        return;
+      }
+      
+      // Cargar Flutter con manejo de errores
+      try {
+        _flutter.loader.load({
+          onEntrypointLoaded: async function(engineInitializer) {
+            console.log('✅ Entry point cargado, inicializando engine...');
+            
+            try {
+              const appRunner = await engineInitializer.initializeEngine();
+              console.log('✅ Engine inicializado, ejecutando app...');
+              
+              // Ocultar splash screen
+              document.body.classList.add('flutter-loaded');
+              
+              // Ejecutar la app
+              await appRunner.runApp();
+              console.log('✅ App ejecutada correctamente');
+            } catch (error) {
+              console.error('❌ Error al inicializar engine:', error);
+              showError('Error al inicializar la aplicación: ' + error.message);
+            }
+          }
+        });
+      } catch (error) {
+        console.error('❌ Error al cargar Flutter:', error);
+        showError('Error al cargar Flutter: ' + error.message);
+      }
     });
+    
+    // Función para mostrar errores
+    function showError(message) {
+      const errorDiv = document.getElementById('error-message');
+      const errorText = document.getElementById('error-text');
+      errorText.textContent = message;
+      errorDiv.classList.add('show');
+    }
     
     // Prevenir zoom en móviles
     document.addEventListener('gesturestart', function(e) {
@@ -118,6 +171,19 @@
     document.addEventListener('dblclick', function(e) {
       e.preventDefault();
     });
+    
+    // Service Worker para PWA
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function() {
+        navigator.serviceWorker.register('flutter_service_worker.js')
+          .then(function(registration) {
+            console.log('✅ Service Worker registrado:', registration.scope);
+          })
+          .catch(function(error) {
+            console.log('⚠️ Service Worker no registrado:', error);
+          });
+      });
+    }
   </script>
 </body>
 </html>
