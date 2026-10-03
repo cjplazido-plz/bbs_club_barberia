@@ -197,7 +197,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            IconButton(icon: const Text('️', style: TextStyle(fontSize: 20)), onPressed: () => _showProductDialog(product: product)),
+                            IconButton(icon: const Text('️✏️', style: TextStyle(fontSize: 20)), onPressed: () => _showProductDialog(product: product)),
                             IconButton(icon: const Text('🗑️', style: TextStyle(fontSize: 20)), onPressed: () => _deleteProduct(product)),
                           ],
                         ),

@@ -139,8 +139,8 @@ class _BarbersScreenState extends State<BarbersScreen> {
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            IconButton(icon: const Text('️', style: TextStyle(fontSize: 20)), onPressed: () => _showBarberDialog(barber: barber)),
-                            IconButton(icon: const Text('️', style: TextStyle(fontSize: 20)), onPressed: () => _deleteBarber(barber)),
+                            IconButton(icon: const Text('✏️', style: TextStyle(fontSize: 20)), onPressed: () => _showBarberDialog(barber: barber)),
+                            IconButton(icon: const Text('️🗑️', style: TextStyle(fontSize: 20)), onPressed: () => _deleteBarber(barber)),
                           ],
                         ),
                       ),

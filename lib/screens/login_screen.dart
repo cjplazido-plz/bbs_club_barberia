@@ -152,7 +152,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         decoration: InputDecoration(
                           labelText: 'Correo electrónico',
                           hintText: 'ej: carlos@barberflow.com',
-                          prefixIcon: const Text('📧', style: TextStyle(fontSize: 20)),
+                          prefixIcon: const Text('👨‍💼', style: TextStyle(fontSize: 20)),
                           border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8)),
                         ),
@@ -163,7 +163,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         controller: _passwordController,
                         decoration: InputDecoration(
                           labelText: 'Contraseña',
-                          prefixIcon: const Text('', style: TextStyle(fontSize: 20)),
+                          prefixIcon: const Text('🔑', style: TextStyle(fontSize: 20)),
                           border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8)),
                         ),

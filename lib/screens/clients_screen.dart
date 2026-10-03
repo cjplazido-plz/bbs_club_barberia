@@ -166,7 +166,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
                               trailing: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  IconButton(icon: const Text('️', style: TextStyle(fontSize: 20)), onPressed: () => _showClientDialog(client: client)),
+                                  IconButton(icon: const Text('️✏️', style: TextStyle(fontSize: 20)), onPressed: () => _showClientDialog(client: client)),
                                   IconButton(icon: const Text('🗑️', style: TextStyle(fontSize: 20)), onPressed: () => _deleteClient(client)),
                                 ],
                               ),
