@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:intl/intl.dart';
 
 class SettingsService {
   static final _client = Supabase.instance.client;
@@ -24,16 +25,14 @@ class SettingsService {
   static Future<bool> update(String key, String value) async {
     try {
       print('🔄 Actualizando $key = $value');
-      
-      // Verificar si existe
+
       final existing = await _client
           .from('settings')
           .select('id')
           .eq('key', key)
           .maybeSingle();
-      
+
       if (existing != null) {
-        // Actualizar existente
         await _client
             .from('settings')
             .update({
@@ -42,7 +41,6 @@ class SettingsService {
             })
             .eq('key', key);
       } else {
-        // Insertar nuevo
         await _client.from('settings').insert({
           'key': key,
           'value': value,
@@ -50,12 +48,12 @@ class SettingsService {
           'updated_at': DateTime.now().toIso8601String(),
         });
       }
-      
+
       _cache[key] = value;
       print('✅ Configuración actualizada: $key = $value');
       return true;
     } catch (e) {
-      print('❌ Error al actualizar $key: $e');
+      print(' Error al actualizar $key: $e');
       return false;
     }
   }
@@ -82,4 +80,14 @@ class SettingsService {
   static String get currencyCode => get('currency_code', defaultValue: 'CLP');
   static String get ticketFooter => get('ticket_footer', defaultValue: '¡Gracias por su visita!');
   static String get ticketHeader => get('ticket_header', defaultValue: 'BarberFlow POS');
+
+  // ✅ FUNCIÓN PARA FORMATO DE MONEDA: $20.000
+  static String formatCurrency(double amount) {
+    final format = NumberFormat.currency(
+      locale: 'es_CO',
+      symbol: currencySymbol,
+      decimalDigits: 0,
+    );
+    return format.format(amount);
+  }
 }

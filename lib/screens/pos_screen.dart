@@ -72,11 +72,11 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
     final barbers = await _barberRepo.getAllBarbers();
     final clients = await _clientRepo.getAllClients();
     final products = await _productRepo.getAllProducts();
-    
+
     final today = DateTime.now();
     final appointments = await _appointmentRepo.getAppointmentsByDate(today);
-    final pendingAppointments = appointments.where((a) => 
-      a.status == 'pending' || a.status == 'confirmed' || a.status == 'in_progress'
+    final pendingAppointments = appointments.where((a) =>
+        a.status == 'pending' || a.status == 'confirmed' || a.status == 'in_progress'
     ).toList();
 
     setState(() {
@@ -94,9 +94,11 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
       _showSnackbar('Selecciona un barbero primero', Colors.orange);
       return;
     }
+
     setState(() {
       final existingIndex = _cart.indexWhere((item) =>
           item.type == 'service' && item.serviceId == service.remoteId);
+
       if (existingIndex >= 0) {
         _cart[existingIndex].quantity++;
       } else {
@@ -118,6 +120,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
     setState(() {
       final existingIndex = _cart.indexWhere((item) =>
           item.type == 'product' && item.productId == product.remoteId);
+
       if (existingIndex >= 0) {
         _cart[existingIndex].quantity++;
       } else {
@@ -149,73 +152,68 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
   double get _subtotal => _cart.fold(0.0, (sum, item) => sum + (item.priceAtMoment * item.quantity));
   double get _total => _subtotal - _discount;
 
-  // 💵 Método principal de pago modificado
-  // En pos_screen.dart, método _processPayment()
+  Future<void> _processPayment() async {
+    if (_cart.isEmpty) {
+      _showSnackbar('Agrega servicios o productos al carrito', Colors.orange);
+      return;
+    }
 
-Future<void> _processPayment() async {
-  if (_cart.isEmpty) {
-    _showSnackbar('Agrega servicios o productos al carrito', Colors.orange);
-    return;
-  }
-  
-  // ✅ Confirmar método de pago antes de cobrar
-  final confirm = await showDialog<bool>(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: const Text('Confirmar venta'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Total: ${SettingsService.currencySymbol}${_total.toStringAsFixed(2)}', 
-               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          Text('Método de pago: ${_formatPaymentMethod(_paymentMethod)}', 
-               style: TextStyle(color: Colors.grey[700])),
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirmar venta'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Total: ${SettingsService.formatCurrency(_total)}',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Text('Método de pago: ${_formatPaymentMethod(_paymentMethod)}',
+                style: TextStyle(color: Colors.grey[700])),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green[600]),
+            child: const Text('Confirmar'),
+          ),
         ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context, false),
-          child: const Text('Cancelar'),
-        ),
-        ElevatedButton(
-          onPressed: () => Navigator.pop(context, true),
-          style: ElevatedButton.styleFrom(backgroundColor: Colors.green[600]),
-          child: const Text('Confirmar'),
-        ),
-      ],
-    ),
-  );
-  
-  if (confirm != true) return;
-  
-  // Continuar con el cobro normal...
-  if (_paymentMethod == 'cash') {
-    final cashResult = await _showCashPaymentDialog();
-    if (cashResult == null) return;
-await _completeTransaction(
-  cashReceived: cashResult['received'] as double, 
-  change: cashResult['change'] as double
-);
-  } else {
-    await _completeTransaction(cashReceived: _total, change: 0.0);
-  }
-}
+    );
 
-String _formatPaymentMethod(String method) {
-  switch (method) {
-    case 'cash': return '💵 Efectivo';
-    case 'card': return ' Tarjeta';
-    case 'transfer': return '📱 Transferencia';
-    default: return method;
+    if (confirm != true) return;
+
+    if (_paymentMethod == 'cash') {
+      final cashResult = await _showCashPaymentDialog();
+      if (cashResult == null) return;
+      await _completeTransaction(
+          cashReceived: cashResult['received'] as double,
+          change: cashResult['change'] as double
+      );
+    } else {
+      await _completeTransaction(cashReceived: _total, change: 0.0);
+    }
   }
-}
-  // 💵 Diálogo de pago en efectivo
+
+  String _formatPaymentMethod(String method) {
+    switch (method) {
+      case 'cash': return '💵 Efectivo';
+      case 'card': return '💳 Tarjeta';
+      case 'transfer': return '📱 Transferencia';
+      default: return method;
+    }
+  }
+
   Future<Map<String, double>?> _showCashPaymentDialog() async {
     final receivedController = TextEditingController();
     double change = 0.0;
-    
+
     return showDialog<Map<String, double>>(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -226,11 +224,11 @@ String _formatPaymentMethod(String method) {
               change = received - _total;
             });
           }
-          
+
           return AlertDialog(
             title: const Row(
               children: [
-                Icon(Icons.payments, color: Colors.green),
+                Text('💵', style: TextStyle(fontSize: 24)),
                 SizedBox(width: 8),
                 Text('Pago en Efectivo'),
               ],
@@ -240,7 +238,6 @@ String _formatPaymentMethod(String method) {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Total a pagar
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
@@ -254,22 +251,20 @@ String _formatPaymentMethod(String method) {
                         const Text('Total a pagar', style: TextStyle(color: Colors.grey, fontSize: 14)),
                         const SizedBox(height: 4),
                         Text(
-                          '${SettingsService.currencySymbol}${_total.toStringAsFixed(2)}',
+                          SettingsService.formatCurrency(_total),
                           style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.indigo[700]),
                         ),
                       ],
                     ),
                   ),
                   const SizedBox(height: 16),
-                  
-                  // Campo para ingresar monto recibido
                   TextField(
                     controller: receivedController,
                     autofocus: true,
                     keyboardType: TextInputType.numberWithOptions(decimal: true),
                     decoration: InputDecoration(
                       labelText: 'Monto recibido',
-                      hintText: '0.00',
+                      hintText: '0',
                       prefixText: '${SettingsService.currencySymbol} ',
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                       focusedBorder: OutlineInputBorder(
@@ -281,8 +276,6 @@ String _formatPaymentMethod(String method) {
                     onChanged: (_) => calculateChange(),
                   ),
                   const SizedBox(height: 12),
-                  
-                  // Botones de acceso rápido para billetes
                   const Text('Billetes rápidos:', style: TextStyle(fontSize: 12, color: Colors.grey)),
                   const SizedBox(height: 8),
                   Wrap(
@@ -299,13 +292,11 @@ String _formatPaymentMethod(String method) {
                           foregroundColor: Colors.green[700],
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                         ),
-                        child: Text('${SettingsService.currencySymbol}$amount'),
+                        child: Text(SettingsService.formatCurrency(amount.toDouble())),
                       );
                     }).toList(),
                   ),
                   const SizedBox(height: 16),
-                  
-                  // Cambio a devolver
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
@@ -328,7 +319,7 @@ String _formatPaymentMethod(String method) {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '${SettingsService.currencySymbol}${change.abs().toStringAsFixed(2)}',
+                          SettingsService.formatCurrency(change.abs()),
                           style: TextStyle(
                             fontSize: 28,
                             fontWeight: FontWeight.bold,
@@ -352,7 +343,7 @@ String _formatPaymentMethod(String method) {
                   if (received < _total) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('El monto recibido es insuficiente. Faltan ${SettingsService.currencySymbol}${(_total - received).toStringAsFixed(2)}'),
+                        content: Text('El monto recibido es insuficiente. Faltan ${SettingsService.formatCurrency(_total - received)}'),
                         backgroundColor: Colors.red,
                       ),
                     );
@@ -373,7 +364,6 @@ String _formatPaymentMethod(String method) {
     );
   }
 
-  // ✅ Completar transacción
   Future<void> _completeTransaction({required double cashReceived, required double change}) async {
     final transaction = LocalTransaction()
       ..remoteId = 'trans-${DateTime.now().millisecondsSinceEpoch}'
@@ -387,9 +377,7 @@ String _formatPaymentMethod(String method) {
       ..changeAmount = change
       ..items = List.from(_cart);
 
-    // ️ Generar ticket
     final printed = await _printer.printTicket(transaction);
-
     if (!printed) {
       if (!mounted) return;
       final shouldSave = await showDialog<bool>(
@@ -409,24 +397,23 @@ String _formatPaymentMethod(String method) {
       }
     }
 
-    //  Subir a Supabase
     try {
       print('🔄 Subiendo transacción a Supabase...');
       final transResponse = await Supabase.instance.client
           .from('transactions')
           .insert({
-            'id': transaction.remoteId,
-            'cash_register_id': transaction.cashRegisterId,
-            'cashier_id': transaction.cashierId,
-            'cashier_name': transaction.cashierName,
-            'barber_id': _selectedBarber?.remoteId ?? '',
-            'subtotal': transaction.subtotal,
-            'total': transaction.total,
-            'payment_method': transaction.paymentMethod,
-            'cash_received': cashReceived,
-            'change_amount': change,
-            'status': 'completed',
-          })
+        'id': transaction.remoteId,
+        'cash_register_id': transaction.cashRegisterId,
+        'cashier_id': transaction.cashierId,
+        'cashier_name': transaction.cashierName,
+        'barber_id': _selectedBarber?.remoteId ?? '',
+        'subtotal': transaction.subtotal,
+        'total': transaction.total,
+        'payment_method': transaction.paymentMethod,
+        'cash_received': cashReceived,
+        'change_amount': change,
+        'status': 'completed',
+      })
           .select()
           .single();
 
@@ -450,7 +437,6 @@ String _formatPaymentMethod(String method) {
       await Supabase.instance.client.from('transaction_items').insert(itemsData);
       print('✅ ${itemsData.length} items subidos a Supabase');
 
-      // 📦 Descontar stock de productos
       for (final item in transaction.items) {
         if (item.type == 'product' && item.productId != null && item.productId!.isNotEmpty) {
           try {
@@ -460,15 +446,18 @@ String _formatPaymentMethod(String method) {
                 .select('stock')
                 .eq('id', productId)
                 .single();
+
             final currentStock = (productResponse['stock'] as num).toInt();
             final newStock = currentStock - item.quantity;
+
             await Supabase.instance.client
                 .from('products')
                 .update({'stock': newStock})
                 .eq('id', productId);
+
             print('📦 Stock actualizado: ${item.productName} ($currentStock → $newStock)');
           } catch (e) {
-            print('️ Error al actualizar stock de ${item.productName}: $e');
+            print('⚠️ Error al actualizar stock de ${item.productName}: $e');
           }
         }
       }
@@ -476,7 +465,6 @@ String _formatPaymentMethod(String method) {
       print('⚠️ ERROR DETALLADO al subir a Supabase: $e');
     }
 
-    //  Marcar cita como completada
     if (_selectedAppointment != null) {
       try {
         _selectedAppointment!.status = 'completed';
@@ -487,11 +475,10 @@ String _formatPaymentMethod(String method) {
             .eq('id', _selectedAppointment!.remoteId!);
         print('✅ Cita marcada como completada: ${_selectedAppointment!.clientName}');
       } catch (e) {
-        print('️ Error al actualizar cita: $e');
+        print('⚠️ Error al actualizar cita: $e');
       }
     }
 
-    // 👤 Incrementar visitas del cliente
     if (_selectedClient != null) {
       await _clientRepo.incrementVisits(_selectedClient!.remoteId!, _total);
     }
@@ -505,7 +492,6 @@ String _formatPaymentMethod(String method) {
 
     await _loadData();
 
-    // Mostrar resumen de pago en efectivo
     if (_paymentMethod == 'cash' && change > 0) {
       if (mounted) {
         showDialog(
@@ -513,7 +499,7 @@ String _formatPaymentMethod(String method) {
           builder: (context) => AlertDialog(
             title: const Row(
               children: [
-                Icon(Icons.check_circle, color: Colors.green),
+                Text('✅', style: TextStyle(fontSize: 24)),
                 SizedBox(width: 8),
                 Text('¡Pago Exitoso!'),
               ],
@@ -532,7 +518,7 @@ String _formatPaymentMethod(String method) {
                       const Text('Cambio a entregar', style: TextStyle(color: Colors.grey)),
                       const SizedBox(height: 4),
                       Text(
-                        '${SettingsService.currencySymbol}${change.toStringAsFixed(2)}',
+                        SettingsService.formatCurrency(change),
                         style: TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: Colors.green[700]),
                       ),
                     ],
@@ -540,7 +526,7 @@ String _formatPaymentMethod(String method) {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'Recibido: ${SettingsService.currencySymbol}${cashReceived.toStringAsFixed(2)}',
+                  'Recibido: ${SettingsService.formatCurrency(cashReceived)}',
                   style: const TextStyle(fontSize: 14),
                 ),
               ],
@@ -570,17 +556,19 @@ String _formatPaymentMethod(String method) {
           child: _clients.isEmpty
               ? const Center(child: Text('No hay clientes registrados'))
               : ListView.builder(
-                  itemCount: _clients.length,
-                  itemBuilder: (context, index) {
-                    final client = _clients[index];
-                    return ListTile(
-                      leading: CircleAvatar(backgroundColor: Colors.indigo[100], child: Text(client.name[0].toUpperCase(), style: TextStyle(color: Colors.indigo[700]))),
-                      title: Text(client.name),
-                      subtitle: Text(client.phone ?? 'Sin teléfono'),
-                      onTap: () { setState(() { _selectedClient = client; }); Navigator.pop(context); },
-                    );
-                  },
-                ),
+            itemCount: _clients.length,
+            itemBuilder: (context, index) {
+              final client = _clients[index];
+              return ListTile(
+                leading: CircleAvatar(
+                    backgroundColor: Colors.indigo[100],
+                    child: Text(client.name[0].toUpperCase(), style: TextStyle(color: Colors.indigo[700]))),
+                title: Text(client.name),
+                subtitle: Text(client.phone ?? 'Sin teléfono'),
+                onTap: () { setState(() { _selectedClient = client; }); Navigator.pop(context); },
+              );
+            },
+          ),
         ),
         actions: [
           TextButton(onPressed: () { setState(() { _selectedClient = null; }); Navigator.pop(context); }, child: const Text('Sin cliente')),
@@ -608,7 +596,7 @@ String _formatPaymentMethod(String method) {
               return ListTile(
                 leading: CircleAvatar(
                   backgroundColor: apt.status == 'pending' ? Colors.orange[100] : Colors.green[100],
-                  child: Icon(Icons.event, color: apt.status == 'pending' ? Colors.orange[700] : Colors.green[700]),
+                  child: Text('📅', style: TextStyle(fontSize: 20, color: apt.status == 'pending' ? Colors.orange[700] : Colors.green[700])),
                 ),
                 title: Text(apt.clientName ?? 'Sin cliente'),
                 subtitle: Text('${apt.serviceName ?? ''} - ${apt.barberName ?? ''}\n${apt.appointmentDate.hour.toString().padLeft(2, '0')}:${apt.appointmentDate.minute.toString().padLeft(2, '0')}'),
@@ -660,6 +648,7 @@ String _formatPaymentMethod(String method) {
         ],
       ),
     );
+
     if (confirm == true) {
       await Supabase.instance.client.auth.signOut();
       if (mounted) {
@@ -681,32 +670,32 @@ String _formatPaymentMethod(String method) {
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white70,
           tabs: const [
-            Tab(icon: Icon(Icons.cut), text: 'Servicios'),
-            Tab(icon: Icon(Icons.inventory), text: 'Productos'),
+            Tab(icon: Text('✂️', style: TextStyle(fontSize: 20)), text: 'Servicios'),
+            Tab(icon: Text('📦', style: TextStyle(fontSize: 20)), text: 'Productos'),
           ],
         ),
         actions: [
           if (currentUserRole == 'admin') ...[
-            IconButton(icon: const Icon(Icons.cut, color: Colors.white), tooltip: 'Barberos', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => BarbersScreen())).then((_) => _loadData()); }),
-            IconButton(icon: const Icon(Icons.list, color: Colors.white), tooltip: 'Servicios', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => ServicesScreen())).then((_) => _loadData()); }),
-            IconButton(icon: const Icon(Icons.inventory, color: Colors.white), tooltip: 'Productos', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => ProductsScreen())).then((_) => _loadData()); }),
-            IconButton(icon: const Icon(Icons.people_outline, color: Colors.white), tooltip: 'Usuarios', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => UsersScreen())); }),
-            IconButton(icon: const Icon(Icons.calendar_month, color: Colors.white), tooltip: 'Agenda de Citas', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => AppointmentsScreen())); }),
-            IconButton(icon: const Icon(Icons.dashboard, color: Colors.white), tooltip: 'Dashboard', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => DashboardScreen())); }),
-            IconButton(icon: const Icon(Icons.bar_chart, color: Colors.white), tooltip: 'Reportes', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => ReportsScreen())); }),
-            IconButton(icon: const Icon(Icons.settings, color: Colors.white),tooltip: 'Configuración', onPressed: () {Navigator.push(context, MaterialPageRoute(builder: (context) => SettingsScreen()));},), 
+            IconButton(icon: const Text('💈', style: TextStyle(fontSize: 20)), tooltip: 'Barberos', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => BarbersScreen())).then((_) => _loadData()); }),
+            IconButton(icon: const Text('✂️', style: TextStyle(fontSize: 20)), tooltip: 'Servicios', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => ServicesScreen())).then((_) => _loadData()); }),
+            IconButton(icon: const Text('📦', style: TextStyle(fontSize: 20)), tooltip: 'Productos', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => ProductsScreen())).then((_) => _loadData()); }),
+            IconButton(icon: const Text('👥', style: TextStyle(fontSize: 20)), tooltip: 'Usuarios', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => UsersScreen())); }),
+            IconButton(icon: const Text('📅', style: TextStyle(fontSize: 20)), tooltip: 'Agenda de Citas', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => AppointmentsScreen())); }),
+            IconButton(icon: const Text('📊', style: TextStyle(fontSize: 20)), tooltip: 'Dashboard', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => DashboardScreen())); }),
+            IconButton(icon: const Text('📈', style: TextStyle(fontSize: 20)), tooltip: 'Reportes', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => ReportsScreen())); }),
+            IconButton(icon: const Text('⚙️', style: TextStyle(fontSize: 20)), tooltip: 'Configuración', onPressed: () {Navigator.push(context, MaterialPageRoute(builder: (context) => SettingsScreen()));},),
           ],
           if (currentUserRole == 'cashier') ...[
-            IconButton(icon: const Icon(Icons.history, color: Colors.white), tooltip: 'Historial', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => SalesHistoryScreen())); }),
-            IconButton(icon: const Icon(Icons.calendar_month, color: Colors.white), tooltip: 'Agenda de Citas', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => AppointmentsScreen())); }),
-            IconButton(icon: const Icon(Icons.dashboard, color: Colors.white), tooltip: 'Dashboard', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => DashboardScreen())); }),
+            IconButton(icon: const Text('📜', style: TextStyle(fontSize: 20)), tooltip: 'Historial', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => SalesHistoryScreen())); }),
+            IconButton(icon: const Text('📅', style: TextStyle(fontSize: 20)), tooltip: 'Agenda de Citas', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => AppointmentsScreen())); }),
+            IconButton(icon: const Text('📊', style: TextStyle(fontSize: 20)), tooltip: 'Dashboard', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => DashboardScreen())); }),
           ],
           if (currentUserRole == 'barber') ...[
-            IconButton(icon: const Icon(Icons.history, color: Colors.white), tooltip: 'Historial', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => SalesHistoryScreen())); }),
-            IconButton(icon: const Icon(Icons.calendar_month, color: Colors.white), tooltip: 'Agenda de Citas', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => AppointmentsScreen())); }),
+            IconButton(icon: const Text('📜', style: TextStyle(fontSize: 20)), tooltip: 'Historial', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => SalesHistoryScreen())); }),
+            IconButton(icon: const Text('📅', style: TextStyle(fontSize: 20)), tooltip: 'Agenda de Citas', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => AppointmentsScreen())); }),
           ],
-          IconButton(icon: const Icon(Icons.people, color: Colors.white), tooltip: 'Clientes', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => ClientsScreen())).then((_) => _loadData()); }),
-          IconButton(icon: const Icon(Icons.logout, color: Colors.white), tooltip: 'Cerrar sesión', onPressed: _handleLogout),
+          IconButton(icon: const Text('👥', style: TextStyle(fontSize: 20)), tooltip: 'Clientes', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => ClientsScreen())).then((_) => _loadData()); }),
+          IconButton(icon: const Text('', style: TextStyle(fontSize: 20)), tooltip: 'Cerrar sesión', onPressed: _handleLogout),
         ],
       ),
       body: Row(
@@ -729,7 +718,7 @@ String _formatPaymentMethod(String method) {
                               decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2))]),
                               child: Row(
                                 children: [
-                                  Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.indigo[50], borderRadius: BorderRadius.circular(8)), child: Icon(Icons.person, color: Colors.indigo[700])),
+                                  Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.indigo[50], borderRadius: BorderRadius.circular(8)), child: const Text('👤', style: TextStyle(fontSize: 20))),
                                   const SizedBox(width: 12),
                                   const Text('Barbero:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                                   const SizedBox(width: 16),
@@ -764,11 +753,11 @@ String _formatPaymentMethod(String method) {
                                           child: Column(
                                             mainAxisAlignment: MainAxisAlignment.center,
                                             children: [
-                                              Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.indigo[100], shape: BoxShape.circle), child: Icon(Icons.content_cut, size: 32, color: Colors.indigo[700])),
+                                              Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.indigo[100], shape: BoxShape.circle), child: const Text('✂️', style: TextStyle(fontSize: 32))),
                                               const SizedBox(height: 12),
                                               Text(service.name, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
                                               const SizedBox(height: 8),
-                                              Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), decoration: BoxDecoration(color: Colors.green[100], borderRadius: BorderRadius.circular(20)), child: Text('${SettingsService.currencySymbol}${service.price.toStringAsFixed(2)}', style: TextStyle(fontSize: 16, color: Colors.green[700], fontWeight: FontWeight.bold))),
+                                              Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), decoration: BoxDecoration(color: Colors.green[100], borderRadius: BorderRadius.circular(20)), child: Text(SettingsService.formatCurrency(service.price), style: TextStyle(fontSize: 16, color: Colors.green[700], fontWeight: FontWeight.bold))),
                                             ],
                                           ),
                                         ),
@@ -805,11 +794,11 @@ String _formatPaymentMethod(String method) {
                                     child: Column(
                                       mainAxisAlignment: MainAxisAlignment.center,
                                       children: [
-                                        Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.orange[100], shape: BoxShape.circle), child: Icon(Icons.shopping_bag, size: 32, color: Colors.orange[700])),
+                                        Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.orange[100], shape: BoxShape.circle), child: const Text('🛍️', style: TextStyle(fontSize: 32))),
                                         const SizedBox(height: 12),
                                         Text(product.name, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
                                         const SizedBox(height: 8),
-                                        Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), decoration: BoxDecoration(color: Colors.green[100], borderRadius: BorderRadius.circular(20)), child: Text('${SettingsService.currencySymbol}${product.price.toStringAsFixed(2)}', style: TextStyle(fontSize: 16, color: Colors.green[700], fontWeight: FontWeight.bold))),
+                                        Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), decoration: BoxDecoration(color: Colors.green[100], borderRadius: BorderRadius.circular(20)), child: Text(SettingsService.formatCurrency(product.price), style: TextStyle(fontSize: 16, color: Colors.green[700], fontWeight: FontWeight.bold))),
                                         const SizedBox(height: 4),
                                         Text('Stock: ${product.stock}', style: TextStyle(fontSize: 12, color: isLowStock ? Colors.red : Colors.grey[600], fontWeight: FontWeight.w600)),
                                       ],
@@ -837,72 +826,72 @@ String _formatPaymentMethod(String method) {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(color: Colors.indigo[700], boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4, offset: const Offset(0, 2))]),
-                    child: Row(children: [const Icon(Icons.shopping_cart, color: Colors.white), const SizedBox(width: 8), Text('Carrito (${_cart.length})', style: const TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold))]),
+                    child: Row(children: [const Text('🛒', style: TextStyle(fontSize: 20)), const SizedBox(width: 8), Text('Carrito (${_cart.length})', style: const TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold))]),
                   ),
                   if (_selectedAppointment != null)
                     Container(
                       padding: const EdgeInsets.all(8),
                       color: Colors.blue[50],
                       child: Row(children: [
-                        Icon(Icons.event, color: Colors.blue[700], size: 20),
+                        const Text('', style: TextStyle(fontSize: 16)),
                         const SizedBox(width: 8),
                         Expanded(child: Text('Cita: ${_selectedAppointment!.clientName}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500))),
-                        IconButton(icon: const Icon(Icons.close, size: 16), onPressed: () { setState(() { _selectedAppointment = null; }); }),
+                        IconButton(icon: const Text('✕', style: TextStyle(fontSize: 14)), onPressed: () { setState(() { _selectedAppointment = null; }); }),
                       ]),
                     ),
                   if (_selectedClient != null)
                     Container(
                       padding: const EdgeInsets.all(8),
                       color: Colors.green[50],
-                      child: Row(children: [Icon(Icons.person, color: Colors.green[700], size: 20), const SizedBox(width: 8), Expanded(child: Text(_selectedClient!.name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500))), IconButton(icon: const Icon(Icons.close, size: 16), onPressed: () { setState(() { _selectedClient = null; }); })]),
+                      child: Row(children: [const Text('👤', style: TextStyle(fontSize: 16)), const SizedBox(width: 8), Expanded(child: Text(_selectedClient!.name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500))), IconButton(icon: const Text('✕', style: TextStyle(fontSize: 14)), onPressed: () { setState(() { _selectedClient = null; }); })]),
                     ),
                   Expanded(
                     child: _cart.isEmpty
-                        ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.shopping_basket_outlined, size: 64, color: Colors.grey[300]), const SizedBox(height: 16), Text('Carrito vacío', style: TextStyle(color: Colors.grey[400], fontSize: 16)), const SizedBox(height: 8), Text('Agrega servicios o productos', style: TextStyle(color: Colors.grey[400], fontSize: 12))]))
+                        ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [const Text('', style: TextStyle(fontSize: 64)), const SizedBox(height: 16), Text('Carrito vacío', style: TextStyle(color: Colors.grey[400], fontSize: 16)), const SizedBox(height: 8), Text('Agrega servicios o productos', style: TextStyle(color: Colors.grey[400], fontSize: 12))]))
                         : ListView.builder(
-                            padding: const EdgeInsets.all(16),
-                            itemCount: _cart.length,
-                            itemBuilder: (context, index) {
-                              final item = _cart[index];
-                              final isService = item.type == 'service';
-                              return Card(
-                                elevation: 1, margin: const EdgeInsets.only(bottom: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                child: ListTile(
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                                  leading: Icon(isService ? Icons.cut : Icons.shopping_bag, color: isService ? Colors.indigo : Colors.orange),
-                                  title: Text(item.serviceName.isNotEmpty ? item.serviceName : (item.productName ?? ''), style: const TextStyle(fontWeight: FontWeight.w600)),
-                                  subtitle: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text('${SettingsService.currencySymbol}${item.priceAtMoment.toStringAsFixed(2)} x ${item.quantity}', style: const TextStyle(fontSize: 12)),
-                                      if (isService && item.barberName.isNotEmpty) Text('Barbero: ${item.barberName}', style: const TextStyle(fontSize: 12)),
-                                    ],
-                                  ),
-                                  trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                                    IconButton(icon: const Icon(Icons.remove_circle_outline, size: 20), onPressed: () => _updateQuantity(index, item.quantity - 1)),
-                                    Text('${item.quantity}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                                    IconButton(icon: const Icon(Icons.add_circle_outline, size: 20), onPressed: () => _updateQuantity(index, item.quantity + 1)),
-                                    const SizedBox(width: 8),
-                                    Text('${SettingsService.currencySymbol}${(item.priceAtMoment * item.quantity).toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.indigo)),
-                                  ]),
-                                ),
-                              );
-                            },
+                      padding: const EdgeInsets.all(16),
+                      itemCount: _cart.length,
+                      itemBuilder: (context, index) {
+                        final item = _cart[index];
+                        final isService = item.type == 'service';
+                        return Card(
+                          elevation: 1, margin: const EdgeInsets.only(bottom: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                            leading: Text(isService ? '✂️' : '🛍️', style: TextStyle(fontSize: 24)),
+                            title: Text(item.serviceName.isNotEmpty ? item.serviceName : (item.productName ?? ''), style: const TextStyle(fontWeight: FontWeight.w600)),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('${SettingsService.formatCurrency(item.priceAtMoment)} x ${item.quantity}', style: const TextStyle(fontSize: 12)),
+                                if (isService && item.barberName.isNotEmpty) Text('Barbero: ${item.barberName}', style: const TextStyle(fontSize: 12)),
+                              ],
+                            ),
+                            trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                              IconButton(icon: const Text('➖', style: TextStyle(fontSize: 16)), onPressed: () => _updateQuantity(index, item.quantity - 1)),
+                              Text('${item.quantity}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                              IconButton(icon: const Text('➕', style: TextStyle(fontSize: 16)), onPressed: () => _updateQuantity(index, item.quantity + 1)),
+                              const SizedBox(width: 8),
+                              Text(SettingsService.formatCurrency(item.priceAtMoment * item.quantity), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.indigo)),
+                            ]),
                           ),
+                        );
+                      },
+                    ),
                   ),
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(color: Colors.grey[50], border: Border(top: BorderSide(color: Colors.grey[300]!)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, -2))]),
                     child: Column(
                       children: [
-                        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Subtotal:', style: TextStyle(fontSize: 14, color: Colors.grey)), Text('${SettingsService.currencySymbol}${_subtotal.toStringAsFixed(2)}', style: const TextStyle(fontSize: 14))]),
-                        if (_discount > 0) Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Descuento:', style: TextStyle(fontSize: 14, color: Colors.red)), Text('-${SettingsService.currencySymbol}${_discount.toStringAsFixed(2)}', style: const TextStyle(fontSize: 14, color: Colors.red))]),
+                        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Subtotal:', style: TextStyle(fontSize: 14, color: Colors.grey)), Text(SettingsService.formatCurrency(_subtotal), style: const TextStyle(fontSize: 14))]),
+                        if (_discount > 0) Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Descuento:', style: TextStyle(fontSize: 14, color: Colors.red)), Text('-${SettingsService.formatCurrency(_discount)}', style: const TextStyle(fontSize: 14, color: Colors.red))]),
                         const SizedBox(height: 8),
-                        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('TOTAL:', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)), Text('${SettingsService.currencySymbol}${_total.toStringAsFixed(2)}', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.green[700]))]),
+                        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('TOTAL:', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)), Text(SettingsService.formatCurrency(_total), style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.green[700]))]),
                         const SizedBox(height: 12),
-                        OutlinedButton.icon(onPressed: _showAppointmentSelector, icon: const Icon(Icons.event, size: 18), label: Text(_selectedAppointment?.clientName ?? 'Seleccionar cita (opcional)'), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 40), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)))),
+                        OutlinedButton.icon(onPressed: _showAppointmentSelector, icon: const Text('📅', style: TextStyle(fontSize: 16)), label: Text(_selectedAppointment?.clientName ?? 'Seleccionar cita (opcional)'), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 40), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)))),
                         const SizedBox(height: 8),
-                        OutlinedButton.icon(onPressed: _showClientSelector, icon: const Icon(Icons.person_add, size: 18), label: Text(_selectedClient?.name ?? 'Seleccionar cliente'), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 40), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)))),
+                        OutlinedButton.icon(onPressed: _showClientSelector, icon: const Text('👤', style: TextStyle(fontSize: 16)), label: Text(_selectedClient?.name ?? 'Seleccionar cliente'), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 40), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)))),
                         const SizedBox(height: 8),
                         DropdownButtonFormField<String>(
                           value: _paymentMethod,
