@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../repositories/dashboard_repository.dart';
+import '../services/settings_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   @override
@@ -10,7 +11,6 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   final _dashboardRepo = DashboardRepository();
   bool _isLoading = true;
-
   double _todaySales = 0;
   int _todayTransactions = 0;
   int _todayAppointments = 0;
@@ -28,7 +28,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Future<void> _loadData() async {
     setState(() { _isLoading = true; });
-
     final todaySales = await _dashboardRepo.getTodaySales();
     final todayTransactions = await _dashboardRepo.getTodayTransactionCount();
     final todayAppointments = await _dashboardRepo.getTodayAppointments();
@@ -55,11 +54,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Text('←', style: TextStyle(fontSize: 24, color: Colors.white)),
+          onPressed: () => Navigator.pop(context),
+        ),
         title: const Text('Dashboard'),
         backgroundColor: Colors.indigo[700],
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
+            icon: const Text('', style: TextStyle(fontSize: 20)),
             onPressed: _loadData,
           ),
         ],
@@ -71,23 +74,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
-                  // Tarjetas de resumen
                   _buildSummaryCards(),
                   const SizedBox(height: 24),
-
-                  // Gráfica de ventas semanales
                   _buildWeekChart(),
                   const SizedBox(height: 24),
-
-                  // Ranking de barberos
                   _buildBarberRanking(),
                   const SizedBox(height: 24),
-
-                  // Comisiones
                   _buildCommissions(),
                   const SizedBox(height: 24),
-
-                  // Métodos de pago
                   _buildPaymentMethods(),
                 ],
               ),
@@ -104,15 +98,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
       crossAxisSpacing: 12,
       childAspectRatio: 1.5,
       children: [
-        _buildSummaryCard('Ventas Hoy', '\$${_todaySales.toStringAsFixed(2)}', Icons.attach_money, Colors.green),
-        _buildSummaryCard('Transacciones', '$_todayTransactions', Icons.receipt_long, Colors.blue),
-        _buildSummaryCard('Citas Hoy', '$_todayAppointments', Icons.event, Colors.orange),
-        _buildSummaryCard('Ventas Mes', '\$${_monthSales.toStringAsFixed(2)}', Icons.trending_up, Colors.purple),
+        _buildSummaryCard('Ventas Hoy', SettingsService.formatCurrency(_todaySales), '💵', Colors.green),
+        _buildSummaryCard('Transacciones', '$_todayTransactions', '🧾', Colors.blue),
+        _buildSummaryCard('Citas Hoy', '$_todayAppointments', '📅', Colors.orange),
+        _buildSummaryCard('Ventas Mes', SettingsService.formatCurrency(_monthSales), '📈', Colors.purple),
       ],
     );
   }
 
-  Widget _buildSummaryCard(String title, String value, IconData icon, Color color) {
+  Widget _buildSummaryCard(String title, String value, String icon, Color color) {
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -127,7 +121,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(color: color.withOpacity(0.2), shape: BoxShape.circle),
-                  child: Icon(icon, color: color, size: 24),
+                  child: Text(icon, style: TextStyle(fontSize: 24)),
                 ),
               ],
             ),
@@ -147,7 +141,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildWeekChart() {
     final maxSales = _weekSales.isEmpty ? 1.0 : _weekSales.map((e) => e['total'] as double).reduce((a, b) => a > b ? a : b);
-
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -224,12 +217,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ..._barberRanking.asMap().entries.map((entry) {
                 final index = entry.key;
                 final barber = entry.value;
-                final medals = ['', '🥈', '🥉'];
+                final medals = ['🥇', '', '🥉'];
                 return ListTile(
                   leading: Text(index < 3 ? medals[index] : '${index + 1}', style: const TextStyle(fontSize: 24)),
                   title: Text(barber['name'] as String, style: const TextStyle(fontWeight: FontWeight.bold)),
                   subtitle: Text('${barber['services']} servicios'),
-                  trailing: Text('\$${(barber['total'] as double).toStringAsFixed(2)}', style: TextStyle(color: Colors.green[700], fontWeight: FontWeight.bold, fontSize: 16)),
+                  trailing: Text(
+                    SettingsService.formatCurrency(barber['total'] as double),
+                    style: TextStyle(color: Colors.green[700], fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
                 );
               }),
           ],
@@ -255,7 +251,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ..._barberCommissions.map((barber) => ListTile(
                 leading: CircleAvatar(backgroundColor: Colors.indigo[100], child: Text((barber['name'] as String)[0], style: TextStyle(color: Colors.indigo[700]))),
                 title: Text(barber['name'] as String),
-                trailing: Text('\$${(barber['commission'] as double).toStringAsFixed(2)}', style: TextStyle(color: Colors.green[700], fontWeight: FontWeight.bold, fontSize: 16)),
+                trailing: Text(
+                  SettingsService.formatCurrency(barber['commission'] as double),
+                  style: TextStyle(color: Colors.green[700], fontWeight: FontWeight.bold, fontSize: 16),
+                ),
               )),
           ],
         ),
@@ -278,10 +277,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const Center(child: Text('Sin transacciones hoy', style: TextStyle(color: Colors.grey)))
             else
               ..._paymentMethods.entries.map((entry) {
-                final icons = {'Efectivo': Icons.money, 'Tarjeta': Icons.credit_card, 'Transferencia': Icons.phone_android};
+                final icons = {'Efectivo': '💵', 'Tarjeta': '💳', 'Transferencia': '📱'};
                 final colors = {'Efectivo': Colors.green, 'Tarjeta': Colors.blue, 'Transferencia': Colors.orange};
                 return ListTile(
-                  leading: Icon(icons[entry.key] ?? Icons.payment, color: colors[entry.key]),
+                  leading: Text(icons[entry.key] ?? '💰', style: TextStyle(fontSize: 24)),
                   title: Text(entry.key),
                   trailing: Text('${entry.value} transacciones', style: const TextStyle(fontWeight: FontWeight.bold)),
                 );

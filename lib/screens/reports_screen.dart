@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../services/settings_service.dart';
 
 class ReportsScreen extends StatefulWidget {
   @override
@@ -71,6 +72,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Text('←', style: TextStyle(fontSize: 24, color: Colors.white)),
+          onPressed: () => Navigator.pop(context),
+        ),
         title: const Text('Reportes del Día'),
         backgroundColor: Colors.indigo[700],
       ),
@@ -86,8 +91,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       Expanded(
                         child: _SummaryCard(
                           title: 'Total del día',
-                          value: '\$${_dayTotal.toStringAsFixed(2)}',
-                          icon: Icons.attach_money,
+                          value: SettingsService.formatCurrency(_dayTotal),
+                          icon: '💵',
                           color: Colors.green,
                         ),
                       ),
@@ -96,7 +101,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         child: _SummaryCard(
                           title: 'Ventas',
                           value: '$_dayTransactions',
-                          icon: Icons.receipt,
+                          icon: '',
                           color: Colors.blue,
                         ),
                       ),
@@ -109,19 +114,19 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     const Card(child: Padding(padding: EdgeInsets.all(16), child: Text('No hay datos')))
                   else
                     ..._barberTotals.entries.map((entry) => Card(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          child: ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: Colors.indigo[100],
-                              child: Text(
-                                entry.key.isNotEmpty ? entry.key[0].toUpperCase() : '?',
-                                style: TextStyle(color: Colors.indigo[700]),
-                              ),
-                            ),
-                            title: Text(entry.key, style: const TextStyle(fontWeight: FontWeight.w600)),
-                            trailing: Text('\$${entry.value.toStringAsFixed(2)}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green[700])),
+                      margin: const EdgeInsets.only(bottom: 8),
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: Colors.indigo[100],
+                          child: Text(
+                            entry.key.isNotEmpty ? entry.key[0].toUpperCase() : '?',
+                            style: TextStyle(color: Colors.indigo[700]),
                           ),
-                        )),
+                        ),
+                        title: Text(entry.key, style: const TextStyle(fontWeight: FontWeight.w600)),
+                        trailing: Text(SettingsService.formatCurrency(entry.value), style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green[700])),
+                      ),
+                    )),
                   const SizedBox(height: 24),
                   const Text('Métodos de Pago', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 12),
@@ -129,16 +134,16 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     const Card(child: Padding(padding: EdgeInsets.all(16), child: Text('No hay datos')))
                   else
                     ..._paymentMethods.entries.map((entry) => Card(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          child: ListTile(
-                            leading: Icon(
-                              entry.key == 'cash' ? Icons.money : entry.key == 'card' ? Icons.credit_card : Icons.phone_android,
-                              color: Colors.indigo,
-                            ),
-                            title: Text(_formatPaymentMethod(entry.key)),
-                            trailing: Text('${entry.value} ventas', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                          ),
-                        )),
+                      margin: const EdgeInsets.only(bottom: 8),
+                      child: ListTile(
+                        leading: Text(
+                          entry.key == 'cash' ? '💵' : entry.key == 'card' ? '💳' : '',
+                          style: TextStyle(fontSize: 24),
+                        ),
+                        title: Text(_formatPaymentMethod(entry.key)),
+                        trailing: Text('${entry.value} ventas', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      ),
+                    )),
                 ],
               ),
             ),
@@ -158,8 +163,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
 class _SummaryCard extends StatelessWidget {
   final String title;
   final String value;
-  final IconData icon;
+  final String icon;
   final Color color;
+
   const _SummaryCard({required this.title, required this.value, required this.icon, required this.color});
 
   @override
@@ -172,7 +178,7 @@ class _SummaryCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, color: color, size: 32),
+            Text(icon, style: TextStyle(fontSize: 32)),
             const SizedBox(height: 12),
             Text(title, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
             const SizedBox(height: 4),

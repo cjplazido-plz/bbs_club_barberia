@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/local_transaction.dart';
+import '../services/settings_service.dart';
 
 class SalesHistoryScreen extends StatefulWidget {
   @override
@@ -40,6 +40,10 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Text('←', style: TextStyle(fontSize: 24, color: Colors.white)),
+          onPressed: () => Navigator.pop(context),
+        ),
         title: const Text('Historial de Ventas'),
         backgroundColor: Colors.indigo[700],
       ),
@@ -62,13 +66,13 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const SizedBox(height: 4),
-                            Text('Items: ${items.length}'),
-                            Text('Método: ${t['payment_method'] ?? 'N/A'}'),
-                            Text('Fecha: ${t['created_at'] ?? 'N/A'}'),
+                            Text('🛍️ Items: ${items.length}'),
+                            Text('💳 Método: ${t['payment_method'] ?? 'N/A'}'),
+                            Text('📅 Fecha: ${t['created_at'] ?? 'N/A'}'),
                           ],
                         ),
                         trailing: Text(
-                          '\$${(t['total'] as num).toStringAsFixed(2)}',
+                          SettingsService.formatCurrency((t['total'] as num).toDouble()),
                           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green[700]),
                         ),
                       ),
