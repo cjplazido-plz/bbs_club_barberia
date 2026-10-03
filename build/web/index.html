@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <base href="/">
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="BarberPLZ POS - Sistema de gestión para barberías">
+  
+  <!-- PWA Meta Tags -->
+  <meta name="theme-color" content="#303f9f">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="BarberPLZ">
+  <meta name="application-name" content="BBS Club Barbería - Barber PLZ POS">
+  
+  <!-- Viewport para móviles -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  
+  <title>BarberPLZ POS - BBS Club F.C</title>
+  
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+  
+  <!-- Manifest para PWA -->
+  <link rel="manifest" href="manifest.json">
+  
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(135deg, #1a237e 0%, #303f9f 100%);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+    
+    #splash-screen {
+      text-align: center;
+      color: white;
+      animation: fadeIn 0.5s ease-in;
+    }
+    
+    #splash-screen .logo {
+      font-size: 64px;
+      margin-bottom: 16px;
+    }
+    
+    #splash-screen h1 {
+      font-size: 24px;
+      margin: 0 0 8px 0;
+      font-weight: 600;
+    }
+    
+    #splash-screen p {
+      font-size: 14px;
+      opacity: 0.8;
+      margin: 0;
+    }
+    
+    .loader {
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(255,255,255,0.3);
+      border-radius: 50%;
+      border-top-color: white;
+      animation: spin 1s ease-in-out infinite;
+      margin: 24px auto 0;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    
+    body.flutter-loaded #splash-screen {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <!-- Splash Screen personalizado -->
+  <div id="splash-screen">
+    <div class="logo">✂️</div>
+    <h1>BarberPLZ POS</h1>
+    <p>BBS Club F.C - Cargando...</p>
+    <div class="loader"></div>
+  </div>
+
+  <script src="main.dart.js" type="application/javascript"></script>
+  <script>
+    // Prevenir zoom en móviles
+    document.addEventListener('gesturestart', function(e) {
+      e.preventDefault();
+    });
+    document.addEventListener('dblclick', function(e) {
+      e.preventDefault();
+    });
+    
+    // Ocultar splash cuando Flutter cargue
+    window.addEventListener('flutter-first-frame', function() {
+      document.body.classList.add('flutter-loaded');
+    });
+  </script>
+</body>
+</html>
