@@ -10,6 +10,13 @@
     }
   ],
   "routes": [
-    { "src": "/(.*)", "dest": "/index.html" }
+    {
+      "src": "/(.*)\\.(js|json|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|map|wasm)$",
+      "dest": "/$1.$2"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
   ]
 }
