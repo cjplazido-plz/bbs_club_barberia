@@ -1,16 +1,19 @@
-import 'package:isar/isar.dart';
-
-part 'local_service.g.dart';
-
-@collection
 class LocalService {
-  Id id = Isar.autoIncrement;
   String? remoteId;
-  String name = '';
-  double price = 0.0;
-  int durationMinutes = 30;
-  String commissionType = 'percentage';
-  double commissionValue = 0.0;
-  bool isActive = true;
-  String? description;
+  String name;
+  double price;
+  int durationMinutes;
+  bool isActive;
+  String commissionType;
+  double commissionValue;
+
+  LocalService({
+    this.remoteId,
+    this.name = '',
+    this.price = 0.0,
+    this.durationMinutes = 30,
+    this.isActive = true,
+    this.commissionType = 'percentage',
+    this.commissionValue = 0.0,
+  });
 }

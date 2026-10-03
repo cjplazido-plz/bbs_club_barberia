@@ -1,21 +1,37 @@
-import 'package:isar/isar.dart';
-
-part 'local_appointment.g.dart';
-
-@collection
 class LocalAppointment {
-  Id id = Isar.autoIncrement;
   String? remoteId;
   String? clientId;
+  String? barberId;
+  String? serviceId;
+  DateTime? startTime;
+  DateTime? endTime;
+  String status;
+  String? notes;
+  
+  // Propiedades adicionales que tu código espera
   String? clientName;
   String? clientPhone;
-  String? barberId;
   String? barberName;
-  String? serviceId;
   String? serviceName;
-  double servicePrice = 0.0;
-  DateTime appointmentDate = DateTime.now();
-  String status = 'pending';
-  String? notes;
+  double servicePrice;
+  DateTime appointmentDate;
   DateTime? lastSync;
+
+  LocalAppointment({
+    this.remoteId,
+    this.clientId,
+    this.barberId,
+    this.serviceId,
+    this.startTime,
+    this.endTime,
+    this.status = 'pending',
+    this.notes,
+    this.clientName,
+    this.clientPhone,
+    this.barberName,
+    this.serviceName,
+    this.servicePrice = 0.0,
+    DateTime? appointmentDate,
+    this.lastSync,
+  }) : appointmentDate = appointmentDate ?? DateTime.now();
 }

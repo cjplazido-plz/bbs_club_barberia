@@ -1,35 +1,60 @@
-import 'package:isar/isar.dart';
-
-part 'local_transaction.g.dart';
-
-@collection
 class LocalTransaction {
-  Id id = Isar.autoIncrement;
   String? remoteId;
-  String cashRegisterId = '';
-  String cashierId = '';
-  String cashierName = '';
-  double subtotal = 0.0;
-  double total = 0.0;
-  String paymentMethod = 'cash';
-  String status = 'completed';
-  DateTime createdAt = DateTime.now();
-  double cashReceived = 0.0;  // ✅ NUEVO - Monto recibido en efectivo
-  double changeAmount = 0.0;  // ✅ NUEVO - Cambio a devolver
+  String? clientId;
+  String? barberId;
+  double subtotal;
+  double total;
+  String paymentMethod;
+  String status;
+  List<LocalTransactionItem> items;
+  DateTime createdAt;
+  
+  String? cashRegisterId;
+  String? cashierId;
+  String? cashierName;
+  double cashReceived;
+  double changeAmount;
 
-  List<LocalTransactionItem> items = [];
+  LocalTransaction({
+    this.remoteId,
+    this.clientId,
+    this.barberId,
+    this.subtotal = 0.0,
+    this.total = 0.0,
+    this.paymentMethod = 'cash',
+    this.status = 'completed',
+    this.items = const [],
+    DateTime? createdAt,
+    this.cashRegisterId,
+    this.cashierId,
+    this.cashierName,
+    this.cashReceived = 0.0,
+    this.changeAmount = 0.0,
+  }) : createdAt = createdAt ?? DateTime.now();
 }
 
-@embedded
 class LocalTransactionItem {
-  String type = 'service';
-  String serviceId = '';
-  String serviceName = '';
+  String type; // 'service' o 'product'
+  String? serviceId;
+  String serviceName; // <-- Cambiado a no nullable
   String? productId;
-  String? productName;
-  String barberId = '';
-  String barberName = '';
-  double priceAtMoment = 0.0;
-  int quantity = 1;
-  double commissionEarned = 0.0;
+  String productName; // <-- Cambiado a no nullable
+  double priceAtMoment;
+  int quantity;
+  String barberId; // <-- Cambiado a no nullable
+  String barberName; // <-- Cambiado a no nullable
+  double commissionEarned;
+
+  LocalTransactionItem({
+    this.type = 'service',
+    this.serviceId,
+    this.serviceName = '',
+    this.productId,
+    this.productName = '',
+    this.priceAtMoment = 0.0,
+    this.quantity = 1,
+    this.barberId = '',
+    this.barberName = '',
+    this.commissionEarned = 0.0,
+  });
 }

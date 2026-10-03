@@ -1,16 +1,19 @@
-import 'package:isar/isar.dart';
-
-part 'local_client.g.dart';
-
-@collection
 class LocalClient {
-  Id id = Isar.autoIncrement;
   String? remoteId;
-  String name = '';
+  String name;
   String? phone;
-  String? email;
   String? notes;
-  int totalVisits = 0;
-  double totalSpent = 0.0;
-  DateTime? updatedAt;
+  String? email;
+  int totalVisits;
+  double totalSpent;
+
+  LocalClient({
+    this.remoteId,
+    this.name = '',
+    this.phone,
+    this.notes,
+    this.email,
+    this.totalVisits = 0,
+    this.totalSpent = 0.0,
+  });
 }

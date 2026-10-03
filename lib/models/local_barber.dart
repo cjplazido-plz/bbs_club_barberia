@@ -1,14 +1,17 @@
-import 'package:isar/isar.dart';
-
-part 'local_barber.g.dart';
-
-@collection
 class LocalBarber {
-  Id id = Isar.autoIncrement;
   String? remoteId;
-  String name = '';
+  String name;
   String? phone;
-  double commissionValue = 0.0;
-  double commissionRate = 0.0;
-  bool isActive = true;
+  double commissionValue;
+  double commissionRate;
+  bool isActive;
+
+  LocalBarber({
+    this.remoteId,
+    this.name = '',
+    this.phone,
+    this.commissionValue = 0.0,
+    this.commissionRate = 0.0,
+    this.isActive = true,
+  });
 }
