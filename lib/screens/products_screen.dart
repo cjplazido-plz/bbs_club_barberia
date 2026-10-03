@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/local_product.dart';
 import '../repositories/product_repository.dart';
+import '../services/settings_service.dart';
 
 class ProductsScreen extends StatefulWidget {
   @override
@@ -83,7 +84,6 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 );
                 return;
               }
-
               final newProduct = LocalProduct()
                 ..remoteId = product?.remoteId ?? 'prod-${DateTime.now().millisecondsSinceEpoch}'
                 ..name = nameController.text.trim()
@@ -98,10 +98,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
               } else {
                 await _productRepo.updateProduct(newProduct);
               }
-
               Navigator.pop(context);
               await _loadProducts();
-
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
@@ -134,7 +132,6 @@ class _ProductsScreenState extends State<ProductsScreen> {
         ],
       ),
     );
-
     if (confirm == true) {
       await _productRepo.deleteProduct(product.remoteId!);
       await _loadProducts();
@@ -150,6 +147,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Text('←', style: TextStyle(fontSize: 24, color: Colors.white)),
+          onPressed: () => Navigator.pop(context),
+        ),
         title: const Text('Gestión de Productos'),
         backgroundColor: Colors.indigo[700],
       ),
@@ -160,7 +161,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.inventory, size: 64, color: Colors.grey[300]),
+                      const Text('📦', style: TextStyle(fontSize: 64)),
                       const SizedBox(height: 16),
                       Text('No hay productos registrados', style: TextStyle(color: Colors.grey[400], fontSize: 16)),
                     ],
@@ -182,22 +183,22 @@ class _ProductsScreenState extends State<ProductsScreen> {
                             color: isLowStock ? Colors.red[100] : Colors.orange[100],
                             shape: BoxShape.circle,
                           ),
-                          child: Icon(Icons.shopping_bag, color: isLowStock ? Colors.red[700] : Colors.orange[700]),
+                          child: const Text('🛍️', style: TextStyle(fontSize: 24)),
                         ),
                         title: Text(product.name, style: const TextStyle(fontWeight: FontWeight.bold)),
                         subtitle: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             if (product.description != null) Text(product.description!, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-                            Text('💰 \$${product.price.toStringAsFixed(2)}', style: TextStyle(color: Colors.green[700], fontWeight: FontWeight.bold)),
+                            Text('💰 ${SettingsService.formatCurrency(product.price)}', style: TextStyle(color: Colors.green[700], fontWeight: FontWeight.bold)),
                             Text('📦 Stock: ${product.stock} (mín: ${product.minStock})', style: TextStyle(color: isLowStock ? Colors.red : Colors.grey[600], fontSize: 12, fontWeight: FontWeight.w600)),
                           ],
                         ),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            IconButton(icon: const Icon(Icons.edit, color: Colors.blue), onPressed: () => _showProductDialog(product: product)),
-                            IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: () => _deleteProduct(product)),
+                            IconButton(icon: const Text('️', style: TextStyle(fontSize: 20)), onPressed: () => _showProductDialog(product: product)),
+                            IconButton(icon: const Text('🗑️', style: TextStyle(fontSize: 20)), onPressed: () => _deleteProduct(product)),
                           ],
                         ),
                       ),
@@ -207,7 +208,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showProductDialog(),
         backgroundColor: Colors.indigo[700],
-        child: const Icon(Icons.add),
+        child: const Text('➕', style: TextStyle(fontSize: 24)),
       ),
     );
   }

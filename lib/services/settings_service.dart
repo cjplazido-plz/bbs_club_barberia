@@ -53,7 +53,7 @@ class SettingsService {
       print('✅ Configuración actualizada: $key = $value');
       return true;
     } catch (e) {
-      print(' Error al actualizar $key: $e');
+      print('❌ Error al actualizar $key: $e');
       return false;
     }
   }
@@ -69,7 +69,6 @@ class SettingsService {
     return allSuccess;
   }
 
-  // Getters para configuración
   static String get shopName => get('shop_name', defaultValue: 'BarberFlow');
   static String get shopRif => get('shop_rif');
   static String get shopAddress => get('shop_address');
@@ -81,13 +80,10 @@ class SettingsService {
   static String get ticketFooter => get('ticket_footer', defaultValue: '¡Gracias por su visita!');
   static String get ticketHeader => get('ticket_header', defaultValue: 'BarberFlow POS');
 
-  // ✅ FUNCIÓN PARA FORMATO DE MONEDA: $20.000
+  // ✅ Formato de moneda chilena: $10.000 (signo al principio)
   static String formatCurrency(double amount) {
-    final format = NumberFormat.currency(
-      locale: 'es_CO',
-      symbol: currencySymbol,
-      decimalDigits: 0,
-    );
-    return format.format(amount);
+    final numberFormat = NumberFormat('#,##0', 'es_CL');
+    final formatted = numberFormat.format(amount);
+    return '$currencySymbol$formatted';
   }
 }

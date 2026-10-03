@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/local_client.dart';
 import '../repositories/client_repository.dart';
+import '../services/settings_service.dart';
 
 class ClientsScreen extends StatefulWidget {
   @override
@@ -36,10 +37,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
         _filteredClients = _clients;
       } else {
         final lowerQuery = query.toLowerCase();
-        _filteredClients = _clients.where((c) =>
-          c.name.toLowerCase().contains(lowerQuery) ||
-          (c.phone ?? '').contains(query)
-        ).toList();
+        _filteredClients = _clients.where((c) => c.name.toLowerCase().contains(lowerQuery) || (c.phone ?? '').contains(query)).toList();
       }
     });
   }
@@ -58,28 +56,13 @@ class _ClientsScreenState extends State<ClientsScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(labelText: 'Nombre *'),
-              ),
+              TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Nombre *')),
               const SizedBox(height: 8),
-              TextField(
-                controller: phoneController,
-                decoration: const InputDecoration(labelText: 'Teléfono'),
-                keyboardType: TextInputType.phone,
-              ),
+              TextField(controller: phoneController, decoration: const InputDecoration(labelText: 'Teléfono'), keyboardType: TextInputType.phone),
               const SizedBox(height: 8),
-              TextField(
-                controller: emailController,
-                decoration: const InputDecoration(labelText: 'Email'),
-                keyboardType: TextInputType.emailAddress,
-              ),
+              TextField(controller: emailController, decoration: const InputDecoration(labelText: 'Email'), keyboardType: TextInputType.emailAddress),
               const SizedBox(height: 8),
-              TextField(
-                controller: notesController,
-                decoration: const InputDecoration(labelText: 'Notas'),
-                maxLines: 3,
-              ),
+              TextField(controller: notesController, decoration: const InputDecoration(labelText: 'Notas'), maxLines: 3),
             ],
           ),
         ),
@@ -88,19 +71,11 @@ class _ClientsScreenState extends State<ClientsScreen> {
           ElevatedButton(
             onPressed: () async {
               if (nameController.text.trim().isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('El nombre es obligatorio'), backgroundColor: Colors.red),
-                );
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('El nombre es obligatorio'), backgroundColor: Colors.red));
                 return;
               }
-
               if (client == null) {
-                await _clientRepo.createClient(
-                  name: nameController.text.trim(),
-                  phone: phoneController.text.trim(),
-                  email: emailController.text.trim(),
-                  notes: notesController.text.trim(),
-                );
+                await _clientRepo.createClient(name: nameController.text.trim(), phone: phoneController.text.trim(), email: emailController.text.trim(), notes: notesController.text.trim());
               } else {
                 client.name = nameController.text.trim();
                 client.phone = phoneController.text.trim();
@@ -108,17 +83,10 @@ class _ClientsScreenState extends State<ClientsScreen> {
                 client.notes = notesController.text.trim();
                 await _clientRepo.updateClient(client);
               }
-
               Navigator.pop(context);
               await _loadClients();
-
               if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(client == null ? '✅ Cliente creado' : '✅ Cliente actualizado'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(client == null ? '✅ Cliente creado' : '✅ Cliente actualizado'), backgroundColor: Colors.green));
               }
             },
             child: const Text('Guardar'),
@@ -136,22 +104,15 @@ class _ClientsScreenState extends State<ClientsScreen> {
         content: Text('¿Eliminar a ${client.name}?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Eliminar'),
-          ),
+          ElevatedButton(onPressed: () => Navigator.pop(context, true), style: ElevatedButton.styleFrom(backgroundColor: Colors.red), child: const Text('Eliminar')),
         ],
       ),
     );
-
     if (confirm == true) {
       await _clientRepo.deleteClient(client.remoteId!);
       await _loadClients();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Cliente eliminado'), backgroundColor: Colors.orange),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cliente eliminado'), backgroundColor: Colors.orange));
       }
     }
   }
@@ -160,6 +121,10 @@ class _ClientsScreenState extends State<ClientsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Text('←', style: TextStyle(fontSize: 24, color: Colors.white)),
+          onPressed: () => Navigator.pop(context),
+        ),
         title: const Text('Gestión de Clientes'),
         backgroundColor: Colors.indigo[700],
       ),
@@ -169,11 +134,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
             padding: const EdgeInsets.all(16),
             child: TextField(
               controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Buscar por nombre o teléfono...',
-                prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-              ),
+              decoration: InputDecoration(hintText: 'Buscar por nombre o teléfono...', prefixIcon: const Text('🔍', style: TextStyle(fontSize: 20)), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))),
               onChanged: _filterClients,
             ),
           ),
@@ -181,16 +142,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _filteredClients.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.people_outline, size: 64, color: Colors.grey[300]),
-                            const SizedBox(height: 16),
-                            Text('No hay clientes registrados', style: TextStyle(color: Colors.grey[400], fontSize: 16)),
-                          ],
-                        ),
-                      )
+                    ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [const Text('👥', style: TextStyle(fontSize: 64)), const SizedBox(height: 16), Text('No hay clientes registrados', style: TextStyle(color: Colors.grey[400], fontSize: 16))]))
                     : ListView.builder(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         itemCount: _filteredClients.length,
@@ -200,25 +152,22 @@ class _ClientsScreenState extends State<ClientsScreen> {
                             margin: const EdgeInsets.only(bottom: 12),
                             child: ListTile(
                               contentPadding: const EdgeInsets.all(16),
-                              leading: CircleAvatar(
-                                backgroundColor: Colors.indigo[100],
-                                child: Text(client.name[0].toUpperCase(), style: TextStyle(color: Colors.indigo[700])),
-                              ),
+                              leading: CircleAvatar(backgroundColor: Colors.indigo[100], child: Text(client.name[0].toUpperCase(), style: TextStyle(color: Colors.indigo[700]))),
                               title: Text(client.name, style: const TextStyle(fontWeight: FontWeight.bold)),
                               subtitle: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   if (client.phone != null) Text('📱 ${client.phone}'),
-                                  if (client.email != null) Text('📧 ${client.email}'),
+                                  if (client.email != null) Text(' ${client.email}'),
                                   const SizedBox(height: 4),
-                                  Text('Visitas: ${client.totalVisits} | Total: \$${client.totalSpent.toStringAsFixed(2)}', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                                  Text('Visitas: ${client.totalVisits} | Total: ${SettingsService.formatCurrency(client.totalSpent)}', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
                                 ],
                               ),
                               trailing: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  IconButton(icon: const Icon(Icons.edit, color: Colors.blue), onPressed: () => _showClientDialog(client: client)),
-                                  IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: () => _deleteClient(client)),
+                                  IconButton(icon: const Text('️', style: TextStyle(fontSize: 20)), onPressed: () => _showClientDialog(client: client)),
+                                  IconButton(icon: const Text('🗑️', style: TextStyle(fontSize: 20)), onPressed: () => _deleteClient(client)),
                                 ],
                               ),
                             ),
@@ -228,11 +177,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showClientDialog(),
-        backgroundColor: Colors.indigo[700],
-        child: const Icon(Icons.add),
-      ),
+      floatingActionButton: FloatingActionButton(onPressed: () => _showClientDialog(), backgroundColor: Colors.indigo[700], child: const Text('➕', style: TextStyle(fontSize: 24))),
     );
   }
 }

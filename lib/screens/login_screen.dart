@@ -30,7 +30,6 @@ class _LoginScreenState extends State<LoginScreen> {
       print('✅ Login exitoso: ${response.user?.email}');
 
       if (mounted) {
-        // Obtener el rol y nombre del usuario desde profiles
         String role = 'admin';
         String userName = 'Usuario';
         String userEmail = response.user?.email ?? '';
@@ -45,11 +44,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
             if (profile != null) {
               role = profile['role'] ?? 'admin';
-              // ✅ Guardar nombre real del usuario (intenta varios campos)
-              userName = profile['full_name'] ?? 
-                         profile['name'] ?? 
-                         profile['username'] ?? 
-                         userEmail.split('@').first;
+              userName = profile['full_name'] ??
+                  profile['name'] ??
+                  profile['username'] ??
+                  userEmail.split('@').first;
             }
           }
         } catch (e) {
@@ -58,7 +56,6 @@ class _LoginScreenState extends State<LoginScreen> {
           userName = userEmail.split('@').first;
         }
 
-        // ✅ Guardar en variables globales
         currentUserRole = role;
         currentUserName = userName;
         currentUserEmail = userEmail;
@@ -117,7 +114,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // ✅ LOGO DE LA BARBERÍA (con fallback)
                       ClipRRect(
                         borderRadius: BorderRadius.circular(16),
                         child: SettingsService.shopLogoUrl.isNotEmpty
@@ -137,7 +133,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             : _buildDefaultLogo(),
                       ),
                       const SizedBox(height: 24),
-                      // ✅ NOMBRE DE LA BARBERÍA (desde configuración)
                       Text(
                         SettingsService.shopName,
                         style: const TextStyle(
@@ -157,7 +152,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         decoration: InputDecoration(
                           labelText: 'Correo electrónico',
                           hintText: 'ej: carlos@barberflow.com',
-                          prefixIcon: const Icon(Icons.email),
+                          prefixIcon: const Text('📧', style: TextStyle(fontSize: 20)),
                           border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8)),
                         ),
@@ -168,7 +163,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         controller: _passwordController,
                         decoration: InputDecoration(
                           labelText: 'Contraseña',
-                          prefixIcon: const Icon(Icons.lock),
+                          prefixIcon: const Text('', style: TextStyle(fontSize: 20)),
                           border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8)),
                         ),
@@ -185,7 +180,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           child: Row(
                             children: [
-                              Icon(Icons.error, color: Colors.red[700], size: 20),
+                              const Text('️', style: TextStyle(fontSize: 20)),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
@@ -218,7 +213,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               : const Text(
                                   'INICIAR SESIÓN',
                                   style: TextStyle(
-                                      fontSize: 16, fontWeight: FontWeight.bold),
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold),
                                 ),
                         ),
                       ),
@@ -233,7 +229,6 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  // ✅ Widget para logo por defecto (cuando no hay URL o falla la carga)
   Widget _buildDefaultLogo() {
     return Container(
       width: 80,
@@ -242,11 +237,7 @@ class _LoginScreenState extends State<LoginScreen> {
         color: Colors.indigo[100],
         shape: BoxShape.circle,
       ),
-      child: Icon(
-        Icons.content_cut,
-        size: 48,
-        color: Colors.indigo[700],
-      ),
+      child: const Text('✂️', style: TextStyle(fontSize: 48)),
     );
   }
 }

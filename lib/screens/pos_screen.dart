@@ -695,7 +695,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
             IconButton(icon: const Text('📅', style: TextStyle(fontSize: 20)), tooltip: 'Agenda de Citas', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => AppointmentsScreen())); }),
           ],
           IconButton(icon: const Text('👥', style: TextStyle(fontSize: 20)), tooltip: 'Clientes', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => ClientsScreen())).then((_) => _loadData()); }),
-          IconButton(icon: const Text('', style: TextStyle(fontSize: 20)), tooltip: 'Cerrar sesión', onPressed: _handleLogout),
+          IconButton(icon: const Text('👋', style: TextStyle(fontSize: 20)), tooltip: 'Cerrar sesión', onPressed: _handleLogout),
         ],
       ),
       body: Row(

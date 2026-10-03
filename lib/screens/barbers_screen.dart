@@ -40,22 +40,11 @@ class _BarbersScreenState extends State<BarbersScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(labelText: 'Nombre *'),
-              ),
+              TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Nombre *')),
               const SizedBox(height: 8),
-              TextField(
-                controller: phoneController,
-                decoration: const InputDecoration(labelText: 'Teléfono'),
-                keyboardType: TextInputType.phone,
-              ),
+              TextField(controller: phoneController, decoration: const InputDecoration(labelText: 'Teléfono'), keyboardType: TextInputType.phone),
               const SizedBox(height: 8),
-              TextField(
-                controller: commissionController,
-                decoration: const InputDecoration(labelText: 'Comisión (%)'),
-                keyboardType: TextInputType.number,
-              ),
+              TextField(controller: commissionController, decoration: const InputDecoration(labelText: 'Comisión (%)'), keyboardType: TextInputType.number),
             ],
           ),
         ),
@@ -64,12 +53,9 @@ class _BarbersScreenState extends State<BarbersScreen> {
           ElevatedButton(
             onPressed: () async {
               if (nameController.text.trim().isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('El nombre es obligatorio'), backgroundColor: Colors.red),
-                );
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('El nombre es obligatorio'), backgroundColor: Colors.red));
                 return;
               }
-
               final newBarber = LocalBarber()
                 ..remoteId = barber?.remoteId ?? 'barber-${DateTime.now().millisecondsSinceEpoch}'
                 ..name = nameController.text.trim()
@@ -83,17 +69,10 @@ class _BarbersScreenState extends State<BarbersScreen> {
               } else {
                 await _barberRepo.updateBarber(newBarber);
               }
-
               Navigator.pop(context);
               await _loadBarbers();
-
               if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(barber == null ? '✅ Barbero creado' : '✅ Barbero actualizado'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(barber == null ? '✅ Barbero creado' : '✅ Barbero actualizado'), backgroundColor: Colors.green));
               }
             },
             child: const Text('Guardar'),
@@ -111,22 +90,15 @@ class _BarbersScreenState extends State<BarbersScreen> {
         content: Text('¿Eliminar a ${barber.name}?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Eliminar'),
-          ),
+          ElevatedButton(onPressed: () => Navigator.pop(context, true), style: ElevatedButton.styleFrom(backgroundColor: Colors.red), child: const Text('Eliminar')),
         ],
       ),
     );
-
     if (confirm == true) {
       await _barberRepo.deleteBarber(barber.remoteId!);
       await _loadBarbers();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Barbero eliminado'), backgroundColor: Colors.orange),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Barbero eliminado'), backgroundColor: Colors.orange));
       }
     }
   }
@@ -135,22 +107,17 @@ class _BarbersScreenState extends State<BarbersScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Text('←', style: TextStyle(fontSize: 24, color: Colors.white)),
+          onPressed: () => Navigator.pop(context),
+        ),
         title: const Text('Gestión de Barberos'),
         backgroundColor: Colors.indigo[700],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _barbers.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.cut, size: 64, color: Colors.grey[300]),
-                      const SizedBox(height: 16),
-                      Text('No hay barberos registrados', style: TextStyle(color: Colors.grey[400], fontSize: 16)),
-                    ],
-                  ),
-                )
+              ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [const Text('✂️', style: TextStyle(fontSize: 64)), const SizedBox(height: 16), Text('No hay barberos registrados', style: TextStyle(color: Colors.grey[400], fontSize: 16))]))
               : ListView.builder(
                   padding: const EdgeInsets.all(16),
                   itemCount: _barbers.length,
@@ -160,10 +127,7 @@ class _BarbersScreenState extends State<BarbersScreen> {
                       margin: const EdgeInsets.only(bottom: 12),
                       child: ListTile(
                         contentPadding: const EdgeInsets.all(16),
-                        leading: CircleAvatar(
-                          backgroundColor: Colors.indigo[100],
-                          child: Text(barber.name[0].toUpperCase(), style: TextStyle(color: Colors.indigo[700])),
-                        ),
+                        leading: CircleAvatar(backgroundColor: Colors.indigo[100], child: Text(barber.name[0].toUpperCase(), style: TextStyle(color: Colors.indigo[700]))),
                         title: Text(barber.name, style: const TextStyle(fontWeight: FontWeight.bold)),
                         subtitle: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -175,19 +139,15 @@ class _BarbersScreenState extends State<BarbersScreen> {
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            IconButton(icon: const Icon(Icons.edit, color: Colors.blue), onPressed: () => _showBarberDialog(barber: barber)),
-                            IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: () => _deleteBarber(barber)),
+                            IconButton(icon: const Text('️', style: TextStyle(fontSize: 20)), onPressed: () => _showBarberDialog(barber: barber)),
+                            IconButton(icon: const Text('️', style: TextStyle(fontSize: 20)), onPressed: () => _deleteBarber(barber)),
                           ],
                         ),
                       ),
                     );
                   },
                 ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showBarberDialog(),
-        backgroundColor: Colors.indigo[700],
-        child: const Icon(Icons.add),
-      ),
+      floatingActionButton: FloatingActionButton(onPressed: () => _showBarberDialog(), backgroundColor: Colors.indigo[700], child: const Text('➕', style: TextStyle(fontSize: 24))),
     );
   }
 }
