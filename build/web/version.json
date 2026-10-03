@@ -1,1 +1,8 @@
-{"app_name":"barberflow","version":"1.0.0","build_number":"1","package_name":"barberflow"}
+{
+  "name": "bbs-club-barberia",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "echo 'Using pre-built files from build/web'"
+  }
+}
