@@ -63,6 +63,47 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     });
   }
 
+  // ✅ NUEVO: Función para enviar notificación por email
+  Future<void> _sendEmailNotification(LocalAppointment appointment, String type) async {
+    try {
+      print('📧 Enviando notificación $type para ${appointment.clientName}...');
+      
+      final response = await Supabase.instance.client.functions.invoke(
+        'send-appointment-email',
+        body: {
+          'appointment': {
+            'client_name': appointment.clientName,
+            'client_email': appointment.clientEmail,
+            'client_phone': appointment.clientPhone,
+            'barber_name': appointment.barberName,
+            'service_name': appointment.serviceName,
+            'appointment_date': appointment.appointmentDate.toIso8601String(),
+            'status': appointment.status,
+            'notes': appointment.notes,
+          },
+          'type': type,
+        },
+      );
+
+      if (response.status == 200) {
+        print('✅ Email enviado exitosamente a ${appointment.clientEmail}');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('📧 Notificación enviada a ${appointment.clientName}'),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      } else {
+        print('⚠️ Error al enviar email: ${response.data}');
+      }
+    } catch (e) {
+      print('❌ Error al invocar función de email: $e');
+    }
+  }
+
   Future<void> _syncAppointments() async {
     setState(() { _isLoading = true; });
     try {
@@ -80,12 +121,14 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
           final localDateNormalized = localDateStr.replaceAll('+00:00', '').replaceAll('Z', '');
           return cloud['client_name'] == localApt.clientName && cloudDateNormalized == localDateNormalized;
         });
+
         if (!existsInCloud && localApt.remoteId != null) {
           try {
             await Supabase.instance.client.from('appointments').insert({
               'id': localApt.remoteId,
               'client_id': localApt.clientId ?? '',
               'client_name': localApt.clientName ?? '',
+              'client_email': localApt.clientEmail,
               'client_phone': localApt.clientPhone ?? '',
               'barber_id': localApt.barberId ?? '',
               'barber_name': localApt.barberName ?? '',
@@ -98,7 +141,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
             });
             uploaded++;
           } catch (e) {
-            print(' Error al subir ${localApt.clientName}: $e');
+            print('⚠️ Error al subir ${localApt.clientName}: $e');
           }
         }
       }
@@ -112,6 +155,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
             final newApt = LocalAppointment()
               ..remoteId = remoteId
               ..clientName = cloudApt['client_name']
+              ..clientEmail = cloudApt['client_email']
               ..clientPhone = cloudApt['client_phone']
               ..barberName = cloudApt['barber_name']
               ..serviceName = cloudApt['service_name']
@@ -123,7 +167,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
             await _appointmentRepo.createAppointment(newApt);
             downloaded++;
           } catch (e) {
-            print('❌ Error al descargar: $e');
+            print(' Error al descargar: $e');
           }
         }
       }
@@ -146,13 +190,23 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
       appointment.status = newStatus;
       await _appointmentRepo.updateAppointment(appointment);
       await Supabase.instance.client.from('appointments').update({'status': newStatus}).eq('id', appointment.remoteId!);
+      
+      // ✅ Enviar notificación según el nuevo estado
+      if (newStatus == 'confirmed') {
+        await _sendEmailNotification(appointment, 'confirmation');
+      } else if (newStatus == 'cancelled') {
+        await _sendEmailNotification(appointment, 'cancellation');
+      }
+      
       await _loadData();
+      
       final statusMessages = {
-        'confirmed': '✅ Cita confirmada',
+        'confirmed': '✅ Cita confirmada y notificación enviada',
         'in_progress': '🟡 Cita en proceso',
-        'completed': '🎉 Cita completada',
-        'cancelled': '❌ Cita cancelada',
+        'completed': ' Cita completada',
+        'cancelled': '❌ Cita cancelada y notificación enviada',
       };
+      
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(statusMessages[newStatus] ?? 'Estado actualizado'), backgroundColor: newStatus == 'cancelled' ? Colors.red : Colors.green),
@@ -168,7 +222,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Confirmar cancelación'),
-        content: Text('¿Cancelar la cita de ${appointment.clientName}?'),
+        content: Text('¿Cancelar la cita de ${appointment.clientName}? Se enviará una notificación por email.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('No')),
           ElevatedButton(onPressed: () => Navigator.pop(context, true), style: ElevatedButton.styleFrom(backgroundColor: Colors.red), child: const Text('Sí, cancelar')),
@@ -230,7 +284,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Fecha y hora'),
                   subtitle: Text('${selectedDateTime.toLocal()}'.split('.')[0]),
-                  trailing: const Text('', style: TextStyle(fontSize: 20)),
+                  trailing: const Text('📅', style: TextStyle(fontSize: 20)),
                   onTap: () async {
                     final date = await showDatePicker(context: context, initialDate: selectedDateTime, firstDate: DateTime.now(), lastDate: DateTime.now().add(const Duration(days: 30)));
                     if (date != null) {
@@ -271,6 +325,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cliente, barbero y servicio son obligatorios')));
                   return;
                 }
+
                 final client = _clients.firstWhere((c) => c.remoteId == selectedClientId);
                 final barber = _barbers.firstWhere((b) => b.remoteId == selectedBarberId);
                 final service = _services.firstWhere((s) => s.remoteId == selectedServiceId);
@@ -280,6 +335,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                     ..remoteId = 'apt-${DateTime.now().millisecondsSinceEpoch}'
                     ..clientId = client.remoteId
                     ..clientName = client.name
+                    ..clientEmail = client.email
                     ..clientPhone = client.phone
                     ..barberId = barber.remoteId
                     ..barberName = barber.name
@@ -289,10 +345,17 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                     ..appointmentDate = selectedDateTime
                     ..status = selectedStatus
                     ..notes = notesController.text.isEmpty ? null : notesController.text;
+
                   await _appointmentRepo.createAppointment(newAppointment);
+                  
+                  // ✅ Enviar email de confirmación si el estado es 'confirmed'
+                  if (selectedStatus == 'confirmed' && client.email != null && client.email!.isNotEmpty) {
+                    await _sendEmailNotification(newAppointment, 'confirmation');
+                  }
                 } else {
                   appointment.clientId = client.remoteId;
                   appointment.clientName = client.name;
+                  appointment.clientEmail = client.email;
                   appointment.clientPhone = client.phone;
                   appointment.barberId = barber.remoteId;
                   appointment.barberName = barber.name;
@@ -302,12 +365,25 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                   appointment.appointmentDate = selectedDateTime;
                   appointment.status = selectedStatus;
                   appointment.notes = notesController.text.isEmpty ? null : notesController.text;
+                  
                   await _appointmentRepo.updateAppointment(appointment);
+                  
+                  // ✅ Enviar email si se confirmó
+                  if (selectedStatus == 'confirmed' && client.email != null && client.email!.isNotEmpty) {
+                    await _sendEmailNotification(appointment, 'confirmation');
+                  }
                 }
+
                 Navigator.pop(context);
                 _loadData();
+                
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(appointment == null ? 'Cita creada' : 'Cita actualizada'), backgroundColor: Colors.green));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(appointment == null ? '✅ Cita creada' : '✅ Cita actualizada'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
                 }
               },
               child: const Text('Guardar'),
