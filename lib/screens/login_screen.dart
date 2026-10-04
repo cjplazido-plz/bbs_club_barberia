@@ -96,7 +96,7 @@ class _LoginScreenState extends State<LoginScreen> {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [const Color.fromARGB(255, 159, 48, 48)!, Colors.indigo[900]!],
+            colors: [Colors.indigo[700]!, Colors.indigo[900]!],
           ),
         ),
         child: Center(
@@ -114,7 +114,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // ✅ LOGO DE LA BARBERÍA (Más grande: 140x140)
                       ClipRRect(
                         borderRadius: BorderRadius.circular(16),
                         child: SettingsService.shopLogoUrl.isNotEmpty
@@ -152,8 +151,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         controller: _emailController,
                         decoration: InputDecoration(
                           labelText: 'Correo electrónico',
-                          hintText: 'ej: carlos@barberflow.com',
-                          prefixIcon: const Text('📧', style: TextStyle(fontSize: 20)),
+                          hintText: 'ej: carlos@baber.com',
+                          prefixIcon: const Text('', style: TextStyle(fontSize: 20)),
                           border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8)),
                         ),
@@ -164,7 +163,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         controller: _passwordController,
                         decoration: InputDecoration(
                           labelText: 'Contraseña',
-                          prefixIcon: const Text('🔑', style: TextStyle(fontSize: 20)),
+                          prefixIcon: const Text('', style: TextStyle(fontSize: 20)),
                           border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8)),
                         ),
@@ -181,7 +180,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           child: Row(
                             children: [
-                              const Text('️', style: TextStyle(fontSize: 20)),
+                              const Text('⚠️', style: TextStyle(fontSize: 20)),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
@@ -201,6 +200,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           onPressed: _isLoading ? null : _handleLogin,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.indigo[700],
+                            foregroundColor: Colors.white, // ✅ Letras blancas
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8)),
                           ),
@@ -215,7 +215,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                   'INICIAR SESIÓN',
                                   style: TextStyle(
                                       fontSize: 16,
-                                      fontWeight: FontWeight.bold),
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white), // ✅ Letras blancas
                                 ),
                         ),
                       ),
@@ -230,7 +231,6 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  // ✅ Widget para logo por defecto (Más grande: 140x140, emoji 72px)
   Widget _buildDefaultLogo() {
     return Container(
       width: 140,
