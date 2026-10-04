@@ -363,188 +363,198 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
       ),
     );
   }
+Future<void> _completeTransaction({required double cashReceived, required double change}) async {
+  // ✅ 1. Crear objeto de transacción
+  final transaction = LocalTransaction()
+    ..remoteId = 'trans-${DateTime.now().millisecondsSinceEpoch}'
+    ..cashRegisterId = 'caja-001'
+    ..cashierId = 'user-001'
+    ..cashierName = currentUserName.isNotEmpty ? currentUserName : 'Recepcion'
+    ..subtotal = _subtotal
+    ..total = _total
+    ..paymentMethod = _paymentMethod
+    ..cashReceived = cashReceived
+    ..changeAmount = change
+    ..items = List.from(_cart);
 
-  Future<void> _completeTransaction({required double cashReceived, required double change}) async {
-    final transaction = LocalTransaction()
-      ..remoteId = 'trans-${DateTime.now().millisecondsSinceEpoch}'
-      ..cashRegisterId = 'caja-001'
-      ..cashierId = 'user-001'
-      ..cashierName = currentUserName.isNotEmpty ? currentUserName : 'Recepcion'
-      ..subtotal = _subtotal
-      ..total = _total
-      ..paymentMethod = _paymentMethod
-      ..cashReceived = cashReceived
-      ..changeAmount = change
-      ..items = List.from(_cart);
+  // ✅ 2. PRIMERO guardar en Supabase (antes de imprimir)
+  String? transactionId;
+  try {
+    print('🔄 Guardando transacción en Supabase...');
+    
+    final transResponse = await Supabase.instance.client
+        .from('transactions')
+        .insert({
+      'id': transaction.remoteId,
+      'cash_register_id': transaction.cashRegisterId,
+      'cashier_id': transaction.cashierId,
+      'cashier_name': transaction.cashierName,
+      'barber_id': _selectedBarber?.remoteId ?? '',
+      'subtotal': transaction.subtotal,
+      'total': transaction.total,
+      'payment_method': transaction.paymentMethod,
+      'cash_received': cashReceived,
+      'change_amount': change,
+      'status': 'completed',
+      'created_at': DateTime.now().toIso8601String(), // ✅ AGREGADO
+    })
+        .select()
+        .single();
 
-    final printed = await _printer.printTicket(transaction);
-    if (!printed) {
-      if (!mounted) return;
-      final shouldSave = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Impresión cancelada'),
-          content: const Text('¿Desea registrar la venta de todas formas?'),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('No, cancelar venta')),
-            ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('Sí, registrar venta')),
-          ],
-        ),
-      );
-      if (shouldSave != true) {
-        _showSnackbar('Venta cancelada', Colors.orange);
-        return;
-      }
-    }
+    transactionId = transResponse['id'];
+    print('✅ Transacción creada en Supabase: $transactionId');
 
-    try {
-      print(' Subiendo transacción a Supabase...');
-      final transResponse = await Supabase.instance.client
-          .from('transactions')
-          .insert({
-        'id': transaction.remoteId,
-        'cash_register_id': transaction.cashRegisterId,
-        'cashier_id': transaction.cashierId,
-        'cashier_name': transaction.cashierName,
-        'barber_id': _selectedBarber?.remoteId ?? '',
-        'subtotal': transaction.subtotal,
-        'total': transaction.total,
-        'payment_method': transaction.paymentMethod,
-        'cash_received': cashReceived,
-        'change_amount': change,
-        'status': 'completed',
-      })
-          .select()
-          .single();
+    // ✅ 3. Guardar items de la transacción
+    final itemsData = transaction.items.map((item) => {
+      'transaction_id': transactionId,
+      'item_type': item.type,
+      'service_id': item.type == 'service' ? item.serviceId : null,
+      'service_name': item.type == 'service' ? item.serviceName : null,
+      'product_id': item.type == 'product' ? item.productId : null,
+      'product_name': item.type == 'product' ? item.productName : null,
+      'barber_id': item.barberId.isNotEmpty ? item.barberId : null,
+      'barber_name': item.barberName.isNotEmpty ? item.barberName : null,
+      'price_at_moment': item.priceAtMoment,
+      'quantity': item.quantity,
+      'commission_earned': item.commissionEarned,
+    }).toList();
 
-      final transactionId = transResponse['id'];
-      print('✅ Transacción creada en Supabase: $transactionId');
+    await Supabase.instance.client.from('transaction_items').insert(itemsData);
+    print('✅ ${itemsData.length} items guardados en Supabase');
 
-      final itemsData = transaction.items.map((item) => {
-        'transaction_id': transactionId,
-        'item_type': item.type,
-        'service_id': item.type == 'service' ? item.serviceId : null,
-        'service_name': item.type == 'service' ? item.serviceName : null,
-        'product_id': item.type == 'product' ? item.productId : null,
-        'product_name': item.type == 'product' ? item.productName : null,
-        'barber_id': item.barberId.isNotEmpty ? item.barberId : null,
-        'barber_name': item.barberName.isNotEmpty ? item.barberName : null,
-        'price_at_moment': item.priceAtMoment,
-        'quantity': item.quantity,
-        'commission_earned': item.commissionEarned,
-      }).toList();
+    // ✅ 4. Actualizar stock de productos
+    for (final item in transaction.items) {
+      if (item.type == 'product' && item.productId != null && item.productId!.isNotEmpty) {
+        try {
+          final productId = item.productId as String;
+          final productResponse = await Supabase.instance.client
+              .from('products')
+              .select('stock')
+              .eq('id', productId)
+              .single();
 
-      await Supabase.instance.client.from('transaction_items').insert(itemsData);
-      print('✅ ${itemsData.length} items subidos a Supabase');
+          final currentStock = (productResponse['stock'] as num).toInt();
+          final newStock = currentStock - item.quantity;
 
-      for (final item in transaction.items) {
-        if (item.type == 'product' && item.productId != null && item.productId!.isNotEmpty) {
-          try {
-            final productId = item.productId as String;
-            final productResponse = await Supabase.instance.client
-                .from('products')
-                .select('stock')
-                .eq('id', productId)
-                .single();
+          await Supabase.instance.client
+              .from('products')
+              .update({'stock': newStock})
+              .eq('id', productId);
 
-            final currentStock = (productResponse['stock'] as num).toInt();
-            final newStock = currentStock - item.quantity;
-
-            await Supabase.instance.client
-                .from('products')
-                .update({'stock': newStock})
-                .eq('id', productId);
-
-            print(' Stock actualizado: ${item.productName} ($currentStock → $newStock)');
-          } catch (e) {
-            print('⚠️ Error al actualizar stock de ${item.productName}: $e');
-          }
+          print('📦 Stock actualizado: ${item.productName} ($currentStock → $newStock)');
+        } catch (e) {
+          print('️ Error al actualizar stock de ${item.productName}: $e');
         }
       }
+    }
+  } catch (e) {
+    print('❌ ERROR al guardar en Supabase: $e');
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('❌ Error al guardar venta: $e'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    }
+    return; // ✅ NO continuar si no se guardó
+  }
+
+  // ✅ 5. AHORA imprimir el ticket (después de guardar exitosamente)
+  final printed = await _printer.printTicket(transaction);
+  if (!printed) {
+    print('⚠️ No se pudo imprimir el ticket, pero la venta ya está registrada');
+  }
+
+  // ✅ 6. Marcar cita como completada si existe
+  if (_selectedAppointment != null) {
+    try {
+      _selectedAppointment!.status = 'completed';
+      await _appointmentRepo.updateAppointment(_selectedAppointment!);
+      await Supabase.instance.client
+          .from('appointments')
+          .update({'status': 'completed'})
+          .eq('id', _selectedAppointment!.remoteId!);
+      print('✅ Cita marcada como completada: ${_selectedAppointment!.clientName}');
     } catch (e) {
-      print('⚠️ ERROR DETALLADO al subir a Supabase: $e');
+      print('⚠️ Error al actualizar cita: $e');
     }
+  }
 
-    if (_selectedAppointment != null) {
-      try {
-        _selectedAppointment!.status = 'completed';
-        await _appointmentRepo.updateAppointment(_selectedAppointment!);
-        await Supabase.instance.client
-            .from('appointments')
-            .update({'status': 'completed'})
-            .eq('id', _selectedAppointment!.remoteId!);
-        print('✅ Cita marcada como completada: ${_selectedAppointment!.clientName}');
-      } catch (e) {
-        print('⚠️ Error al actualizar cita: $e');
-      }
-    }
-
-    if (_selectedClient != null) {
+  // ✅ 7. Incrementar visitas del cliente
+  if (_selectedClient != null) {
+    try {
       await _clientRepo.incrementVisits(_selectedClient!.remoteId!, _total);
+    } catch (e) {
+      print('⚠️ Error al incrementar visitas: $e');
     }
+  }
 
-    setState(() {
-      _cart.clear();
-      _discount = 0.0;
-      _selectedClient = null;
-      _selectedAppointment = null;
-    });
+  // ✅ 8. Limpiar carrito
+  setState(() {
+    _cart.clear();
+    _discount = 0.0;
+    _selectedClient = null;
+    _selectedAppointment = null;
+  });
 
-    await _loadData();
+  await _loadData();
 
-    if (_paymentMethod == 'cash' && change > 0) {
-      if (mounted) {
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Row(
-              children: [
-                Text('✅', style: TextStyle(fontSize: 24)),
-                SizedBox(width: 8),
-                Text('¡Pago Exitoso!'),
-              ],
-            ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.green[50],
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    children: [
-                      const Text('Vuelto a entregar', style: TextStyle(color: Colors.grey)),
-                      const SizedBox(height: 4),
-                      Text(
-                        SettingsService.formatCurrency(change),
-                        style: TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: Colors.green[700]),
-                      ),
-                    ],
-                  ),
+  // ✅ 9. Mostrar resumen de pago
+  if (_paymentMethod == 'cash' && change > 0) {
+    if (mounted) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Row(
+            children: [
+              Text('✅', style: TextStyle(fontSize: 24)),
+              SizedBox(width: 8),
+              Text('¡Pago Exitoso!'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.green[50],
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                const SizedBox(height: 16),
-                Text(
-                  'Recibido: ${SettingsService.formatCurrency(cashReceived)}',
-                  style: const TextStyle(fontSize: 14),
+                child: Column(
+                  children: [
+                    const Text('Vuelto a entregar', style: TextStyle(color: Colors.grey)),
+                    const SizedBox(height: 4),
+                    Text(
+                      SettingsService.formatCurrency(change),
+                      style: TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: Colors.green[700]),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            actions: [
-              ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.green[600]),
-                child: const Text('Entregar vuelto'),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Recibido: ${SettingsService.formatCurrency(cashReceived)}',
+                style: const TextStyle(fontSize: 14),
               ),
             ],
           ),
-        );
-      }
-    } else {
-      _showSnackbar(printed ? '✅ Venta registrada y ticket impreso' : '✅ Venta registrada', Colors.green);
+          actions: [
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.green[600]),
+              child: const Text('Entregar vuelto'),
+            ),
+          ],
+        ),
+      );
     }
+  } else {
+    _showSnackbar('✅ Venta registrada y guardada', Colors.green);
   }
+}
 
   void _showClientSelector() {
     showDialog(
