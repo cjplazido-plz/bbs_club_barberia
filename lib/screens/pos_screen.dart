@@ -1,3 +1,4 @@
+import 'commissions_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/local_service.dart';
@@ -696,6 +697,7 @@ Future<void> _completeTransaction({required double cashReceived, required double
               Column(
                 children: [
                   if (currentUserRole == 'admin') ...[
+                    _buildMenuItem('💰', 'Comisiones', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => CommissionsScreen())); }),
                     _buildMenuItem('💈', 'Barberos', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => BarbersScreen())).then((_) => _loadData()); }),
                     _buildMenuItem('✂️', 'Servicios', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ServicesScreen())).then((_) => _loadData()); }),
                     _buildMenuItem('📦', 'Productos', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ProductsScreen())).then((_) => _loadData()); }),
@@ -895,6 +897,7 @@ Future<void> _completeTransaction({required double cashReceived, required double
           else
             ...[
               if (currentUserRole == 'admin') ...[
+                IconButton(icon: const Text('💰', style: TextStyle(fontSize: 20)), tooltip: 'Comisiones', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => CommissionsScreen())); }),
                 IconButton(icon: const Text('💈', style: TextStyle(fontSize: 20)), tooltip: 'Barberos', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => BarbersScreen())).then((_) => _loadData()); }),
                 IconButton(icon: const Text('✂️', style: TextStyle(fontSize: 20)), tooltip: 'Servicios', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => ServicesScreen())).then((_) => _loadData()); }),
                 IconButton(icon: const Text('📦', style: TextStyle(fontSize: 20)), tooltip: 'Productos', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => ProductsScreen())).then((_) => _loadData()); }),
