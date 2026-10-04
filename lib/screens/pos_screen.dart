@@ -139,7 +139,6 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
     setState(() { _cart.removeAt(index); });
   }
 
-  // ✅ FIX: Cuando cantidad llega a 0, eliminar del carrito
   void _updateQuantity(int index, int newQuantity) {
     setState(() {
       if (newQuantity <= 0) {
@@ -229,7 +228,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
           return AlertDialog(
             title: const Row(
               children: [
-                Text('', style: TextStyle(fontSize: 24)),
+                Text('💵', style: TextStyle(fontSize: 24)),
                 SizedBox(width: 8),
                 Text('Pago en Efectivo'),
               ],
@@ -282,7 +281,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
-                    children: [10000, 20000, 30000, 50000, 100.000].map((amount) {
+                    children: [10000, 20000, 30000, 40000, 50000].map((amount) {
                       return ElevatedButton(
                         onPressed: () {
                           receivedController.text = amount.toString();
@@ -458,7 +457,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
 
             print('📦 Stock actualizado: ${item.productName} ($currentStock → $newStock)');
           } catch (e) {
-            print('️⚠️ Error al actualizar stock de ${item.productName}: $e');
+            print('⚠️ Error al actualizar stock de ${item.productName}: $e');
           }
         }
       }
@@ -658,58 +657,53 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
     }
   }
 
-  // ✅ Menú hamburguesa COMPLETO y SCROLLABLE
   void _showMobileMenu() {
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) => SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(color: Colors.indigo[700], borderRadius: const BorderRadius.vertical(top: Radius.circular(20))),
-                child: Row(
-                  children: [
-                    const Text('', style: TextStyle(fontSize: 24, color: Colors.white)),
-                    const SizedBox(width: 12),
-                    const Text('Menú', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
-                  ],
-                ),
-              ),
-              ListView(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(color: Colors.indigo[700], borderRadius: const BorderRadius.vertical(top: Radius.circular(20))),
+              child: Row(
                 children: [
-                  if (currentUserRole == 'admin') ...[
-                    _buildMenuItem('💈', 'Barberos', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => BarbersScreen())).then((_) => _loadData()); }),
-                    _buildMenuItem('✂️', 'Servicios', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ServicesScreen())).then((_) => _loadData()); }),
-                    _buildMenuItem('📦', 'Productos', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ProductsScreen())).then((_) => _loadData()); }),
-                    _buildMenuItem('👥', 'Usuarios', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => UsersScreen())); }),
-                    _buildMenuItem('📅', 'Agenda de Citas', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => AppointmentsScreen())); }),
-                    _buildMenuItem('📊', 'Dashboard', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => DashboardScreen())); }),
-                    _buildMenuItem('📈', 'Reportes', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ReportsScreen())); }),
-                    _buildMenuItem('⚙️', 'Configuración', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => SettingsScreen())); }),
-                  ],
-                  if (currentUserRole == 'cashier') ...[
-                    _buildMenuItem('📜', 'Historial', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => SalesHistoryScreen())); }),
-                    _buildMenuItem('📅', 'Agenda de Citas', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => AppointmentsScreen())); }),
-                    _buildMenuItem('📊', 'Dashboard', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => DashboardScreen())); }),
-                  ],
-                  if (currentUserRole == 'barber') ...[
-                    _buildMenuItem('📜', 'Historial', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => SalesHistoryScreen())); }),
-                    _buildMenuItem('📅', 'Agenda de Citas', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => AppointmentsScreen())); }),
-                  ],
-                  _buildMenuItem('👥', 'Clientes', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ClientsScreen())).then((_) => _loadData()); }),
-                  const Divider(),
-                  _buildMenuItem('🚪', 'Cerrar sesión', () { Navigator.pop(context); _handleLogout(); }, isLogout: true),
+                  const Text('☰', style: TextStyle(fontSize: 24, color: Colors.white)),
+                  const SizedBox(width: 12),
+                  const Text('Menú', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
                 ],
               ),
-            ],
-          ),
+            ),
+            ListView(
+              shrinkWrap: true,
+              children: [
+                if (currentUserRole == 'admin') ...[
+                  _buildMenuItem('💈', 'Barberos', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => BarbersScreen())).then((_) => _loadData()); }),
+                  _buildMenuItem('✂️', 'Servicios', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ServicesScreen())).then((_) => _loadData()); }),
+                  _buildMenuItem('📦', 'Productos', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ProductsScreen())).then((_) => _loadData()); }),
+                  _buildMenuItem('👥', 'Usuarios', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => UsersScreen())); }),
+                  _buildMenuItem('📅', 'Agenda de Citas', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => AppointmentsScreen())); }),
+                  _buildMenuItem('📊', 'Dashboard', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => DashboardScreen())); }),
+                  _buildMenuItem('📈', 'Reportes', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ReportsScreen())); }),
+                  _buildMenuItem('⚙️', 'Configuración', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => SettingsScreen())); }),
+                ],
+                if (currentUserRole == 'cashier') ...[
+                  _buildMenuItem('📜', 'Historial', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => SalesHistoryScreen())); }),
+                  _buildMenuItem('📅', 'Agenda de Citas', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => AppointmentsScreen())); }),
+                  _buildMenuItem('📊', 'Dashboard', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => DashboardScreen())); }),
+                ],
+                if (currentUserRole == 'barber') ...[
+                  _buildMenuItem('📜', 'Historial', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => SalesHistoryScreen())); }),
+                  _buildMenuItem('📅', 'Agenda de Citas', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => AppointmentsScreen())); }),
+                ],
+                _buildMenuItem('👥', 'Clientes', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ClientsScreen())).then((_) => _loadData()); }),
+                const Divider(),
+                _buildMenuItem('🚪', 'Cerrar sesión', () { Navigator.pop(context); _handleLogout(); }, isLogout: true),
+              ],
+            ),
+          ],
         ),
       ),
     );
@@ -723,141 +717,138 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
     );
   }
 
-// ✅ Bottom Sheet para carrito en móvil (con StatefulBuilder para actualización en tiempo real)
-void _showCartBottomSheet() {
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-    builder: (context) => StatefulBuilder(  // ✅ StatefulBuilder para reconstruir el bottom sheet
-      builder: (context, setModalState) => DraggableScrollableSheet(
-        initialChildSize: 0.9,
-        minChildSize: 0.5,
-        maxChildSize: 0.95,
-        expand: false,
-        builder: (context, scrollController) => Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: Colors.indigo[700], borderRadius: const BorderRadius.vertical(top: Radius.circular(20))),
-              child: Row(children: [const Text('', style: TextStyle(fontSize: 20)), const SizedBox(width: 8), Text('Carrito (${_cart.length})', style: const TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold))]),
-            ),
-            Expanded(
-              child: _cart.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Text('', style: TextStyle(fontSize: 64)),
-                          const SizedBox(height: 16),
-                          Text('Carrito vacío', style: TextStyle(color: Colors.grey[400], fontSize: 16)),
-                          const SizedBox(height: 8),
-                          Text('Agrega servicios o productos', style: TextStyle(color: Colors.grey[400], fontSize: 12)),
-                        ],
-                      ),
-                    )
-                  : ListView.builder(
-                      controller: scrollController,
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _cart.length,
-                      itemBuilder: (context, index) {
-                        final item = _cart[index];
-                        final isService = item.type == 'service';
-                        return Card(
-                          elevation: 1, margin: const EdgeInsets.only(bottom: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          child: ListTile(
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                            leading: Text(isService ? '️' : '🛍️', style: TextStyle(fontSize: 24)),
-                            title: Text(item.serviceName.isNotEmpty ? item.serviceName : (item.productName ?? ''), style: const TextStyle(fontWeight: FontWeight.w600)),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('${SettingsService.formatCurrency(item.priceAtMoment)} x ${item.quantity}', style: const TextStyle(fontSize: 12)),
-                                if (isService && item.barberName.isNotEmpty) Text('Barbero: ${item.barberName}', style: const TextStyle(fontSize: 12)),
-                              ],
-                            ),
-                            trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                              IconButton(
-                                icon: const Text('➖', style: TextStyle(fontSize: 16)),
-                                onPressed: () {
-                                  // ✅ Actualizar cantidad y reconstruir el bottom sheet
-                                  setModalState(() {
-                                    if (item.quantity <= 1) {
-                                      _cart.removeAt(index);
-                                    } else {
-                                      item.quantity--;
-                                    }
-                                  });
-                                  // ✅ También actualizar el estado del widget padre
-                                  setState(() {});
-                                },
-                              ),
-                              Text('${item.quantity}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                              IconButton(
-                                icon: const Text('➕', style: TextStyle(fontSize: 16)),
-                                onPressed: () {
-                                  setModalState(() {
-                                    item.quantity++;
-                                  });
-                                  setState(() {});
-                                },
-                              ),
-                              IconButton(
-                                icon: const Text('️', style: TextStyle(fontSize: 16)),
-                                onPressed: () {
-                                  setModalState(() {
-                                    _cart.removeAt(index);
-                                  });
-                                  setState(() {});
-                                },
-                              ),
-                            ]),
-                          ),
-                        );
-                      },
-                    ),
-            ),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: Colors.grey[50], border: Border(top: BorderSide(color: Colors.grey[300]!))),
-              child: Column(
-                children: [
-                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Subtotal:', style: TextStyle(fontSize: 14, color: Colors.grey)), Text(SettingsService.formatCurrency(_subtotal), style: const TextStyle(fontSize: 14))]),
-                  const SizedBox(height: 8),
-                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('TOTAL:', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)), Text(SettingsService.formatCurrency(_total), style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.green[700]))]),
-                  const SizedBox(height: 12),
-                  OutlinedButton.icon(onPressed: _showAppointmentSelector, icon: const Text('📅', style: TextStyle(fontSize: 16)), label: Text(_selectedAppointment?.clientName ?? 'Seleccionar cita'), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 40))),
-                  const SizedBox(height: 8),
-                  OutlinedButton.icon(onPressed: _showClientSelector, icon: const Text('👤', style: TextStyle(fontSize: 16)), label: Text(_selectedClient?.name ?? 'Seleccionar cliente'), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 40))),
-                  const SizedBox(height: 8),
-                  DropdownButtonFormField<String>(
-                    value: _paymentMethod,
-                    decoration: InputDecoration(border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))),
-                    items: const [DropdownMenuItem(value: 'cash', child: Text('💵 Efectivo')), DropdownMenuItem(value: 'card', child: Text('💳 Tarjeta')), DropdownMenuItem(value: 'transfer', child: Text('📱 Transferencia'))],
-                    onChanged: (value) { setState(() { _paymentMethod = value!; }); },
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity, height: 52,
-                    child: ElevatedButton(
-                      onPressed: _cart.isEmpty ? null : _processPayment,
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.green[600], shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-                      child: const Text('COBRAR', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    ),
-                  ),
-                ],
+  // ✅ Bottom Sheet para carrito en móvil CON StatefulBuilder para actualización en tiempo real
+  void _showCartBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => DraggableScrollableSheet(
+          initialChildSize: 0.9,
+          minChildSize: 0.5,
+          maxChildSize: 0.95,
+          expand: false,
+          builder: (context, scrollController) => Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(color: Colors.indigo[700], borderRadius: const BorderRadius.vertical(top: Radius.circular(20))),
+                child: Row(children: [const Text('🛒', style: TextStyle(fontSize: 20)), const SizedBox(width: 8), Text('Carrito (${_cart.length})', style: const TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold))]),
               ),
-            ),
-          ],
+              Expanded(
+                child: _cart.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Text('🛒', style: TextStyle(fontSize: 64)),
+                            const SizedBox(height: 16),
+                            Text('Carrito vacío', style: TextStyle(color: Colors.grey[400], fontSize: 16)),
+                            const SizedBox(height: 8),
+                            Text('Agrega servicios o productos', style: TextStyle(color: Colors.grey[400], fontSize: 12)),
+                          ],
+                        ),
+                      )
+                    : ListView.builder(
+                        controller: scrollController,
+                        padding: const EdgeInsets.all(16),
+                        itemCount: _cart.length,
+                        itemBuilder: (context, index) {
+                          final item = _cart[index];
+                          final isService = item.type == 'service';
+                          return Card(
+                            elevation: 1, margin: const EdgeInsets.only(bottom: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            child: ListTile(
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                              leading: Text(isService ? '✂️' : '🛍️', style: TextStyle(fontSize: 24)),
+                              title: Text(item.serviceName.isNotEmpty ? item.serviceName : (item.productName ?? ''), style: const TextStyle(fontWeight: FontWeight.w600)),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('${SettingsService.formatCurrency(item.priceAtMoment)} x ${item.quantity}', style: const TextStyle(fontSize: 12)),
+                                  if (isService && item.barberName.isNotEmpty) Text('Barbero: ${item.barberName}', style: const TextStyle(fontSize: 12)),
+                                ],
+                              ),
+                              trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                                IconButton(
+                                  icon: const Text('➖', style: TextStyle(fontSize: 16)),
+                                  onPressed: () {
+                                    setModalState(() {
+                                      if (item.quantity <= 1) {
+                                        _cart.removeAt(index);
+                                      } else {
+                                        item.quantity--;
+                                      }
+                                    });
+                                    setState(() {}); // Actualiza el estado principal también
+                                  },
+                                ),
+                                Text('${item.quantity}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                IconButton(
+                                  icon: const Text('➕', style: TextStyle(fontSize: 16)),
+                                  onPressed: () {
+                                    setModalState(() {
+                                      item.quantity++;
+                                    });
+                                    setState(() {});
+                                  },
+                                ),
+                                IconButton(
+                                  icon: const Text('🗑️', style: TextStyle(fontSize: 16)),
+                                  onPressed: () {
+                                    setModalState(() {
+                                      _cart.removeAt(index);
+                                    });
+                                    setState(() {});
+                                  },
+                                ),
+                              ]),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(color: Colors.grey[50], border: Border(top: BorderSide(color: Colors.grey[300]!))),
+                child: Column(
+                  children: [
+                    Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Subtotal:', style: TextStyle(fontSize: 14, color: Colors.grey)), Text(SettingsService.formatCurrency(_subtotal), style: const TextStyle(fontSize: 14))]),
+                    const SizedBox(height: 8),
+                    Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('TOTAL:', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)), Text(SettingsService.formatCurrency(_total), style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.green[700]))]),
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(onPressed: _showAppointmentSelector, icon: const Text('📅', style: TextStyle(fontSize: 16)), label: Text(_selectedAppointment?.clientName ?? 'Seleccionar cita'), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 40))),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(onPressed: _showClientSelector, icon: const Text('👤', style: TextStyle(fontSize: 16)), label: Text(_selectedClient?.name ?? 'Seleccionar cliente'), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 40))),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(
+                      value: _paymentMethod,
+                      decoration: InputDecoration(border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))),
+                      items: const [DropdownMenuItem(value: 'cash', child: Text('💵 Efectivo')), DropdownMenuItem(value: 'card', child: Text('💳 Tarjeta')), DropdownMenuItem(value: 'transfer', child: Text('📱 Transferencia'))],
+                      onChanged: (value) { setState(() { _paymentMethod = value!; }); },
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity, height: 52,
+                      child: ElevatedButton(
+                        onPressed: _cart.isEmpty ? null : _processPayment,
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.green[600], shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                        child: const Text('COBRAR', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    // ✅ DETECTAR SI ES MÓVIL (ancho < 700px)
     final isMobile = MediaQuery.of(context).size.width < 700;
 
     return Scaffold(
@@ -877,13 +868,11 @@ void _showCartBottomSheet() {
         ),
         actions: [
           if (isMobile)
-            // ✅ Menú hamburguesa en móvil
             IconButton(
               icon: const Text('☰', style: TextStyle(fontSize: 28, color: Colors.white)),
               onPressed: _showMobileMenu,
             )
           else
-            // ✅ Iconos individuales en desktop
             ...[
               if (currentUserRole == 'admin') ...[
                 IconButton(icon: const Text('💈', style: TextStyle(fontSize: 20)), tooltip: 'Barberos', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => BarbersScreen())).then((_) => _loadData()); }),
@@ -893,7 +882,7 @@ void _showCartBottomSheet() {
                 IconButton(icon: const Text('📅', style: TextStyle(fontSize: 20)), tooltip: 'Agenda', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => AppointmentsScreen())); }),
                 IconButton(icon: const Text('📊', style: TextStyle(fontSize: 20)), tooltip: 'Dashboard', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => DashboardScreen())); }),
                 IconButton(icon: const Text('📈', style: TextStyle(fontSize: 20)), tooltip: 'Reportes', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => ReportsScreen())); }),
-                IconButton(icon: const Text('️⚙️', style: TextStyle(fontSize: 20)), tooltip: 'Config', onPressed: () {Navigator.push(context, MaterialPageRoute(builder: (context) => SettingsScreen()));},),
+                IconButton(icon: const Text('⚙️', style: TextStyle(fontSize: 20)), tooltip: 'Config', onPressed: () {Navigator.push(context, MaterialPageRoute(builder: (context) => SettingsScreen()));},),
               ],
               if (currentUserRole == 'cashier') ...[
                 IconButton(icon: const Text('📜', style: TextStyle(fontSize: 20)), tooltip: 'Historial', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => SalesHistoryScreen())); }),
@@ -909,14 +898,12 @@ void _showCartBottomSheet() {
             ],
         ],
       ),
-      // ✅ LAYOUT RESPONSIVE: cambia según el ancho
       body: isMobile ? _buildMobileLayout() : _buildDesktopLayout(),
-      // ✅ FAB más claro para carrito en móvil
       floatingActionButton: isMobile && _cart.isNotEmpty
           ? FloatingActionButton.extended(
               onPressed: () => _showCartBottomSheet(),
-              backgroundColor: Colors.lightGreen, // ✅ Verde más claro
-              foregroundColor: Colors.black87, // ✅ Texto oscuro
+              backgroundColor: Colors.lightGreen,
+              foregroundColor: Colors.black87,
               icon: const Text('🛒', style: TextStyle(fontSize: 20)),
               label: Text('${_cart.length} - ${SettingsService.formatCurrency(_total)}', style: const TextStyle(fontWeight: FontWeight.bold)),
             )
@@ -924,11 +911,9 @@ void _showCartBottomSheet() {
     );
   }
 
-  // ✅ LAYOUT MÓVIL (vertical): solo servicios/productos + selector barbero
   Widget _buildMobileLayout() {
     return Column(
       children: [
-        // Selector de barbero compacto
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           color: Colors.white,
@@ -953,7 +938,6 @@ void _showCartBottomSheet() {
             ],
           ),
         ),
-        // Grid de servicios/productos (ocupa todo el espacio)
         Expanded(
           child: TabBarView(
             controller: _tabController,
@@ -967,7 +951,6 @@ void _showCartBottomSheet() {
     );
   }
 
-  // ✅ LAYOUT DESKTOP (horizontal): servicios + carrito lado a lado
   Widget _buildDesktopLayout() {
     return Row(
       children: [
@@ -1015,7 +998,6 @@ void _showCartBottomSheet() {
     );
   }
 
-  // ✅ Grid de servicios (responsive: 2 cols móvil, 3 cols desktop)
   Widget _buildServicesGrid({required bool mobile}) {
     return GridView.builder(
       padding: const EdgeInsets.all(12),
@@ -1047,7 +1029,7 @@ void _showCartBottomSheet() {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(color: Colors.indigo[100], shape: BoxShape.circle),
-                      child: Text('💈', style: TextStyle(fontSize: mobile ? 24 : 32)),
+                      child: Text('✂️', style: TextStyle(fontSize: mobile ? 24 : 32)),
                     ),
                     const SizedBox(height: 6),
                     Text(
@@ -1076,7 +1058,6 @@ void _showCartBottomSheet() {
     );
   }
 
-  // ✅ Grid de productos (responsive: 2 cols móvil, 3 cols desktop)
   Widget _buildProductsGrid({required bool mobile}) {
     return GridView.builder(
       padding: const EdgeInsets.all(12),
@@ -1144,7 +1125,6 @@ void _showCartBottomSheet() {
     );
   }
 
-  // ✅ Panel de carrito (solo desktop)
   Widget _buildCartPanel() {
     return Container(
       color: Colors.white,
@@ -1160,7 +1140,7 @@ void _showCartBottomSheet() {
               padding: const EdgeInsets.all(8),
               color: Colors.blue[50],
               child: Row(children: [
-                const Text('', style: TextStyle(fontSize: 16)),
+                const Text('📅', style: TextStyle(fontSize: 16)),
                 const SizedBox(width: 8),
                 Expanded(child: Text('Cita: ${_selectedAppointment!.clientName}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500))),
                 IconButton(icon: const Text('✕', style: TextStyle(fontSize: 14)), onPressed: () { setState(() { _selectedAppointment = null; }); }),
@@ -1170,7 +1150,7 @@ void _showCartBottomSheet() {
             Container(
               padding: const EdgeInsets.all(8),
               color: Colors.green[50],
-              child: Row(children: [const Text('', style: TextStyle(fontSize: 16)), const SizedBox(width: 8), Expanded(child: Text(_selectedClient!.name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500))), IconButton(icon: const Text('✕', style: TextStyle(fontSize: 14)), onPressed: () { setState(() { _selectedClient = null; }); })]),
+              child: Row(children: [const Text('👤', style: TextStyle(fontSize: 16)), const SizedBox(width: 8), Expanded(child: Text(_selectedClient!.name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500))), IconButton(icon: const Text('✕', style: TextStyle(fontSize: 14)), onPressed: () { setState(() { _selectedClient = null; }); })]),
             ),
           Expanded(
             child: _cart.isEmpty
@@ -1185,7 +1165,7 @@ void _showCartBottomSheet() {
                   elevation: 1, margin: const EdgeInsets.only(bottom: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   child: ListTile(
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    leading: Text(isService ? '✂️' : '️🛍️', style: TextStyle(fontSize: 24)),
+                    leading: Text(isService ? '✂️' : '🛍️', style: TextStyle(fontSize: 24)),
                     title: Text(item.serviceName.isNotEmpty ? item.serviceName : (item.productName ?? ''), style: const TextStyle(fontWeight: FontWeight.w600)),
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1195,7 +1175,7 @@ void _showCartBottomSheet() {
                       ],
                     ),
                     trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                      IconButton(icon: const Text('', style: TextStyle(fontSize: 16)), onPressed: () => _updateQuantity(index, item.quantity - 1)),
+                      IconButton(icon: const Text('➖', style: TextStyle(fontSize: 16)), onPressed: () => _updateQuantity(index, item.quantity - 1)),
                       Text('${item.quantity}', style: const TextStyle(fontWeight: FontWeight.bold)),
                       IconButton(icon: const Text('➕', style: TextStyle(fontSize: 16)), onPressed: () => _updateQuantity(index, item.quantity + 1)),
                       const SizedBox(width: 8),
@@ -1218,12 +1198,12 @@ void _showCartBottomSheet() {
                 const SizedBox(height: 12),
                 OutlinedButton.icon(onPressed: _showAppointmentSelector, icon: const Text('📅', style: TextStyle(fontSize: 16)), label: Text(_selectedAppointment?.clientName ?? 'Seleccionar cita'), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 40), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)))),
                 const SizedBox(height: 8),
-                OutlinedButton.icon(onPressed: _showClientSelector, icon: const Text('', style: TextStyle(fontSize: 16)), label: Text(_selectedClient?.name ?? 'Seleccionar cliente'), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 40), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)))),
+                OutlinedButton.icon(onPressed: _showClientSelector, icon: const Text('👤', style: TextStyle(fontSize: 16)), label: Text(_selectedClient?.name ?? 'Seleccionar cliente'), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 40), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)))),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
                   value: _paymentMethod,
                   decoration: InputDecoration(border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)), contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
-                  items: const [DropdownMenuItem(value: 'cash', child: Text('💵 Efectivo')), DropdownMenuItem(value: 'card', child: Text('💳 Tarjeta')), DropdownMenuItem(value: 'transfer', child: Text('📲 Transferencia'))],
+                  items: const [DropdownMenuItem(value: 'cash', child: Text('💵 Efectivo')), DropdownMenuItem(value: 'card', child: Text('💳 Tarjeta')), DropdownMenuItem(value: 'transfer', child: Text('📱 Transferencia'))],
                   onChanged: (value) { setState(() { _paymentMethod = value!; }); },
                 ),
                 const SizedBox(height: 12),
@@ -1237,136 +1217,5 @@ void _showCartBottomSheet() {
         ],
       ),
     );
-  }// ✅ Bottom Sheet para carrito en móvil (con StatefulBuilder para actualización en tiempo real)
-
-    void _showCartBottomSheet() {
-      showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-    builder: (context) => StatefulBuilder(  // ✅ StatefulBuilder para reconstruir el bottom sheet
-      builder: (context, setModalState) => DraggableScrollableSheet(
-        initialChildSize: 0.9,
-        minChildSize: 0.5,
-        maxChildSize: 0.95,
-        expand: false,
-        builder: (context, scrollController) => Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: Colors.indigo[700], borderRadius: const BorderRadius.vertical(top: Radius.circular(20))),
-              child: Row(children: [const Text('', style: TextStyle(fontSize: 20)), const SizedBox(width: 8), Text('Carrito (${_cart.length})', style: const TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold))]),
-            ),
-            Expanded(
-              child: _cart.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Text('', style: TextStyle(fontSize: 64)),
-                          const SizedBox(height: 16),
-                          Text('Carrito vacío', style: TextStyle(color: Colors.grey[400], fontSize: 16)),
-                          const SizedBox(height: 8),
-                          Text('Agrega servicios o productos', style: TextStyle(color: Colors.grey[400], fontSize: 12)),
-                        ],
-                      ),
-                    )
-                  : ListView.builder(
-                      controller: scrollController,
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _cart.length,
-                      itemBuilder: (context, index) {
-                        final item = _cart[index];
-                        final isService = item.type == 'service';
-                        return Card(
-                          elevation: 1, margin: const EdgeInsets.only(bottom: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          child: ListTile(
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                            leading: Text(isService ? '️' : '🛍️', style: TextStyle(fontSize: 24)),
-                            title: Text(item.serviceName.isNotEmpty ? item.serviceName : (item.productName ?? ''), style: const TextStyle(fontWeight: FontWeight.w600)),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('${SettingsService.formatCurrency(item.priceAtMoment)} x ${item.quantity}', style: const TextStyle(fontSize: 12)),
-                                if (isService && item.barberName.isNotEmpty) Text('Barbero: ${item.barberName}', style: const TextStyle(fontSize: 12)),
-                              ],
-                            ),
-                            trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                              IconButton(
-                                icon: const Text('➖', style: TextStyle(fontSize: 16)),
-                                onPressed: () {
-                                  // ✅ Actualizar cantidad y reconstruir el bottom sheet
-                                  setModalState(() {
-                                    if (item.quantity <= 1) {
-                                      _cart.removeAt(index);
-                                    } else {
-                                      item.quantity--;
-                                    }
-                                  });
-                                  // ✅ También actualizar el estado del widget padre
-                                  setState(() {});
-                                },
-                              ),
-                              Text('${item.quantity}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                              IconButton(
-                                icon: const Text('➕', style: TextStyle(fontSize: 16)),
-                                onPressed: () {
-                                  setModalState(() {
-                                    item.quantity++;
-                                  });
-                                  setState(() {});
-                                },
-                              ),
-                              IconButton(
-                                icon: const Text('️', style: TextStyle(fontSize: 16)),
-                                onPressed: () {
-                                  setModalState(() {
-                                    _cart.removeAt(index);
-                                  });
-                                  setState(() {});
-                                },
-                              ),
-                            ]),
-                          ),
-                        );
-                      },
-                    ),
-            ),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: Colors.grey[50], border: Border(top: BorderSide(color: Colors.grey[300]!))),
-              child: Column(
-                children: [
-                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Subtotal:', style: TextStyle(fontSize: 14, color: Colors.grey)), Text(SettingsService.formatCurrency(_subtotal), style: const TextStyle(fontSize: 14))]),
-                  const SizedBox(height: 8),
-                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('TOTAL:', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)), Text(SettingsService.formatCurrency(_total), style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.green[700]))]),
-                  const SizedBox(height: 12),
-                  OutlinedButton.icon(onPressed: _showAppointmentSelector, icon: const Text('📅', style: TextStyle(fontSize: 16)), label: Text(_selectedAppointment?.clientName ?? 'Seleccionar cita'), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 40))),
-                  const SizedBox(height: 8),
-                  OutlinedButton.icon(onPressed: _showClientSelector, icon: const Text('👤', style: TextStyle(fontSize: 16)), label: Text(_selectedClient?.name ?? 'Seleccionar cliente'), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 40))),
-                  const SizedBox(height: 8),
-                  DropdownButtonFormField<String>(
-                    value: _paymentMethod,
-                    decoration: InputDecoration(border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))),
-                    items: const [DropdownMenuItem(value: 'cash', child: Text('💵 Efectivo')), DropdownMenuItem(value: 'card', child: Text('💳 Tarjeta')), DropdownMenuItem(value: 'transfer', child: Text('📱 Transferencia'))],
-                    onChanged: (value) { setState(() { _paymentMethod = value!; }); },
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity, height: 52,
-                    child: ElevatedButton(
-                      onPressed: _cart.isEmpty ? null : _processPayment,
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.green[600], shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-                      child: const Text('COBRAR', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
-}
+  }
 }
