@@ -51,7 +51,7 @@ class _LoginScreenState extends State<LoginScreen> {
             }
           }
         } catch (e) {
-          print('⚠️ Error al obtener perfil: $e');
+          print('️ Error al obtener perfil: $e');
           role = 'admin';
           userName = userEmail.split('@').first;
         }
@@ -114,13 +114,14 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      // ✅ LOGO DE LA BARBERÍA (140x140)
                       ClipRRect(
                         borderRadius: BorderRadius.circular(16),
                         child: SettingsService.shopLogoUrl.isNotEmpty
                             ? Image.network(
                                 SettingsService.shopLogoUrl,
-                                width: 140,
-                                height: 140,
+                                width: 160,
+                                height: 160,
                                 fit: BoxFit.contain,
                                 errorBuilder: (context, error, stackTrace) {
                                   return _buildDefaultLogo();
@@ -147,23 +148,23 @@ class _LoginScreenState extends State<LoginScreen> {
                         style: TextStyle(color: Colors.grey[600], fontSize: 14),
                       ),
                       const SizedBox(height: 32),
+                      // ✅ Campo de correo SIN icono
                       TextField(
                         controller: _emailController,
                         decoration: InputDecoration(
                           labelText: 'Correo electrónico',
-                          hintText: 'ej: carlos@baber.com',
-                          prefixIcon: const Text('', style: TextStyle(fontSize: 20)),
+                          hintText: 'ej: carlos@barber.com',
                           border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8)),
                         ),
                         keyboardType: TextInputType.emailAddress,
                       ),
                       const SizedBox(height: 16),
+                      // ✅ Campo de contraseña SIN icono
                       TextField(
                         controller: _passwordController,
                         decoration: InputDecoration(
                           labelText: 'Contraseña',
-                          prefixIcon: const Text('', style: TextStyle(fontSize: 20)),
                           border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8)),
                         ),
@@ -180,7 +181,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           child: Row(
                             children: [
-                              const Text('⚠️', style: TextStyle(fontSize: 20)),
+                              const Text('️🪒', style: TextStyle(fontSize: 20)),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
@@ -231,6 +232,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  // ✅ Logo por defecto (140x140, emoji 72px)
   Widget _buildDefaultLogo() {
     return Container(
       width: 140,
@@ -240,7 +242,7 @@ class _LoginScreenState extends State<LoginScreen> {
         shape: BoxShape.circle,
       ),
       child: const Center(
-        child: Text('✂️', style: TextStyle(fontSize: 72)),
+        child: Text('💈', style: TextStyle(fontSize: 72)),
       ),
     );
   }
