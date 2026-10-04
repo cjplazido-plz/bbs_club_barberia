@@ -398,7 +398,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
     }
 
     try {
-      print('🔄 Subiendo transacción a Supabase...');
+      print(' Subiendo transacción a Supabase...');
       final transResponse = await Supabase.instance.client
           .from('transactions')
           .insert({
@@ -455,7 +455,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
                 .update({'stock': newStock})
                 .eq('id', productId);
 
-            print('📦 Stock actualizado: ${item.productName} ($currentStock → $newStock)');
+            print(' Stock actualizado: ${item.productName} ($currentStock → $newStock)');
           } catch (e) {
             print('⚠️ Error al actualizar stock de ${item.productName}: $e');
           }
@@ -657,16 +657,15 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
     }
   }
 
-  // ✅ Menú hamburguesa COMPLETO y SCROLLABLE
   void _showMobileMenu() {
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true, // ✅ Permite que ocupe más altura
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.9, // ✅ Ocupa 90% de la pantalla al abrir
+        initialChildSize: 0.9,
         minChildSize: 0.5,
-        maxChildSize: 0.95, // ✅ Puede crecer hasta 95%
+        maxChildSize: 0.95,
         expand: false,
         builder: (context, scrollController) => SingleChildScrollView(
           controller: scrollController,
@@ -684,18 +683,17 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
                   ],
                 ),
               ),
-              // ✅ Lista completa de items con scroll
               Column(
                 children: [
                   if (currentUserRole == 'admin') ...[
                     _buildMenuItem('💈', 'Barberos', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => BarbersScreen())).then((_) => _loadData()); }),
-                    _buildMenuItem('️✂️', 'Servicios', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ServicesScreen())).then((_) => _loadData()); }),
+                    _buildMenuItem('✂️', 'Servicios', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ServicesScreen())).then((_) => _loadData()); }),
                     _buildMenuItem('📦', 'Productos', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ProductsScreen())).then((_) => _loadData()); }),
                     _buildMenuItem('👥', 'Usuarios', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => UsersScreen())); }),
                     _buildMenuItem('📅', 'Agenda de Citas', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => AppointmentsScreen())); }),
                     _buildMenuItem('📊', 'Dashboard', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => DashboardScreen())); }),
-                    _buildMenuItem('📜', 'Reportes', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ReportsScreen())); }),
-                    _buildMenuItem('️⚙️', 'Configuración', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => SettingsScreen())); }),
+                    _buildMenuItem('📈', 'Reportes', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ReportsScreen())); }),
+                    _buildMenuItem('⚙️', 'Configuración', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => SettingsScreen())); }),
                   ],
                   if (currentUserRole == 'cashier') ...[
                     _buildMenuItem('📜', 'Historial', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => SalesHistoryScreen())); }),
@@ -728,8 +726,139 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
     );
   }
 
+  // ✅ Bottom Sheet para carrito en móvil
+  void _showCartBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => DraggableScrollableSheet(
+          initialChildSize: 0.9,
+          minChildSize: 0.5,
+          maxChildSize: 0.95,
+          expand: false,
+          builder: (context, scrollController) => Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(color: Colors.indigo[700], borderRadius: const BorderRadius.vertical(top: Radius.circular(20))),
+                child: Row(children: [const Text('', style: TextStyle(fontSize: 20)), const SizedBox(width: 8), Text('Carrito (${_cart.length})', style: const TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold))]),
+              ),
+              Expanded(
+                child: _cart.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Text('🛒', style: TextStyle(fontSize: 64)),
+                            const SizedBox(height: 16),
+                            Text('Carrito vacío', style: TextStyle(color: Colors.grey[400], fontSize: 16)),
+                            const SizedBox(height: 8),
+                            Text('Agrega servicios o productos', style: TextStyle(color: Colors.grey[400], fontSize: 12)),
+                          ],
+                        ),
+                      )
+                    : ListView.builder(
+                        controller: scrollController,
+                        padding: const EdgeInsets.all(16),
+                        itemCount: _cart.length,
+                        itemBuilder: (context, index) {
+                          final item = _cart[index];
+                          final isService = item.type == 'service';
+                          return Card(
+                            elevation: 1, margin: const EdgeInsets.only(bottom: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            child: ListTile(
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                              leading: Text(isService ? '✂️' : '️', style: TextStyle(fontSize: 24)),
+                              title: Text(item.serviceName.isNotEmpty ? item.serviceName : (item.productName ?? ''), style: const TextStyle(fontWeight: FontWeight.w600)),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('${SettingsService.formatCurrency(item.priceAtMoment)} x ${item.quantity}', style: const TextStyle(fontSize: 12)),
+                                  if (isService && item.barberName.isNotEmpty) Text('Barbero: ${item.barberName}', style: const TextStyle(fontSize: 12)),
+                                ],
+                              ),
+                              trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                                IconButton(
+                                  icon: const Text('➖', style: TextStyle(fontSize: 16)),
+                                  onPressed: () {
+                                    setModalState(() {
+                                      if (item.quantity <= 1) {
+                                        _cart.removeAt(index);
+                                      } else {
+                                        item.quantity--;
+                                      }
+                                    });
+                                    setState(() {});
+                                  },
+                                ),
+                                Text('${item.quantity}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                IconButton(
+                                  icon: const Text('➕', style: TextStyle(fontSize: 16)),
+                                  onPressed: () {
+                                    setModalState(() {
+                                      item.quantity++;
+                                    });
+                                    setState(() {});
+                                  },
+                                ),
+                                IconButton(
+                                  icon: const Text('🗑️', style: TextStyle(fontSize: 16)),
+                                  onPressed: () {
+                                    setModalState(() {
+                                      _cart.removeAt(index);
+                                    });
+                                    setState(() {});
+                                  },
+                                ),
+                              ]),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(color: Colors.grey[50], border: Border(top: BorderSide(color: Colors.grey[300]!))),
+                child: Column(
+                  children: [
+                    Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Subtotal:', style: TextStyle(fontSize: 14, color: Colors.grey)), Text(SettingsService.formatCurrency(_subtotal), style: const TextStyle(fontSize: 14))]),
+                    const SizedBox(height: 8),
+                    Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('TOTAL:', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)), Text(SettingsService.formatCurrency(_total), style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.green[700]))]),
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(onPressed: _showAppointmentSelector, icon: const Text('📅', style: TextStyle(fontSize: 16)), label: Text(_selectedAppointment?.clientName ?? 'Seleccionar cita'), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 40))),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(onPressed: _showClientSelector, icon: const Text('', style: TextStyle(fontSize: 16)), label: Text(_selectedClient?.name ?? 'Seleccionar cliente'), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 40))),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(
+                      value: _paymentMethod,
+                      decoration: InputDecoration(border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))),
+                      items: const [DropdownMenuItem(value: 'cash', child: Text('💵 Efectivo')), DropdownMenuItem(value: 'card', child: Text('💳 Tarjeta')), DropdownMenuItem(value: 'transfer', child: Text('📱 Transferencia'))],
+                      onChanged: (value) { setState(() { _paymentMethod = value!; }); },
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity, height: 52,
+                      child: ElevatedButton(
+                        onPressed: _cart.isEmpty ? null : _processPayment,
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.green[600], shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                        child: const Text('COBRAR', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    // ✅ Detectar si es móvil (ancho < 700px)
     final isMobile = MediaQuery.of(context).size.width < 700;
 
     return Scaffold(
@@ -750,7 +879,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
         actions: [
           if (isMobile)
             IconButton(
-              icon: const Text('☰', style: TextStyle(fontSize: 28, color: Colors.white)),
+              icon: const Text('', style: TextStyle(fontSize: 28, color: Colors.white)),
               onPressed: _showMobileMenu,
             )
           else
@@ -779,214 +908,329 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
             ],
         ],
       ),
-      body: Row(
-        children: [
-          Expanded(
-            flex: 2,
-            child: Container(
-              color: Colors.grey[50],
-              child: Column(
-                children: [
-                  Expanded(
-                    child: TabBarView(
-                      controller: _tabController,
-                      children: [
-                        Column(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2))]),
-                              child: Row(
-                                children: [
-                                  Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.indigo[50], borderRadius: BorderRadius.circular(8)), child: const Text('👤', style: TextStyle(fontSize: 20))),
-                                  const SizedBox(width: 12),
-                                  const Text('Barbero:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: DropdownButtonFormField<LocalBarber>(
-                                      value: _selectedBarber,
-                                      decoration: InputDecoration(border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)), contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
-                                      items: _barbers.map((barber) => DropdownMenuItem(value: barber, child: Text(barber.name))).toList(),
-                                      onChanged: (value) { setState(() { _selectedBarber = value; }); },
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Expanded(
-                              child: GridView.builder(
-                                padding: const EdgeInsets.all(16),
-                                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, mainAxisSpacing: 12, crossAxisSpacing: 12, childAspectRatio: 1.1),
-                                itemCount: _services.length,
-                                itemBuilder: (context, index) {
-                                  final service = _services[index];
-                                  return Card(
-                                    elevation: 2,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                    child: InkWell(
-                                      onTap: () => _addServiceToCart(service),
-                                      borderRadius: BorderRadius.circular(12),
-                                      child: Container(
-                                        decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Colors.indigo[50]!, Colors.white])),
-                                        child: Padding(
-                                          padding: const EdgeInsets.all(16),
-                                          child: Column(
-                                            mainAxisAlignment: MainAxisAlignment.center,
-                                            children: [
-                                              Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.indigo[100], shape: BoxShape.circle), child: const Text('✂️', style: TextStyle(fontSize: 32))),
-                                              const SizedBox(height: 12),
-                                              Text(service.name, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
-                                              const SizedBox(height: 8),
-                                              Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), decoration: BoxDecoration(color: Colors.green[100], borderRadius: BorderRadius.circular(20)), child: Text(SettingsService.formatCurrency(service.price), style: TextStyle(fontSize: 16, color: Colors.green[700], fontWeight: FontWeight.bold))),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                        GridView.builder(
-                          padding: const EdgeInsets.all(16),
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, mainAxisSpacing: 12, crossAxisSpacing: 12, childAspectRatio: 1.1),
-                          itemCount: _products.length,
-                          itemBuilder: (context, index) {
-                            final product = _products[index];
-                            final isLowStock = product.stock <= product.minStock;
-                            return Card(
-                              elevation: 2,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              child: InkWell(
-                                onTap: product.stock > 0 ? () => _addProductToCart(product) : null,
-                                borderRadius: BorderRadius.circular(12),
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(12),
-                                    gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Colors.orange[50]!, Colors.white]),
-                                    border: isLowStock ? Border.all(color: Colors.red, width: 2) : null,
-                                  ),
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(16),
-                                    child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.orange[100], shape: BoxShape.circle), child: const Text('🛍️', style: TextStyle(fontSize: 32))),
-                                        const SizedBox(height: 12),
-                                        Text(product.name, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
-                                        const SizedBox(height: 8),
-                                        Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), decoration: BoxDecoration(color: Colors.green[100], borderRadius: BorderRadius.circular(20)), child: Text(SettingsService.formatCurrency(product.price), style: TextStyle(fontSize: 16, color: Colors.green[700], fontWeight: FontWeight.bold))),
-                                        const SizedBox(height: 4),
-                                        Text('Stock: ${product.stock}', style: TextStyle(fontSize: 12, color: isLowStock ? Colors.red : Colors.grey[600], fontWeight: FontWeight.w600)),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
+      // ✅ LAYOUT RESPONSIVE
+      body: isMobile ? _buildMobileLayout() : _buildDesktopLayout(),
+      // ✅ FAB para abrir carrito en móvil
+      floatingActionButton: isMobile && _cart.isNotEmpty
+          ? FloatingActionButton.extended(
+              onPressed: () => _showCartBottomSheet(),
+              backgroundColor: const Color.fromARGB(255, 204, 80, 63),
+              foregroundColor: Colors.black87,
+              icon: const Text('🛒', style: TextStyle(fontSize: 20)),
+              label: Text('${_cart.length} - ${SettingsService.formatCurrency(_total)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+            )
+          : null,
+    );
+  }
+
+  // ✅ LAYOUT MÓVIL (vertical): solo servicios/productos
+  Widget _buildMobileLayout() {
+    return Column(
+      children: [
+        // Selector de barbero compacto
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          color: Colors.white,
+          child: Row(
+            children: [
+              const Text('👤', style: TextStyle(fontSize: 20)),
+              const SizedBox(width: 8),
+              const Text('Barbero:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: DropdownButtonFormField<LocalBarber>(
+                  value: _selectedBarber,
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    isDense: true,
                   ),
-                ],
+                  items: _barbers.map((barber) => DropdownMenuItem(value: barber, child: Text(barber.name, style: const TextStyle(fontSize: 14)))).toList(),
+                  onChanged: (value) { setState(() { _selectedBarber = value; }); },
+                ),
+              ),
+            ],
+          ),
+        ),
+        // Grid de servicios/productos (ocupa todo el espacio)
+        Expanded(
+          child: TabBarView(
+            controller: _tabController,
+            children: [
+              _buildServicesGrid(mobile: true),
+              _buildProductsGrid(mobile: true),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ✅ LAYOUT DESKTOP (horizontal): servicios + carrito lado a lado
+  Widget _buildDesktopLayout() {
+    return Row(
+      children: [
+        Expanded(
+          flex: 2,
+          child: Container(
+            color: Colors.grey[50],
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2))]),
+                  child: Row(
+                    children: [
+                      Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.indigo[50], borderRadius: BorderRadius.circular(8)), child: const Text('👤', style: TextStyle(fontSize: 20))),
+                      const SizedBox(width: 12),
+                      const Text('Barbero:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: DropdownButtonFormField<LocalBarber>(
+                          value: _selectedBarber,
+                          decoration: InputDecoration(border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)), contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
+                          items: _barbers.map((barber) => DropdownMenuItem(value: barber, child: Text(barber.name))).toList(),
+                          onChanged: (value) { setState(() { _selectedBarber = value; }); },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildServicesGrid(mobile: false),
+                      _buildProductsGrid(mobile: false),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        Expanded(flex: 1, child: _buildCartPanel()),
+      ],
+    );
+  }
+
+  // ✅ Grid de servicios (responsive: 2 cols móvil, 3 cols desktop)
+  Widget _buildServicesGrid({required bool mobile}) {
+    return GridView.builder(
+      padding: const EdgeInsets.all(12),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: mobile ? 2 : 3,
+        mainAxisSpacing: 12,
+        crossAxisSpacing: 12,
+        childAspectRatio: mobile ? 0.85 : 1.1,
+      ),
+      itemCount: _services.length,
+      itemBuilder: (context, index) {
+        final service = _services[index];
+        return Card(
+          elevation: 2,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: InkWell(
+            onTap: () => _addServiceToCart(service),
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Colors.indigo[50]!, Colors.white]),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(color: Colors.indigo[100], shape: BoxShape.circle),
+                      child: Text('✂️', style: TextStyle(fontSize: mobile ? 24 : 32)),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      service.name,
+                      style: TextStyle(fontSize: mobile ? 12 : 15, fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(color: Colors.green[100], borderRadius: BorderRadius.circular(20)),
+                      child: Text(
+                        SettingsService.formatCurrency(service.price),
+                        style: TextStyle(fontSize: mobile ? 12 : 16, color: Colors.green[700], fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
-          Expanded(
-            flex: 1,
+        );
+      },
+    );
+  }
+
+  // ✅ Grid de productos (responsive: 2 cols móvil, 3 cols desktop)
+  Widget _buildProductsGrid({required bool mobile}) {
+    return GridView.builder(
+      padding: const EdgeInsets.all(12),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: mobile ? 2 : 3,
+        mainAxisSpacing: 12,
+        crossAxisSpacing: 12,
+        childAspectRatio: mobile ? 0.85 : 1.1,
+      ),
+      itemCount: _products.length,
+      itemBuilder: (context, index) {
+        final product = _products[index];
+        final isLowStock = product.stock <= product.minStock;
+        return Card(
+          elevation: 2,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: InkWell(
+            onTap: product.stock > 0 ? () => _addProductToCart(product) : null,
+            borderRadius: BorderRadius.circular(12),
             child: Container(
-              color: Colors.white,
-              child: Column(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(color: Colors.indigo[700], boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4, offset: const Offset(0, 2))]),
-                    child: Row(children: [const Text('🛒', style: TextStyle(fontSize: 20)), const SizedBox(width: 8), Text('Carrito (${_cart.length})', style: const TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold))]),
-                  ),
-                  if (_selectedAppointment != null)
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Colors.orange[50]!, Colors.white]),
+                border: isLowStock ? Border.all(color: Colors.red, width: 2) : null,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
                     Container(
                       padding: const EdgeInsets.all(8),
-                      color: Colors.blue[50],
-                      child: Row(children: [
-                        const Text('📅', style: TextStyle(fontSize: 16)),
-                        const SizedBox(width: 8),
-                        Expanded(child: Text('Cita: ${_selectedAppointment!.clientName}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500))),
-                        IconButton(icon: const Text('✕', style: TextStyle(fontSize: 14)), onPressed: () { setState(() { _selectedAppointment = null; }); }),
-                      ]),
+                      decoration: BoxDecoration(color: Colors.orange[100], shape: BoxShape.circle),
+                      child: Text('🛍️', style: TextStyle(fontSize: mobile ? 24 : 32)),
                     ),
-                  if (_selectedClient != null)
+                    const SizedBox(height: 6),
+                    Text(
+                      product.name,
+                      style: TextStyle(fontSize: mobile ? 12 : 15, fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
                     Container(
-                      padding: const EdgeInsets.all(8),
-                      color: Colors.green[50],
-                      child: Row(children: [const Text('👤', style: TextStyle(fontSize: 16)), const SizedBox(width: 8), Expanded(child: Text(_selectedClient!.name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500))), IconButton(icon: const Text('✕', style: TextStyle(fontSize: 14)), onPressed: () { setState(() { _selectedClient = null; }); })]),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(color: Colors.green[100], borderRadius: BorderRadius.circular(20)),
+                      child: Text(
+                        SettingsService.formatCurrency(product.price),
+                        style: TextStyle(fontSize: mobile ? 12 : 16, color: Colors.green[700], fontWeight: FontWeight.bold),
+                      ),
                     ),
-                  Expanded(
-                    child: _cart.isEmpty
-                        ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [const Text('🛒', style: TextStyle(fontSize: 64)), const SizedBox(height: 16), Text('Carrito vacío', style: TextStyle(color: Colors.grey[400], fontSize: 16)), const SizedBox(height: 8), Text('Agrega servicios o productos', style: TextStyle(color: Colors.grey[400], fontSize: 12))]))
-                        : ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _cart.length,
-                      itemBuilder: (context, index) {
-                        final item = _cart[index];
-                        final isService = item.type == 'service';
-                        return Card(
-                          elevation: 1, margin: const EdgeInsets.only(bottom: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          child: ListTile(
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                            leading: Text(isService ? '✂️' : '🛍️', style: TextStyle(fontSize: 24)),
-                            title: Text(item.serviceName.isNotEmpty ? item.serviceName : (item.productName ?? ''), style: const TextStyle(fontWeight: FontWeight.w600)),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('${SettingsService.formatCurrency(item.priceAtMoment)} x ${item.quantity}', style: const TextStyle(fontSize: 12)),
-                                if (isService && item.barberName.isNotEmpty) Text('Barbero: ${item.barberName}', style: const TextStyle(fontSize: 12)),
-                              ],
-                            ),
-                            trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                              IconButton(icon: const Text('➖', style: TextStyle(fontSize: 16)), onPressed: () => _updateQuantity(index, item.quantity - 1)),
-                              Text('${item.quantity}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                              IconButton(icon: const Text('➕', style: TextStyle(fontSize: 16)), onPressed: () => _updateQuantity(index, item.quantity + 1)),
-                              const SizedBox(width: 8),
-                              Text(SettingsService.formatCurrency(item.priceAtMoment * item.quantity), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.indigo)),
-                            ]),
-                          ),
-                        );
-                      },
+                    const SizedBox(height: 2),
+                    Text(
+                      'Stock: ${product.stock}',
+                      style: TextStyle(fontSize: 10, color: isLowStock ? Colors.red : Colors.grey[600], fontWeight: FontWeight.w600),
                     ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(color: Colors.grey[50], border: Border(top: BorderSide(color: Colors.grey[300]!)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, -2))]),
-                    child: Column(
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // ✅ Panel de carrito (solo desktop)
+  Widget _buildCartPanel() {
+    return Container(
+      color: Colors.white,
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(color: Colors.indigo[700], boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4, offset: const Offset(0, 2))]),
+            child: Row(children: [const Text('🛒', style: TextStyle(fontSize: 20)), const SizedBox(width: 8), Text('Carrito (${_cart.length})', style: const TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold))]),
+          ),
+          if (_selectedAppointment != null)
+            Container(
+              padding: const EdgeInsets.all(8),
+              color: Colors.blue[50],
+              child: Row(children: [
+                const Text('📅', style: TextStyle(fontSize: 16)),
+                const SizedBox(width: 8),
+                Expanded(child: Text('Cita: ${_selectedAppointment!.clientName}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500))),
+                IconButton(icon: const Text('✕', style: TextStyle(fontSize: 14)), onPressed: () { setState(() { _selectedAppointment = null; }); }),
+              ]),
+            ),
+          if (_selectedClient != null)
+            Container(
+              padding: const EdgeInsets.all(8),
+              color: Colors.green[50],
+              child: Row(children: [const Text('👤', style: TextStyle(fontSize: 16)), const SizedBox(width: 8), Expanded(child: Text(_selectedClient!.name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500))), IconButton(icon: const Text('✕', style: TextStyle(fontSize: 14)), onPressed: () { setState(() { _selectedClient = null; }); })]),
+            ),
+          Expanded(
+            child: _cart.isEmpty
+                ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [const Text('🛒', style: TextStyle(fontSize: 64)), const SizedBox(height: 16), Text('Carrito vacío', style: TextStyle(color: Colors.grey[400], fontSize: 16)), const SizedBox(height: 8), Text('Agrega servicios o productos', style: TextStyle(color: Colors.grey[400], fontSize: 12))]))
+                : ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: _cart.length,
+              itemBuilder: (context, index) {
+                final item = _cart[index];
+                final isService = item.type == 'service';
+                return Card(
+                  elevation: 1, margin: const EdgeInsets.only(bottom: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    leading: Text(isService ? '✂️' : '🛍️', style: TextStyle(fontSize: 24)),
+                    title: Text(item.serviceName.isNotEmpty ? item.serviceName : (item.productName ?? ''), style: const TextStyle(fontWeight: FontWeight.w600)),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Subtotal:', style: TextStyle(fontSize: 14, color: Colors.grey)), Text(SettingsService.formatCurrency(_subtotal), style: const TextStyle(fontSize: 14))]),
-                        if (_discount > 0) Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Descuento:', style: TextStyle(fontSize: 14, color: Colors.red)), Text('-${SettingsService.formatCurrency(_discount)}', style: const TextStyle(fontSize: 14, color: Colors.red))]),
-                        const SizedBox(height: 8),
-                        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('TOTAL:', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)), Text(SettingsService.formatCurrency(_total), style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.green[700]))]),
-                        const SizedBox(height: 12),
-                        OutlinedButton.icon(onPressed: _showAppointmentSelector, icon: const Text('📅', style: TextStyle(fontSize: 16)), label: Text(_selectedAppointment?.clientName ?? 'Seleccionar cita'), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 40), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)))),
-                        const SizedBox(height: 8),
-                        OutlinedButton.icon(onPressed: _showClientSelector, icon: const Text('👤', style: TextStyle(fontSize: 16)), label: Text(_selectedClient?.name ?? 'Seleccionar cliente'), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 40), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)))),
-                        const SizedBox(height: 8),
-                        DropdownButtonFormField<String>(
-                          value: _paymentMethod,
-                          decoration: InputDecoration(border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)), contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
-                          items: const [DropdownMenuItem(value: 'cash', child: Text('💵 Efectivo')), DropdownMenuItem(value: 'card', child: Text('💳 Tarjeta')), DropdownMenuItem(value: 'transfer', child: Text('📱 Transferencia'))],
-                          onChanged: (value) { setState(() { _paymentMethod = value!; }); },
-                        ),
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          width: double.infinity, height: 52,
-                          child: ElevatedButton(onPressed: _cart.isEmpty ? null : _processPayment, style: ElevatedButton.styleFrom(backgroundColor: Colors.green[600], disabledBackgroundColor: Colors.grey[300], shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)), elevation: 2), child: const Text('COBRAR', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
-                        ),
+                        Text('${SettingsService.formatCurrency(item.priceAtMoment)} x ${item.quantity}', style: const TextStyle(fontSize: 12)),
+                        if (isService && item.barberName.isNotEmpty) Text('Barbero: ${item.barberName}', style: const TextStyle(fontSize: 12)),
                       ],
                     ),
+                    trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                      IconButton(icon: const Text('➖', style: TextStyle(fontSize: 16)), onPressed: () => _updateQuantity(index, item.quantity - 1)),
+                      Text('${item.quantity}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      IconButton(icon: const Text('➕', style: TextStyle(fontSize: 16)), onPressed: () => _updateQuantity(index, item.quantity + 1)),
+                      const SizedBox(width: 8),
+                      Text(SettingsService.formatCurrency(item.priceAtMoment * item.quantity), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.indigo)),
+                    ]),
                   ),
-                ],
-              ),
+                );
+              },
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(color: Colors.grey[50], border: Border(top: BorderSide(color: Colors.grey[300]!)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, -2))]),
+            child: Column(
+              children: [
+                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Subtotal:', style: TextStyle(fontSize: 14, color: Colors.grey)), Text(SettingsService.formatCurrency(_subtotal), style: const TextStyle(fontSize: 14))]),
+                if (_discount > 0) Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Descuento:', style: TextStyle(fontSize: 14, color: Colors.red)), Text('-${SettingsService.formatCurrency(_discount)}', style: const TextStyle(fontSize: 14, color: Colors.red))]),
+                const SizedBox(height: 8),
+                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('TOTAL:', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)), Text(SettingsService.formatCurrency(_total), style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.green[700]))]),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(onPressed: _showAppointmentSelector, icon: const Text('📅', style: TextStyle(fontSize: 16)), label: Text(_selectedAppointment?.clientName ?? 'Seleccionar cita'), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 40), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)))),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(onPressed: _showClientSelector, icon: const Text('', style: TextStyle(fontSize: 16)), label: Text(_selectedClient?.name ?? 'Seleccionar cliente'), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 40), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)))),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  value: _paymentMethod,
+                  decoration: InputDecoration(border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)), contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
+                  items: const [DropdownMenuItem(value: 'cash', child: Text('💵 Efectivo')), DropdownMenuItem(value: 'card', child: Text('💳 Tarjeta')), DropdownMenuItem(value: 'transfer', child: Text('📱 Transferencia'))],
+                  onChanged: (value) { setState(() { _paymentMethod = value!; }); },
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity, height: 52,
+                  child: ElevatedButton(onPressed: _cart.isEmpty ? null : _processPayment, style: ElevatedButton.styleFrom(backgroundColor: Colors.green[600], disabledBackgroundColor: Colors.grey[300], shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)), elevation: 2), child: const Text('COBRAR', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
+                ),
+              ],
             ),
           ),
         ],
