@@ -31,7 +31,6 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
 
       print('📊 Cargando comisiones del $startStr al $endStr');
 
-      // Obtener items de servicios con comisión en el rango de fechas
       final response = await Supabase.instance.client
           .from('transaction_items')
           .select('''
@@ -50,7 +49,6 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
       final items = List<Map<String, dynamic>>.from(response);
       print('✅ ${items.length} items de servicios encontrados');
 
-      // Agrupar por barbero
       Map<String, Map<String, dynamic>> barberMap = {};
       
       for (final item in items) {
@@ -79,7 +77,6 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
             (barberMap[barberId]!['services_count'] as int) + quantity;
       }
 
-      // Convertir a lista y ordenar por comisión (mayor a menor)
       final commissions = barberMap.values.toList();
       commissions.sort((a, b) => 
           (b['total_commission'] as double).compareTo(a['total_commission'] as double));
@@ -182,7 +179,6 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
       ),
       body: Column(
         children: [
-          // Filtros de fecha
           Container(
             padding: const EdgeInsets.all(16),
             color: Colors.indigo[50],
@@ -190,7 +186,7 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
               children: [
                 Row(
                   children: [
-                    const Text('', style: TextStyle(fontSize: 20)),
+                    const Text('📅', style: TextStyle(fontSize: 20)),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -224,7 +220,6 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
               ],
             ),
           ),
-          // Contenido
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
@@ -245,10 +240,8 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
                     : ListView(
                         padding: const EdgeInsets.all(16),
                         children: [
-                          // Tarjetas de resumen
                           _buildSummaryCards(),
                           const SizedBox(height: 16),
-                          // Lista de barberos
                           const Text(
                             'Detalle por Barbero',
                             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -296,10 +289,151 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
                _startDate.month == weekStart.month && 
                _startDate.day == weekStart.day;
       case 'month':
-        return _startDate.year == now.year && _startDate.month == now.month && _startDate.day == 1;
+        return _startDate.year == now.year && 
+               _startDate.month == now.month && 
+               _startDate.day == 1;
       case 'last_month':
-        return _startDate.year == now.year && _startDate.month == now.month - 1 && _startDate.day == 1;
+        return _startDate.year == now.year && 
+               _startDate.month == now.month - 1 && 
+               _startDate.day == 1;
       case 'last_30':
         final thirtyDaysAgo = now.subtract(const Duration(days: 30));
         return _startDate.year == thirtyDaysAgo.year && 
-               _startDate.month ==
+               _startDate.month == thirtyDaysAgo.month && 
+               _startDate.day == thirtyDaysAgo.day;
+      default:
+        return false;
+    }
+  }
+
+  Widget _buildSummaryCards() {
+    return Row(
+      children: [
+        Expanded(
+          child: Card(
+            elevation: 2,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('💵 Total Ventas', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                  const SizedBox(height: 4),
+                  Text(
+                    SettingsService.formatCurrency(_totalSales),
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.blue),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Card(
+            elevation: 2,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('💰 Total Comisiones', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                  const SizedBox(height: 4),
+                  Text(
+                    SettingsService.formatCurrency(_totalCommissions),
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.green),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBarberCard(Map<String, dynamic> barber, int position) {
+    final barberName = barber['barber_name'] as String;
+    final totalSales = barber['total_sales'] as double;
+    final totalCommission = barber['total_commission'] as double;
+    final servicesCount = barber['services_count'] as int;
+    final commissionRate = totalSales > 0 ? (totalCommission / totalSales * 100) : 0.0;
+
+    final medals = ['🥇', '🥈', '🥉'];
+    final medal = position <= 3 ? medals[position - 1] : '$position';
+
+    return Card(
+      elevation: 2,
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(medal, style: const TextStyle(fontSize: 24)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        barberName,
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        '$servicesCount servicios realizados',
+                        style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.indigo[100],
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '${commissionRate.toStringAsFixed(1)}%',
+                    style: TextStyle(color: Colors.indigo[700], fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Ventas', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                    Text(
+                      SettingsService.formatCurrency(totalSales),
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    const Text('Comisión a pagar', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                    Text(
+                      SettingsService.formatCurrency(totalCommission),
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.green),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
