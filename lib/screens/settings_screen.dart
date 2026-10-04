@@ -155,9 +155,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       validator: (value) { if (value == null || value.trim().isEmpty) return 'El nombre es obligatorio'; return null; },
                     )),
                     const SizedBox(height: 16),
-                    _buildSection(title: 'RIF / NIT', icon: '', child: TextFormField(
+                    _buildSection(title: 'RUT', icon: '', child: TextFormField(
                       controller: _shopRifController,
-                      decoration: const InputDecoration(labelText: 'RIF/NIT', hintText: 'Ej: J-12345678-9', border: OutlineInputBorder()),
+                      decoration: const InputDecoration(labelText: 'RUT', hintText: 'Ej: J-12345678-9', border: OutlineInputBorder()),
                     )),
                     const SizedBox(height: 16),
                     _buildSection(title: 'Dirección', icon: '', child: TextFormField(
@@ -257,8 +257,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         children: [
                           const Text('Vista previa del ticket:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                           const SizedBox(height: 12),
-                          Center(child: Text(_ticketHeaderController.text.isNotEmpty ? _ticketHeaderController.text : 'BARBERFLOW POS', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold))),
-                          if (_shopRifController.text.isNotEmpty) Center(child: Text('RIF: ${_shopRifController.text}', style: const TextStyle(fontSize: 12))),
+                          Center(child: Text(_ticketHeaderController.text.isNotEmpty ? _ticketHeaderController.text : 'BARBER_PLZ POS', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold))),
+                          if (_shopRifController.text.isNotEmpty) Center(child: Text('RUT: ${_shopRifController.text}', style: const TextStyle(fontSize: 12))),
                           if (_shopAddressController.text.isNotEmpty) Center(child: Text(_shopAddressController.text, style: const TextStyle(fontSize: 12))),
                           if (_shopPhoneController.text.isNotEmpty) Center(child: Text('Tel: ${_shopPhoneController.text}', style: const TextStyle(fontSize: 12))),
                           const SizedBox(height: 12),
