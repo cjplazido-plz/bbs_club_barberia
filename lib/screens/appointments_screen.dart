@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:intl/intl.dart';
 import '../models/local_appointment.dart';
 import '../models/local_barber.dart';
 import '../models/local_client.dart';
@@ -63,44 +65,53 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     });
   }
 
-  // ✅ NUEVO: Función para enviar notificación por email
-  Future<void> _sendEmailNotification(LocalAppointment appointment, String type) async {
-    try {
-      print('📧 Enviando notificación $type para ${appointment.clientName}...');
-      
-      final response = await Supabase.instance.client.functions.invoke(
-        'send-appointment-email',
-        body: {
-          'appointment': {
-            'client_name': appointment.clientName,
-            'client_email': appointment.clientEmail,
-            'client_phone': appointment.clientPhone,
-            'barber_name': appointment.barberName,
-            'service_name': appointment.serviceName,
-            'appointment_date': appointment.appointmentDate.toIso8601String(),
-            'status': appointment.status,
-            'notes': appointment.notes,
-          },
-          'type': type,
-        },
-      );
+  // ✅ NUEVO: Función para abrir WhatsApp con mensaje pre-llenado
+  Future<void> _sendWhatsAppNotification(LocalAppointment appointment) async {
+    if (appointment.clientPhone == null || appointment.clientPhone!.isEmpty) {
+      print('⚠️ No hay número de teléfono para enviar WhatsApp');
+      return;
+    }
 
-      if (response.status == 200) {
-        print('✅ Email enviado exitosamente a ${appointment.clientEmail}');
+    // 1. Limpiar y formatear el número de teléfono (ej: +56 9 1234 5678 -> 56912345678)
+    String phone = appointment.clientPhone!.replaceAll(RegExp(r'[^0-9]'), '');
+    if (phone.startsWith('0')) {
+      phone = phone.substring(1);
+    }
+    if (!phone.startsWith('56') && phone.length == 9) {
+      phone = '56$phone'; // Agregar código de país Chile si falta
+    }
+
+    // 2. Formatear fecha y hora
+    final dateStr = DateFormat('dd/MM/yyyy').format(appointment.appointmentDate);
+    final timeStr = DateFormat('HH:mm').format(appointment.appointmentDate);
+
+    // 3. Crear el mensaje con saltos de línea codificados para URL (%0A)
+    final message = 'Hola ${appointment.clientName}, tu cita en BBS Club Barbería ha sido confirmada.%0A%0A'
+        '📅 *Fecha:* $dateStr%0A'
+        '⏰ *Hora:* $timeStr%0A'
+        '✂️ *Servicio:* ${appointment.serviceName}%0A'
+        '💈 *Barbero:* ${appointment.barberName}%0A%0A'
+        '¡Te esperamos! 💈';
+
+    // 4. Construir la URL de WhatsApp
+    final url = 'https://api.whatsapp.com/send/?phone=$phone&text=$message';
+    final uri = Uri.parse(url);
+
+    try {
+      // 5. Abrir WhatsApp (Web o App)
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, webOnlyWindowName: '_blank');
+        print('✅ WhatsApp abierto para enviar confirmación a $phone');
+      } else {
+        print('❌ No se pudo abrir WhatsApp');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('📧 Notificación enviada a ${appointment.clientName}'),
-              backgroundColor: Colors.green,
-              duration: const Duration(seconds: 2),
-            ),
+            const SnackBar(content: Text('⚠️ No se pudo abrir WhatsApp'), backgroundColor: Colors.orange),
           );
         }
-      } else {
-        print('⚠️ Error al enviar email: ${response.data}');
       }
     } catch (e) {
-      print('❌ Error al invocar función de email: $e');
+      print('❌ Error al abrir WhatsApp: $e');
     }
   }
 
@@ -128,7 +139,6 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
               'id': localApt.remoteId,
               'client_id': localApt.clientId ?? '',
               'client_name': localApt.clientName ?? '',
-              'client_email': localApt.clientEmail,
               'client_phone': localApt.clientPhone ?? '',
               'barber_id': localApt.barberId ?? '',
               'barber_name': localApt.barberName ?? '',
@@ -155,7 +165,6 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
             final newApt = LocalAppointment()
               ..remoteId = remoteId
               ..clientName = cloudApt['client_name']
-              ..clientEmail = cloudApt['client_email']
               ..clientPhone = cloudApt['client_phone']
               ..barberName = cloudApt['barber_name']
               ..serviceName = cloudApt['service_name']
@@ -167,7 +176,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
             await _appointmentRepo.createAppointment(newApt);
             downloaded++;
           } catch (e) {
-            print(' Error al descargar: $e');
+            print('❌ Error al descargar: $e');
           }
         }
       }
@@ -191,20 +200,18 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
       await _appointmentRepo.updateAppointment(appointment);
       await Supabase.instance.client.from('appointments').update({'status': newStatus}).eq('id', appointment.remoteId!);
       
-      // ✅ Enviar notificación según el nuevo estado
+      // ✅ Enviar WhatsApp si se confirma
       if (newStatus == 'confirmed') {
-        await _sendEmailNotification(appointment, 'confirmation');
-      } else if (newStatus == 'cancelled') {
-        await _sendEmailNotification(appointment, 'cancellation');
+        await _sendWhatsAppNotification(appointment);
       }
       
       await _loadData();
       
       final statusMessages = {
-        'confirmed': '✅ Cita confirmada y notificación enviada',
+        'confirmed': '✅ Cita confirmada',
         'in_progress': '🟡 Cita en proceso',
-        'completed': ' Cita completada',
-        'cancelled': '❌ Cita cancelada y notificación enviada',
+        'completed': '🎉 Cita completada',
+        'cancelled': '❌ Cita cancelada',
       };
       
       if (mounted) {
@@ -222,7 +229,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Confirmar cancelación'),
-        content: Text('¿Cancelar la cita de ${appointment.clientName}? Se enviará una notificación por email.'),
+        content: Text('¿Cancelar la cita de ${appointment.clientName}?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('No')),
           ElevatedButton(onPressed: () => Navigator.pop(context, true), style: ElevatedButton.styleFrom(backgroundColor: Colors.red), child: const Text('Sí, cancelar')),
@@ -335,7 +342,6 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                     ..remoteId = 'apt-${DateTime.now().millisecondsSinceEpoch}'
                     ..clientId = client.remoteId
                     ..clientName = client.name
-                    ..clientEmail = client.email
                     ..clientPhone = client.phone
                     ..barberId = barber.remoteId
                     ..barberName = barber.name
@@ -348,14 +354,13 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
 
                   await _appointmentRepo.createAppointment(newAppointment);
                   
-                  // ✅ Enviar email de confirmación si el estado es 'confirmed'
-                  if (selectedStatus == 'confirmed' && client.email != null && client.email!.isNotEmpty) {
-                    await _sendEmailNotification(newAppointment, 'confirmation');
+                  // ✅ Enviar WhatsApp si se crea como confirmada
+                  if (selectedStatus == 'confirmed') {
+                    await _sendWhatsAppNotification(newAppointment);
                   }
                 } else {
                   appointment.clientId = client.remoteId;
                   appointment.clientName = client.name;
-                  appointment.clientEmail = client.email;
                   appointment.clientPhone = client.phone;
                   appointment.barberId = barber.remoteId;
                   appointment.barberName = barber.name;
@@ -368,9 +373,9 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                   
                   await _appointmentRepo.updateAppointment(appointment);
                   
-                  // ✅ Enviar email si se confirmó
-                  if (selectedStatus == 'confirmed' && client.email != null && client.email!.isNotEmpty) {
-                    await _sendEmailNotification(appointment, 'confirmation');
+                  // ✅ Enviar WhatsApp si se cambia a confirmada
+                  if (selectedStatus == 'confirmed') {
+                    await _sendWhatsAppNotification(appointment);
                   }
                 }
 
