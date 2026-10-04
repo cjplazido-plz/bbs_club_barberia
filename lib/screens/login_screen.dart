@@ -96,7 +96,7 @@ class _LoginScreenState extends State<LoginScreen> {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Colors.indigo[700]!, Colors.indigo[900]!],
+            colors: [const Color.fromARGB(255, 159, 48, 48)!, Colors.indigo[900]!],
           ),
         ),
         child: Center(
@@ -114,13 +114,14 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      // ✅ LOGO DE LA BARBERÍA (Más grande: 140x140)
                       ClipRRect(
                         borderRadius: BorderRadius.circular(16),
                         child: SettingsService.shopLogoUrl.isNotEmpty
                             ? Image.network(
                                 SettingsService.shopLogoUrl,
-                                width: 80,
-                                height: 80,
+                                width: 140,
+                                height: 140,
                                 fit: BoxFit.contain,
                                 errorBuilder: (context, error, stackTrace) {
                                   return _buildDefaultLogo();
@@ -152,7 +153,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         decoration: InputDecoration(
                           labelText: 'Correo electrónico',
                           hintText: 'ej: carlos@barberflow.com',
-                          prefixIcon: const Text('👨‍💼', style: TextStyle(fontSize: 20)),
+                          prefixIcon: const Text('📧', style: TextStyle(fontSize: 20)),
                           border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8)),
                         ),
@@ -229,15 +230,18 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  // ✅ Widget para logo por defecto (Más grande: 140x140, emoji 72px)
   Widget _buildDefaultLogo() {
     return Container(
-      width: 80,
-      height: 80,
+      width: 140,
+      height: 140,
       decoration: BoxDecoration(
         color: Colors.indigo[100],
         shape: BoxShape.circle,
       ),
-      child: const Text('✂️', style: TextStyle(fontSize: 48)),
+      child: const Center(
+        child: Text('✂️', style: TextStyle(fontSize: 72)),
+      ),
     );
   }
 }
