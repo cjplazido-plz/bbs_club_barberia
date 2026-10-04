@@ -879,7 +879,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
         actions: [
           if (isMobile)
             IconButton(
-              icon: const Text('', style: TextStyle(fontSize: 28, color: Colors.white)),
+              icon: const Text('☰', style: TextStyle(fontSize: 28, color: Colors.white)),
               onPressed: _showMobileMenu,
             )
           else
