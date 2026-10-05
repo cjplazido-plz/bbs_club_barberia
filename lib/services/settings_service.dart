@@ -1,20 +1,18 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SettingsService {
-  // Variables estáticas
   static String shopName = 'BBS CLUB F.C';
   static String shopRif = '77.123.456-7';
   static String shopAddress = 'LOS BIGOTES 1313 - LOMAS TURBO';
   static String shopPhone = '+56 99 9 9 9 9 9 9 9';
   static String shopEmail = '';
   static String shopLogoUrl = '';
-  static String ticketLogoUrl = ''; // ✅ NUEVO: Logo específico para tickets
+  static String ticketLogoUrl = ''; // ✅ NUEVO
   static String currencySymbol = '\$';
   static String currencyCode = 'CLP';
   static String ticketHeader = 'BBS CLUB F.C';
   static String ticketFooter = '¡Gracias por su visita!';
 
-  // Formato de moneda chilena
   static String formatCurrency(double amount) {
     final formatted = amount.toStringAsFixed(0);
     final buffer = StringBuffer();
@@ -27,7 +25,6 @@ class SettingsService {
     return '$currencySymbol${buffer.toString()}';
   }
 
-  // ✅ MÉTODO: Cargar settings desde Supabase
   static Future<void> loadSettings() async {
     try {
       print('🔄 Cargando configuración desde Supabase...');
@@ -49,7 +46,7 @@ class SettingsService {
         currencyCode = response['currency_code'] ?? currencyCode;
         ticketHeader = response['ticket_header'] ?? ticketHeader;
         ticketFooter = response['ticket_footer'] ?? ticketFooter;
-        print('✅ Configuración cargada correctamente');
+        print('✅ Configuración cargada: ${response.length} valores');
       } else {
         print('⚠️ No hay configuración en Supabase, usando valores por defecto');
       }
@@ -58,12 +55,10 @@ class SettingsService {
     }
   }
 
-  // ✅ MÉTODO: Guardar múltiples settings
   static Future<bool> updateMultiple(Map<String, String> values) async {
     try {
       print('🔄 Guardando configuración en Supabase...');
       
-      // Verificar si ya existe un registro
       final existing = await Supabase.instance.client
           .from('settings')
           .select('id')
@@ -71,19 +66,16 @@ class SettingsService {
           .maybeSingle();
 
       if (existing != null) {
-        // Actualizar registro existente
         await Supabase.instance.client
             .from('settings')
             .update(values)
             .eq('id', existing['id']);
       } else {
-        // Insertar nuevo registro
         await Supabase.instance.client
             .from('settings')
             .insert(values);
       }
 
-      // Actualizar valores en memoria
       values.forEach((key, value) {
         switch (key) {
           case 'shop_name': shopName = value; break;
@@ -103,7 +95,7 @@ class SettingsService {
       print('✅ Configuración guardada correctamente');
       return true;
     } catch (e) {
-      print(' Error al guardar configuración: $e');
+      print('❌ Error al guardar configuración: $e');
       return false;
     }
   }

@@ -17,6 +17,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _shopPhoneController = TextEditingController();
   final _shopEmailController = TextEditingController();
   final _shopLogoUrlController = TextEditingController();
+  final _ticketLogoUrlController = TextEditingController(); // ✅ AGREGAR
   final _currencySymbolController = TextEditingController();
   final _currencyCodeController = TextEditingController();
   final _ticketHeaderController = TextEditingController();
@@ -38,6 +39,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _shopPhoneController.text = SettingsService.shopPhone;
       _shopEmailController.text = SettingsService.shopEmail;
       _shopLogoUrlController.text = SettingsService.shopLogoUrl;
+      _ticketLogoUrlController.text = SettingsService.ticketLogoUrl;
       _currencySymbolController.text = SettingsService.currencySymbol;
       _currencyCodeController.text = SettingsService.currencyCode;
       _ticketHeaderController.text = SettingsService.ticketHeader;
@@ -63,6 +65,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         'shop_phone': _shopPhoneController.text.trim(),
         'shop_email': _shopEmailController.text.trim(),
         'shop_logo_url': _shopLogoUrlController.text.trim(),
+        'ticket_logo_url': _ticketLogoUrlController.text.trim(),
         'currency_symbol': _currencySymbolController.text.trim(),
         'currency_code': _currencyCodeController.text.trim(),
         'ticket_header': _ticketHeaderController.text.trim(),
@@ -101,6 +104,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _shopPhoneController.dispose();
     _shopEmailController.dispose();
     _shopLogoUrlController.dispose();
+    _ticketLogoUrlController.dispose();
     _currencySymbolController.dispose();
     _currencyCodeController.dispose();
     _ticketHeaderController.dispose();
@@ -206,6 +210,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ),
                       ],
                     )),
+
+                      const SizedBox(height: 16),
+                      _buildSection(title: 'Logo para Ticket', icon: '🖨️', child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          TextFormField(
+                            controller: _ticketLogoUrlController,
+                            decoration: const InputDecoration(
+                              labelText: 'URL del logo para ticket',
+                              hintText: 'https://ejemplo.com/logo-ticket.jpg',
+                              border: OutlineInputBorder(),
+                              helperText: 'Usa un logo optimizado para impresoras térmicas',
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          if (_ticketLogoUrlController.text.isNotEmpty)
+                            Container(
+                              height: 80,
+                              decoration: BoxDecoration(border: Border.all(color: Colors.grey[300]!), borderRadius: BorderRadius.circular(8)),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.network(
+                                  _ticketLogoUrlController.text,
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (context, error, stackTrace) => const Center(child: Text('❌', style: TextStyle(fontSize: 40))),
+                                ),
+                              ),
+                            ),
+                        ],
+                      )),
+
+
                     const SizedBox(height: 32),
                     const Text('Moneda', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 16),
@@ -243,7 +279,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       height: 56,
                       child: ElevatedButton(
                         onPressed: _isSaving ? null : _saveSettings,
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo[700], disabledBackgroundColor: Colors.grey[300], shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo[700], disabledBackgroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                         child: _isSaving
                             ? const Row(mainAxisAlignment: MainAxisAlignment.center, children: [SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)), SizedBox(width: 12), Text('Guardando...', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold))])
                             : const Text('GUARDAR CONFIGURACIÓN', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
@@ -258,6 +294,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         children: [
                           const Text('Vista previa del ticket:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                           const SizedBox(height: 12),
+                          if (_ticketLogoUrlController.text.isNotEmpty)
+                         Center(child: Container(height: 60,margin: const EdgeInsets.only(bottom: 8),child: Image.network(_ticketLogoUrlController.text, fit: BoxFit.contain, errorBuilder: (_, __, ___) => const SizedBox.shrink()),
+                            ),
+                          ),
                           Center(child: Text(_ticketHeaderController.text.isNotEmpty ? _ticketHeaderController.text : 'BARBER_PLZ POS', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold))),
                           if (_shopRifController.text.isNotEmpty) Center(child: Text('RUT: ${_shopRifController.text}', style: const TextStyle(fontSize: 12))),
                           if (_shopAddressController.text.isNotEmpty) Center(child: Text(_shopAddressController.text, style: const TextStyle(fontSize: 12))),
