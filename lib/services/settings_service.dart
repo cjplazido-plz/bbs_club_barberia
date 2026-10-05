@@ -7,7 +7,7 @@ class SettingsService {
   static String shopPhone = '+56 99 9 9 9 9 9 9 9';
   static String shopEmail = '';
   static String shopLogoUrl = '';
-  static String ticketLogoUrl = ''; // ✅ NUEVO
+  static String ticketLogoUrl = '';
   static String currencySymbol = '\$';
   static String currencyCode = 'CLP';
   static String ticketHeader = 'BBS CLUB F.C';
@@ -41,14 +41,14 @@ class SettingsService {
         shopPhone = response['shop_phone'] ?? shopPhone;
         shopEmail = response['shop_email'] ?? shopEmail;
         shopLogoUrl = response['shop_logo_url'] ?? shopLogoUrl;
-        ticketLogoUrl = response['ticket_logo_url'] ?? ''; // ✅ NUEVO
+        ticketLogoUrl = response['ticket_logo_url'] ?? '';
         currencySymbol = response['currency_symbol'] ?? currencySymbol;
         currencyCode = response['currency_code'] ?? currencyCode;
         ticketHeader = response['ticket_header'] ?? ticketHeader;
         ticketFooter = response['ticket_footer'] ?? ticketFooter;
-        print('✅ Configuración cargada: ${response.length} valores');
+        print('✅ Configuración cargada');
       } else {
-        print('⚠️ No hay configuración en Supabase, usando valores por defecto');
+        print('⚠️ No hay configuración en Supabase');
       }
     } catch (e) {
       print('❌ Error al cargar configuración: $e');
@@ -57,8 +57,7 @@ class SettingsService {
 
   static Future<bool> updateMultiple(Map<String, String> values) async {
     try {
-      print('🔄 Guardando configuración en Supabase...');
-      
+      print('🔄 Guardando configuración...');
       final existing = await Supabase.instance.client
           .from('settings')
           .select('id')
@@ -84,7 +83,7 @@ class SettingsService {
           case 'shop_phone': shopPhone = value; break;
           case 'shop_email': shopEmail = value; break;
           case 'shop_logo_url': shopLogoUrl = value; break;
-          case 'ticket_logo_url': ticketLogoUrl = value; break; // ✅ NUEVO
+          case 'ticket_logo_url': ticketLogoUrl = value; break;
           case 'currency_symbol': currencySymbol = value; break;
           case 'currency_code': currencyCode = value; break;
           case 'ticket_header': ticketHeader = value; break;
@@ -92,10 +91,10 @@ class SettingsService {
         }
       });
 
-      print('✅ Configuración guardada correctamente');
+      print('✅ Configuración guardada');
       return true;
     } catch (e) {
-      print('❌ Error al guardar configuración: $e');
+      print('❌ Error al guardar: $e');
       return false;
     }
   }
