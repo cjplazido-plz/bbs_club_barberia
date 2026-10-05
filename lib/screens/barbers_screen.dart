@@ -113,6 +113,7 @@ class _BarbersScreenState extends State<BarbersScreen> {
         ),
         title: const Text('Gestión de Barberos'),
         backgroundColor: Colors.indigo[700],
+        foregroundColor: Colors.white, // ✅ Agrega esta línea
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

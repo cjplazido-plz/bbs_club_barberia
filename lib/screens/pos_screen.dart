@@ -880,6 +880,7 @@ Future<void> _completeTransaction({required double cashReceived, required double
       appBar: AppBar(
         title: Text('${SettingsService.shopName} POS', style: TextStyle(fontWeight: FontWeight.bold, fontSize: isMobile ? 16 : 20, color: Colors.white)),
         backgroundColor: Colors.indigo[700],
+        foregroundColor: Colors.white, // ✅ Agrega esta línea
         elevation: 0,
         bottom: TabBar(
           controller: _tabController,

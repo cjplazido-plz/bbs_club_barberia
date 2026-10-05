@@ -178,6 +178,7 @@ class _UsersScreenState extends State<UsersScreen> {
         ),
         title: const Text('Gestión de Usuarios'),
         backgroundColor: Colors.indigo[700],
+        foregroundColor: Colors.white, // ✅ Agrega esta línea
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

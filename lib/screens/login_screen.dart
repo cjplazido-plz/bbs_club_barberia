@@ -51,7 +51,7 @@ class _LoginScreenState extends State<LoginScreen> {
             }
           }
         } catch (e) {
-          print('️ Error al obtener perfil: $e');
+          print('️⚠️ Error al obtener perfil: $e');
           role = 'admin';
           userName = userEmail.split('@').first;
         }
@@ -235,8 +235,8 @@ class _LoginScreenState extends State<LoginScreen> {
   // ✅ Logo por defecto (140x140, emoji 72px)
   Widget _buildDefaultLogo() {
     return Container(
-      width: 140,
-      height: 140,
+      width: 160,
+      height: 160,
       decoration: BoxDecoration(
         color: Colors.indigo[100],
         shape: BoxShape.circle,

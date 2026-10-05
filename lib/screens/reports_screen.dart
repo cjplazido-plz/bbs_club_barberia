@@ -78,6 +78,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         ),
         title: const Text('Reportes del Día'),
         backgroundColor: Colors.indigo[700],
+        foregroundColor: Colors.white, // ✅ Agrega esta línea
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -101,7 +102,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         child: _SummaryCard(
                           title: 'Ventas',
                           value: '$_dayTransactions',
-                          icon: '',
+                          icon: '💲',
                           color: Colors.blue,
                         ),
                       ),

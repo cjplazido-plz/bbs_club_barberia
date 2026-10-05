@@ -127,6 +127,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
         ),
         title: const Text('Gestión de Clientes'),
         backgroundColor: Colors.indigo[700],
+        foregroundColor: Colors.white, // ✅ Agrega esta línea
       ),
       body: Column(
         children: [

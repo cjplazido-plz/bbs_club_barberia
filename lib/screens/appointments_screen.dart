@@ -66,49 +66,43 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
   }
 
   // ✅ NUEVO: Función para abrir WhatsApp con mensaje pre-llenado
-  Future<void> _sendWhatsAppNotification(LocalAppointment appointment) async {
+  Future<void> _sendWhatsAppNotification(LocalAppointment appointment, {bool isCancellation = false}) async {
     if (appointment.clientPhone == null || appointment.clientPhone!.isEmpty) {
       print('⚠️ No hay número de teléfono para enviar WhatsApp');
       return;
     }
 
-    // 1. Limpiar y formatear el número de teléfono (ej: +56 9 1234 5678 -> 56912345678)
+    // 1. Limpiar y formatear el número de teléfono
     String phone = appointment.clientPhone!.replaceAll(RegExp(r'[^0-9]'), '');
-    if (phone.startsWith('0')) {
-      phone = phone.substring(1);
-    }
-    if (!phone.startsWith('56') && phone.length == 9) {
-      phone = '56$phone'; // Agregar código de país Chile si falta
-    }
+    if (phone.startsWith('0')) phone = phone.substring(1);
+    if (!phone.startsWith('56') && phone.length == 9) phone = '56$phone';
 
     // 2. Formatear fecha y hora
     final dateStr = DateFormat('dd/MM/yyyy').format(appointment.appointmentDate);
     final timeStr = DateFormat('HH:mm').format(appointment.appointmentDate);
 
-    // 3. Crear el mensaje con saltos de línea codificados para URL (%0A)
-    final message = 'Hola ${appointment.clientName}, tu cita en BBS Club Barbería ha sido confirmada.%0A%0A'
-        '📅 *Fecha:* $dateStr%0A'
-        '⏰ *Hora:* $timeStr%0A'
-        '✂️ *Servicio:* ${appointment.serviceName}%0A'
-        '💈 *Barbero:* ${appointment.barberName}%0A%0A'
-        '¡Te esperamos! 💈';
+    // 3. Crear el mensaje según sea confirmación o cancelación
+    final message = isCancellation 
+        ? 'Hola ${appointment.clientName}, tu cita en BBS Club Barbería ha sido *CANCELADA*.%0A%0A'
+          '📅 *Fecha:* $dateStr%0A'
+          '⏰ *Hora:* $timeStr%0A'
+          '✂️ *Servicio:* ${appointment.serviceName}%0A%0A'
+          'Si deseas reagendar, estamos a tu disposición. ¡Gracias!'
+        : 'Hola ${appointment.clientName}, tu cita en BBS Club Barbería ha sido *CONFIRMADA*.%0A%0A'
+          '📅 *Fecha:* $dateStr%0A'
+          '⏰ *Hora:* $timeStr%0A'
+          '✂️ *Servicio:* ${appointment.serviceName}%0A'
+          '💈 *Barbero:* ${appointment.barberName}%0A%0A'
+          '¡Te esperamos! 💈';
 
-    // 4. Construir la URL de WhatsApp
+    // 4. Construir y abrir la URL
     final url = 'https://api.whatsapp.com/send/?phone=$phone&text=$message';
     final uri = Uri.parse(url);
 
     try {
-      // 5. Abrir WhatsApp (Web o App)
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri, webOnlyWindowName: '_blank');
-        print('✅ WhatsApp abierto para enviar confirmación a $phone');
-      } else {
-        print('❌ No se pudo abrir WhatsApp');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('⚠️ No se pudo abrir WhatsApp'), backgroundColor: Colors.orange),
-          );
-        }
+        print('✅ WhatsApp abierto para ${isCancellation ? 'cancelación' : 'confirmación'} a $phone');
       }
     } catch (e) {
       print('❌ Error al abrir WhatsApp: $e');
@@ -200,9 +194,11 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
       await _appointmentRepo.updateAppointment(appointment);
       await Supabase.instance.client.from('appointments').update({'status': newStatus}).eq('id', appointment.remoteId!);
       
-      // ✅ Enviar WhatsApp si se confirma
+      // ✅ Enviar WhatsApp si se confirma O si se cancela
       if (newStatus == 'confirmed') {
-        await _sendWhatsAppNotification(appointment);
+        await _sendWhatsAppNotification(appointment, isCancellation: false);
+      } else if (newStatus == 'cancelled') {
+        await _sendWhatsAppNotification(appointment, isCancellation: true);
       }
       
       await _loadData();
@@ -223,7 +219,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
       print('❌ Error al actualizar estado: $e');
     }
   }
-
+  
   Future<void> _deleteAppointment(LocalAppointment appointment) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -431,6 +427,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
         ),
         title: const Text('Agenda de Citas'),
         backgroundColor: Colors.indigo[700],
+        foregroundColor: Colors.white, // ✅ Agrega esta línea
         actions: [
           IconButton(
             icon: const Text('🔄', style: TextStyle(fontSize: 20)),

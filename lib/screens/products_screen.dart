@@ -153,6 +153,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
         ),
         title: const Text('Gestión de Productos'),
         backgroundColor: Colors.indigo[700],
+        foregroundColor: Colors.white, // ✅ Agrega esta línea 
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

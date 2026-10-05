@@ -255,12 +255,12 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
         foregroundColor: Colors.white,
         actions: [
           IconButton(
-            icon: const Text('📄', style: TextStyle(fontSize: 20)),
+            icon: const Text('🅰️', style: TextStyle(fontSize: 20)),
             tooltip: 'Exportar PDF',
             onPressed: _exportToPDF,
           ),
           IconButton(
-            icon: const Text('📊', style: TextStyle(fontSize: 20)),
+            icon: const Text('🅴xcel', style: TextStyle(fontSize: 20)),
             tooltip: 'Exportar Excel',
             onPressed: _exportToExcel,
           ),

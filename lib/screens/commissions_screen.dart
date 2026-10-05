@@ -169,6 +169,7 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
       appBar: AppBar(
         title: const Text('💰 Comisiones por Barbero'),
         backgroundColor: Colors.indigo[700],
+        foregroundColor: Colors.white, // ✅ CAMBIA TODO EL TEXTO E ICONOS DEL APPBAR A BLANCO
         actions: [
           IconButton(
             icon: const Text('🔄', style: TextStyle(fontSize: 20)),
@@ -191,7 +192,7 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
                     Expanded(
                       child: Text(
                         '${DateFormat('dd/MM/yyyy').format(_startDate)} - ${DateFormat('dd/MM/yyyy').format(_endDate)}',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87),
                       ),
                     ),
                     ElevatedButton.icon(
@@ -200,6 +201,7 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
                       label: const Text('Rango'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.indigo[700],
+                        foregroundColor: Colors.white, // ✅ TEXTO DEL BOTÓN EN BLANCO
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       ),
                     ),

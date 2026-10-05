@@ -121,6 +121,7 @@ class _ServicesScreenState extends State<ServicesScreen> {
         ),
         title: const Text('Gestión de Servicios'),
         backgroundColor: Colors.indigo[700],
+        foregroundColor: Colors.white, // ✅ Agrega esta línea
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

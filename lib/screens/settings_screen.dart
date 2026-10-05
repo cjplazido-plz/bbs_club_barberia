@@ -118,6 +118,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         title: const Text('Configuración de la Barbería'),
         backgroundColor: Colors.indigo[700],
+        foregroundColor: Colors.white, // ✅ Agrega esta línea
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

@@ -60,6 +60,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         title: const Text('Dashboard'),
         backgroundColor: Colors.indigo[700],
+        foregroundColor: Colors.white, // ✅ Agrega esta línea
         actions: [
           IconButton(
             icon: const Text('', style: TextStyle(fontSize: 20)),
@@ -217,7 +218,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ..._barberRanking.asMap().entries.map((entry) {
                 final index = entry.key;
                 final barber = entry.value;
-                final medals = ['🥇', '', '🥉'];
+                final medals = ['🥇', '🥈', '🥉'];
                 return ListTile(
                   leading: Text(index < 3 ? medals[index] : '${index + 1}', style: const TextStyle(fontSize: 24)),
                   title: Text(barber['name'] as String, style: const TextStyle(fontWeight: FontWeight.bold)),
