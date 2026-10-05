@@ -127,7 +127,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                           _infoRow('Método de pago', _formatPaymentMethod(transaction['payment_method'])),
                           if (transaction['payment_method'] == 'cash') ...[
                             _infoRow('Recibido', SettingsService.formatCurrency((transaction['cash_received'] as num?)?.toDouble() ?? 0.0)),
-                            if ((transaction['change_amount'] as num?)?.toDouble() ?? 0.0 > 0)
+                            if (((transaction['change_amount'] as num?)?.toDouble() ?? 0.0) > 0)
                               _infoRow('Vuelto', SettingsService.formatCurrency((transaction['change_amount'] as num?)?.toDouble() ?? 0.0)),
                           ],
                         ],
@@ -331,7 +331,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                   pw.Text('Recibido:', style: pw.TextStyle(fontSize: 7)),
                   pw.Text(SettingsService.formatCurrency((transaction['cash_received'] as num?)?.toDouble() ?? 0.0), style: pw.TextStyle(fontSize: 7)),
                 ]),
-                if ((transaction['change_amount'] as num?)?.toDouble() ?? 0.0 > 0) ...[
+                if (((transaction['change_amount'] as num?)?.toDouble() ?? 0.0) > 0) ...[
                   pw.SizedBox(height: 2),
                   pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
                     pw.Text('Vuelto:', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
