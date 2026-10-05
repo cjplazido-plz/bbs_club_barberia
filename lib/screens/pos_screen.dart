@@ -26,6 +26,7 @@ import 'appointments_screen.dart';
 import 'dashboard_screen.dart';
 import 'login_screen.dart';
 import 'settings_screen.dart';
+import 'advanced_reports_screen.dart';
 
 class PosScreen extends StatefulWidget {
   @override
@@ -697,6 +698,7 @@ Future<void> _completeTransaction({required double cashReceived, required double
               Column(
                 children: [
                   if (currentUserRole == 'admin') ...[
+                    _buildMenuItem('📝', 'Reportes Avanzados', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => AdvancedReportsScreen())); }),
                     _buildMenuItem('💰', 'Comisiones', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => CommissionsScreen())); }),
                     _buildMenuItem('💈', 'Barberos', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => BarbersScreen())).then((_) => _loadData()); }),
                     _buildMenuItem('✂️', 'Servicios', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ServicesScreen())).then((_) => _loadData()); }),
