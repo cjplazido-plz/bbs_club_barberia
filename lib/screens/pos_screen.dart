@@ -907,6 +907,7 @@ Future<void> _completeTransaction({required double cashReceived, required double
                 IconButton(icon: const Text('📅', style: TextStyle(fontSize: 20)), tooltip: 'Agenda', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => AppointmentsScreen())); }),
                 IconButton(icon: const Text('📊', style: TextStyle(fontSize: 20)), tooltip: 'Dashboard', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => DashboardScreen())); }),
                 IconButton(icon: const Text('📈', style: TextStyle(fontSize: 20)), tooltip: 'Reportes', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => ReportsScreen())); }),
+                IconButton(icon: const Text('📝', style: TextStyle(fontSize: 20)), tooltip: 'Reportes Avanzados', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => AdvancedReportsScreen())); }),
                 IconButton(icon: const Text('⚙️', style: TextStyle(fontSize: 20)), tooltip: 'Config', onPressed: () {Navigator.push(context, MaterialPageRoute(builder: (context) => SettingsScreen()));},),
               ],
               if (currentUserRole == 'cashier') ...[
