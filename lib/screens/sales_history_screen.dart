@@ -119,7 +119,9 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _infoRow('ID', transaction['id']?.toString().substring(0, 20) ?? 'N/A'),
+                          _infoRow('ID', (transaction['id']?.toString() ?? 'N/A').length > 20 
+                           ? '${transaction['id'].toString().substring(0, 20)}...' 
+                              : transaction['id']?.toString() ?? 'N/A'),
                           const Divider(),
                           _infoRow('Cajero', transaction['cashier_name'] ?? 'N/A'),
                           if (transaction['barber_name'] != null && transaction['barber_name'].toString().isNotEmpty)
