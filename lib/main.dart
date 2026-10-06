@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:intl/date_symbol_data_local.dart'; // ✅ NUEVO: Para inicializar locale
+import 'package:intl/date_symbol_data_local.dart';
 import 'services/database_service.dart';
 import 'services/settings_service.dart';
 import 'screens/login_screen.dart';
@@ -13,7 +13,7 @@ String currentUserEmail = '';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // ✅ INICIALIZAR LOCALE ESPAÑOL (necesario para DateFormat)
+  // ✅ Inicializar locale español
   await initializeDateFormatting('es', null);
   
   // Inicializar Isar

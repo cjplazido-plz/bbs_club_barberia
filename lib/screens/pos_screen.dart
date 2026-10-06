@@ -40,18 +40,18 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
   final _productRepo = ProductRepository();
   final _appointmentRepo = AppointmentRepository();
   final _printer = PrinterService();
-
   late TabController _tabController;
-
   List<LocalService> _services = [];
   List<LocalBarber> _barbers = [];
   List<LocalClient> _clients = [];
   List<LocalProduct> _products = [];
   List<LocalAppointment> _todayAppointments = [];
   List<LocalTransactionItem> _cart = [];
-
   String _paymentMethod = 'cash';
+  
+  // ✅ CAMBIO 3: Inicia en null (no se selecciona barbero por defecto)
   LocalBarber? _selectedBarber;
+  
   LocalClient? _selectedClient;
   LocalAppointment? _selectedAppointment;
   double _discount = 0.0;
@@ -74,7 +74,6 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
     final barbers = await _barberRepo.getAllBarbers();
     final clients = await _clientRepo.getAllClients();
     final products = await _productRepo.getAllProducts();
-
     final today = DateTime.now();
     final appointments = await _appointmentRepo.getAppointmentsByDate(today);
     final pendingAppointments = appointments.where((a) =>
@@ -87,20 +86,20 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
       _clients = clients;
       _products = products;
       _todayAppointments = pendingAppointments;
-      if (barbers.isNotEmpty) _selectedBarber = barbers.first;
+      // ✅ CAMBIO 3: NO seleccionar barbero por defecto
+      // if (barbers.isNotEmpty) _selectedBarber = barbers.first; // ❌ ELIMINADO
     });
   }
 
+  // ✅ CAMBIO 3: Validación al agregar servicio
   void _addServiceToCart(LocalService service) {
     if (_selectedBarber == null) {
-      _showSnackbar('Selecciona un barbero primero', Colors.orange);
+      _showBarberRequiredDialog();
       return;
     }
-
     setState(() {
       final existingIndex = _cart.indexWhere((item) =>
           item.type == 'service' && item.serviceId == service.remoteId);
-
       if (existingIndex >= 0) {
         _cart[existingIndex].quantity++;
       } else {
@@ -122,7 +121,6 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
     setState(() {
       final existingIndex = _cart.indexWhere((item) =>
           item.type == 'product' && item.productId == product.remoteId);
-
       if (existingIndex >= 0) {
         _cart[existingIndex].quantity++;
       } else {
@@ -135,6 +133,90 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
       }
     });
     _showSnackbar('✅ ${product.name} agregado', Colors.green);
+  }
+
+  // ✅ CAMBIO 3: Diálogo para solicitar barbero
+  void _showBarberRequiredDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Text('', style: TextStyle(fontSize: 24)),
+            SizedBox(width: 8),
+            Text('Selecciona un barbero'),
+          ],
+        ),
+        content: const Text(
+          'Para agregar servicios al carrito, primero debes seleccionar un barbero.',
+          style: TextStyle(fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _showBarberSelector();
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo[700]),
+            child: const Text('Seleccionar barbero'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ✅ CAMBIO 3: Selector de barbero
+  void _showBarberSelector() {
+    if (_barbers.isEmpty) {
+      _showSnackbar('No hay barberos registrados', Colors.orange);
+      return;
+    }
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Seleccionar Barbero'),
+        content: SizedBox(
+          width: 400,
+          height: 300,
+          child: ListView.builder(
+            itemCount: _barbers.length,
+            itemBuilder: (context, index) {
+              final barber = _barbers[index];
+              final isSelected = _selectedBarber?.remoteId == barber.remoteId;
+              return ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: isSelected ? Colors.indigo[100] : Colors.grey[200],
+                  child: Text(barber.name[0].toUpperCase(),
+                      style: TextStyle(color: isSelected ? Colors.indigo[700] : Colors.grey[700])),
+                ),
+                title: Text(barber.name,
+                    style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+                trailing: isSelected
+                    ? const Icon(Icons.check_circle, color: Colors.indigo)
+                    : null,
+                onTap: () {
+                  setState(() {
+                    _selectedBarber = barber;
+                  });
+                  Navigator.pop(context);
+                  _showSnackbar('✅ Barbero seleccionado: ${barber.name}', Colors.green);
+                },
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _removeFromCart(int index) {
@@ -159,7 +241,6 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
       _showSnackbar('Agrega servicios o productos al carrito', Colors.orange);
       return;
     }
-
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -173,6 +254,11 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
             const SizedBox(height: 8),
             Text('Método de pago: ${_formatPaymentMethod(_paymentMethod)}',
                 style: TextStyle(color: Colors.grey[700])),
+            if (_selectedBarber != null) ...[
+              const SizedBox(height: 8),
+              Text('Barbero: ${_selectedBarber!.name}',
+                  style: TextStyle(color: Colors.grey[700])),
+            ],
           ],
         ),
         actions: [
@@ -188,7 +274,6 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
         ],
       ),
     );
-
     if (confirm != true) return;
 
     if (_paymentMethod == 'cash') {
@@ -215,7 +300,6 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
   Future<Map<String, double>?> _showCashPaymentDialog() async {
     final receivedController = TextEditingController();
     double change = 0.0;
-
     return showDialog<Map<String, double>>(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -226,7 +310,6 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
               change = received - _total;
             });
           }
-
           return AlertDialog(
             title: const Row(
               children: [
@@ -365,198 +448,183 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
       ),
     );
   }
-Future<void> _completeTransaction({required double cashReceived, required double change}) async {
-  // ✅ 1. Crear objeto de transacción
-  final transaction = LocalTransaction()
-    ..remoteId = 'trans-${DateTime.now().millisecondsSinceEpoch}'
-    ..cashRegisterId = 'caja-001'
-    ..cashierId = 'user-001'
-    ..cashierName = currentUserName.isNotEmpty ? currentUserName : 'Recepcion'
-    ..subtotal = _subtotal
-    ..total = _total
-    ..paymentMethod = _paymentMethod
-    ..cashReceived = cashReceived
-    ..changeAmount = change
-    ..items = List.from(_cart);
 
-  // ✅ 2. PRIMERO guardar en Supabase (antes de imprimir)
-  String? transactionId;
-  try {
-    print('🔄 Guardando transacción en Supabase...');
-    
-    final transResponse = await Supabase.instance.client
-        .from('transactions')
-        .insert({
-      'id': transaction.remoteId,
-      'cash_register_id': transaction.cashRegisterId,
-      'cashier_id': transaction.cashierId,
-      'cashier_name': transaction.cashierName,
-      'barber_id': _selectedBarber?.remoteId ?? '',
-      'subtotal': transaction.subtotal,
-      'total': transaction.total,
-      'payment_method': transaction.paymentMethod,
-      'cash_received': cashReceived,
-      'change_amount': change,
-      'status': 'completed',
-      'created_at': DateTime.now().toIso8601String(), // ✅ AGREGADO
-    })
-        .select()
-        .single();
+  Future<void> _completeTransaction({required double cashReceived, required double change}) async {
+    final transaction = LocalTransaction()
+      ..remoteId = 'trans-${DateTime.now().millisecondsSinceEpoch}'
+      ..cashRegisterId = 'caja-001'
+      ..cashierId = 'user-001'
+      ..cashierName = currentUserName.isNotEmpty ? currentUserName : 'Recepcion'
+      ..subtotal = _subtotal
+      ..total = _total
+      ..paymentMethod = _paymentMethod
+      ..cashReceived = cashReceived
+      ..changeAmount = change
+      ..items = List.from(_cart);
 
-    transactionId = transResponse['id'];
-    print('✅ Transacción creada en Supabase: $transactionId');
+    String? transactionId;
+    try {
+      print('🔄 Guardando transacción en Supabase...');
+      final transResponse = await Supabase.instance.client
+          .from('transactions')
+          .insert({
+        'id': transaction.remoteId,
+        'cash_register_id': transaction.cashRegisterId,
+        'cashier_id': transaction.cashierId,
+        'cashier_name': transaction.cashierName,
+        'barber_id': _selectedBarber?.remoteId ?? '',
+        'subtotal': transaction.subtotal,
+        'total': transaction.total,
+        'payment_method': transaction.paymentMethod,
+        'cash_received': cashReceived,
+        'change_amount': change,
+        'status': 'completed',
+        'created_at': DateTime.now().toIso8601String(),
+      })
+          .select()
+          .single();
+      transactionId = transResponse['id'];
+      print('✅ Transacción creada en Supabase: $transactionId');
 
-    // ✅ 3. Guardar items de la transacción
-    final itemsData = transaction.items.map((item) => {
-      'transaction_id': transactionId,
-      'item_type': item.type,
-      'service_id': item.type == 'service' ? item.serviceId : null,
-      'service_name': item.type == 'service' ? item.serviceName : null,
-      'product_id': item.type == 'product' ? item.productId : null,
-      'product_name': item.type == 'product' ? item.productName : null,
-      'barber_id': item.barberId.isNotEmpty ? item.barberId : null,
-      'barber_name': item.barberName.isNotEmpty ? item.barberName : null,
-      'price_at_moment': item.priceAtMoment,
-      'quantity': item.quantity,
-      'commission_earned': item.commissionEarned,
-    }).toList();
+      final itemsData = transaction.items.map((item) => {
+        'transaction_id': transactionId,
+        'item_type': item.type,
+        'service_id': item.type == 'service' ? item.serviceId : null,
+        'service_name': item.type == 'service' ? item.serviceName : null,
+        'product_id': item.type == 'product' ? item.productId : null,
+        'product_name': item.type == 'product' ? item.productName : null,
+        'barber_id': item.barberId.isNotEmpty ? item.barberId : null,
+        'barber_name': item.barberName.isNotEmpty ? item.barberName : null,
+        'price_at_moment': item.priceAtMoment,
+        'quantity': item.quantity,
+        'commission_earned': item.commissionEarned,
+      }).toList();
+      await Supabase.instance.client.from('transaction_items').insert(itemsData);
+      print('✅ ${itemsData.length} items guardados en Supabase');
 
-    await Supabase.instance.client.from('transaction_items').insert(itemsData);
-    print('✅ ${itemsData.length} items guardados en Supabase');
-
-    // ✅ 4. Actualizar stock de productos
-    for (final item in transaction.items) {
-      if (item.type == 'product' && item.productId != null && item.productId!.isNotEmpty) {
-        try {
-          final productId = item.productId as String;
-          final productResponse = await Supabase.instance.client
-              .from('products')
-              .select('stock')
-              .eq('id', productId)
-              .single();
-
-          final currentStock = (productResponse['stock'] as num).toInt();
-          final newStock = currentStock - item.quantity;
-
-          await Supabase.instance.client
-              .from('products')
-              .update({'stock': newStock})
-              .eq('id', productId);
-
-          print('📦 Stock actualizado: ${item.productName} ($currentStock → $newStock)');
-        } catch (e) {
-          print('️ Error al actualizar stock de ${item.productName}: $e');
+      for (final item in transaction.items) {
+        if (item.type == 'product' && item.productId != null && item.productId!.isNotEmpty) {
+          try {
+            final productId = item.productId as String;
+            final productResponse = await Supabase.instance.client
+                .from('products')
+                .select('stock')
+                .eq('id', productId)
+                .single();
+            final currentStock = (productResponse['stock'] as num).toInt();
+            final newStock = currentStock - item.quantity;
+            await Supabase.instance.client
+                .from('products')
+                .update({'stock': newStock})
+                .eq('id', productId);
+            print('📦 Stock actualizado: ${item.productName} ($currentStock → $newStock)');
+          } catch (e) {
+            print('⚠️ Error al actualizar stock de ${item.productName}: $e');
+          }
         }
       }
-    }
-  } catch (e) {
-    print('❌ ERROR al guardar en Supabase: $e');
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('❌ Error al guardar venta: $e'),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 5),
-        ),
-      );
-    }
-    return; // ✅ NO continuar si no se guardó
-  }
-
-  // ✅ 5. AHORA imprimir el ticket (después de guardar exitosamente)
-  final printed = await _printer.printTicket(transaction);
-  if (!printed) {
-    print('⚠️ No se pudo imprimir el ticket, pero la venta ya está registrada');
-  }
-
-  // ✅ 6. Marcar cita como completada si existe
-  if (_selectedAppointment != null) {
-    try {
-      _selectedAppointment!.status = 'completed';
-      await _appointmentRepo.updateAppointment(_selectedAppointment!);
-      await Supabase.instance.client
-          .from('appointments')
-          .update({'status': 'completed'})
-          .eq('id', _selectedAppointment!.remoteId!);
-      print('✅ Cita marcada como completada: ${_selectedAppointment!.clientName}');
     } catch (e) {
-      print('⚠️ Error al actualizar cita: $e');
-    }
-  }
-
-  // ✅ 7. Incrementar visitas del cliente
-  if (_selectedClient != null) {
-    try {
-      await _clientRepo.incrementVisits(_selectedClient!.remoteId!, _total);
-    } catch (e) {
-      print('⚠️ Error al incrementar visitas: $e');
-    }
-  }
-
-  // ✅ 8. Limpiar carrito
-  setState(() {
-    _cart.clear();
-    _discount = 0.0;
-    _selectedClient = null;
-    _selectedAppointment = null;
-  });
-
-  await _loadData();
-
-  // ✅ 9. Mostrar resumen de pago
-  if (_paymentMethod == 'cash' && change > 0) {
-    if (mounted) {
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Row(
-            children: [
-              Text('✅', style: TextStyle(fontSize: 24)),
-              SizedBox(width: 8),
-              Text('¡Pago Exitoso!'),
-            ],
+      print('❌ ERROR al guardar en Supabase: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ Error al guardar venta: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
           ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.green[50],
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  children: [
-                    const Text('Vuelto a entregar', style: TextStyle(color: Colors.grey)),
-                    const SizedBox(height: 4),
-                    Text(
-                      SettingsService.formatCurrency(change),
-                      style: TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: Colors.green[700]),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Recibido: ${SettingsService.formatCurrency(cashReceived)}',
-                style: const TextStyle(fontSize: 14),
-              ),
-            ],
-          ),
-          actions: [
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.green[600]),
-              child: const Text('Entregar vuelto'),
+        );
+      }
+      return;
+    }
+
+    final printed = await _printer.printTicket(transaction);
+    if (!printed) {
+      print('⚠️ No se pudo imprimir el ticket, pero la venta ya está registrada');
+    }
+
+    if (_selectedAppointment != null) {
+      try {
+        _selectedAppointment!.status = 'completed';
+        await _appointmentRepo.updateAppointment(_selectedAppointment!);
+        await Supabase.instance.client
+            .from('appointments')
+            .update({'status': 'completed'})
+            .eq('id', _selectedAppointment!.remoteId!);
+        print('✅ Cita marcada como completada: ${_selectedAppointment!.clientName}');
+      } catch (e) {
+        print('⚠️ Error al actualizar cita: $e');
+      }
+    }
+
+    if (_selectedClient != null) {
+      try {
+        await _clientRepo.incrementVisits(_selectedClient!.remoteId!, _total);
+      } catch (e) {
+        print('⚠️ Error al incrementar visitas: $e');
+      }
+    }
+
+    setState(() {
+      _cart.clear();
+      _discount = 0.0;
+      _selectedClient = null;
+      _selectedAppointment = null;
+    });
+    await _loadData();
+
+    if (_paymentMethod == 'cash' && change > 0) {
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Row(
+              children: [
+                Text('✅', style: TextStyle(fontSize: 24)),
+                SizedBox(width: 8),
+                Text('¡Pago Exitoso!'),
+              ],
             ),
-          ],
-        ),
-      );
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.green[50],
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    children: [
+                      const Text('Vuelto a entregar', style: TextStyle(color: Colors.grey)),
+                      const SizedBox(height: 4),
+                      Text(
+                        SettingsService.formatCurrency(change),
+                        style: TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: Colors.green[700]),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Recibido: ${SettingsService.formatCurrency(cashReceived)}',
+                  style: const TextStyle(fontSize: 14),
+                ),
+              ],
+            ),
+            actions: [
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.green[600]),
+                child: const Text('Entregar vuelto'),
+              ),
+            ],
+          ),
+        );
+      }
+    } else {
+      _showSnackbar('✅ Venta registrada y guardada', Colors.green);
     }
-  } else {
-    _showSnackbar('✅ Venta registrada y guardada', Colors.green);
   }
-}
 
   void _showClientSelector() {
     showDialog(
@@ -594,7 +662,6 @@ Future<void> _completeTransaction({required double cashReceived, required double
       _showSnackbar('No hay citas pendientes para hoy', Colors.orange);
       return;
     }
-
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -608,10 +675,10 @@ Future<void> _completeTransaction({required double cashReceived, required double
               return ListTile(
                 leading: CircleAvatar(
                   backgroundColor: apt.status == 'pending' ? Colors.orange[100] : Colors.green[100],
-                  child: const Text('📅', style: TextStyle(fontSize: 20)),
+                  child: const Text('', style: TextStyle(fontSize: 20)),
                 ),
                 title: Text(apt.clientName ?? 'Sin cliente'),
-                subtitle: Text('${apt.serviceName ?? ''} - ${apt.barberName ?? ''}\n${apt.appointmentDate.hour.toString().padLeft(2, '0')}:${apt.appointmentDate.minute.toString().padLeft(2, '0')}'),
+                subtitle: Text('${apt.serviceName ?? ''} - ${apt.barberName ?? ''} - ${apt.appointmentDate.hour.toString().padLeft(2, '0')}:${apt.appointmentDate.minute.toString().padLeft(2, '0')}'),
                 trailing: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
@@ -660,7 +727,6 @@ Future<void> _completeTransaction({required double cashReceived, required double
         ],
       ),
     );
-
     if (confirm == true) {
       await Supabase.instance.client.auth.signOut();
       if (mounted) {
@@ -698,17 +764,17 @@ Future<void> _completeTransaction({required double cashReceived, required double
               Column(
                 children: [
                   if (currentUserRole == 'admin') ...[
-                    _buildMenuItem('📝', 'Reportes Avanzados', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => AdvancedReportsScreen())); }),
+                    _buildMenuItem('', 'Reportes Avanzados', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => AdvancedReportsScreen())); }),
                     _buildMenuItem('💰', 'Comisiones', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => CommissionsScreen())); }),
                     _buildMenuItem('💈', 'Barberos', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => BarbersScreen())).then((_) => _loadData()); }),
                     _buildMenuItem('✂️', 'Servicios', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ServicesScreen())).then((_) => _loadData()); }),
                     _buildMenuItem('📦', 'Productos', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ProductsScreen())).then((_) => _loadData()); }),
                     _buildMenuItem('👥', 'Usuarios', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => UsersScreen())); }),
                     _buildMenuItem('📅', 'Agenda de Citas', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => AppointmentsScreen())); }),
-                    _buildMenuItem('📊', 'Dashboard', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => DashboardScreen())); }),
+                    _buildMenuItem('', 'Dashboard', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => DashboardScreen())); }),
                     _buildMenuItem('📈', 'Reportes', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ReportsScreen())); }),
                     _buildMenuItem('🧾', 'Historial de Ventas', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => SalesHistoryScreen())); }),
-                    _buildMenuItem('⚙️', 'Configuración', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => SettingsScreen())); }),
+                    _buildMenuItem('️', 'Configuración', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => SettingsScreen())); }),
                   ],
                   if (currentUserRole == 'cashier') ...[
                     _buildMenuItem('📜', 'Historial', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => SalesHistoryScreen())); }),
@@ -741,7 +807,6 @@ Future<void> _completeTransaction({required double cashReceived, required double
     );
   }
 
-  // ✅ Bottom Sheet para carrito en móvil
   void _showCartBottomSheet() {
     showModalBottomSheet(
       context: context,
@@ -758,80 +823,80 @@ Future<void> _completeTransaction({required double cashReceived, required double
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(color: Colors.indigo[700], borderRadius: const BorderRadius.vertical(top: Radius.circular(20))),
-                child: Row(children: [const Text('', style: TextStyle(fontSize: 20)), const SizedBox(width: 8), Text('Carrito (${_cart.length})', style: const TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold))]),
+                child: Row(children: [const Text('🛒', style: TextStyle(fontSize: 20)), const SizedBox(width: 8), Text('Carrito (${_cart.length})', style: const TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold))]),
               ),
               Expanded(
                 child: _cart.isEmpty
                     ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text('🛒', style: TextStyle(fontSize: 64)),
+                      const SizedBox(height: 16),
+                      Text('Carrito vacío', style: TextStyle(color: Colors.grey[400], fontSize: 16)),
+                      const SizedBox(height: 8),
+                      Text('Agrega servicios o productos', style: TextStyle(color: Colors.grey[400], fontSize: 12)),
+                    ],
+                  ),
+                )
+                    : ListView.builder(
+                  controller: scrollController,
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _cart.length,
+                  itemBuilder: (context, index) {
+                    final item = _cart[index];
+                    final isService = item.type == 'service';
+                    return Card(
+                      elevation: 1, margin: const EdgeInsets.only(bottom: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        leading: Text(isService ? '✂️' : '🛍️', style: TextStyle(fontSize: 24)),
+                        title: Text(item.serviceName.isNotEmpty ? item.serviceName : (item.productName ?? ''), style: const TextStyle(fontWeight: FontWeight.w600)),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('🛒', style: TextStyle(fontSize: 64)),
-                            const SizedBox(height: 16),
-                            Text('Carrito vacío', style: TextStyle(color: Colors.grey[400], fontSize: 16)),
-                            const SizedBox(height: 8),
-                            Text('Agrega servicios o productos', style: TextStyle(color: Colors.grey[400], fontSize: 12)),
+                            Text('${SettingsService.formatCurrency(item.priceAtMoment)} x ${item.quantity}', style: const TextStyle(fontSize: 12)),
+                            if (isService && item.barberName.isNotEmpty) Text('Barbero: ${item.barberName}', style: const TextStyle(fontSize: 12)),
                           ],
                         ),
-                      )
-                    : ListView.builder(
-                        controller: scrollController,
-                        padding: const EdgeInsets.all(16),
-                        itemCount: _cart.length,
-                        itemBuilder: (context, index) {
-                          final item = _cart[index];
-                          final isService = item.type == 'service';
-                          return Card(
-                            elevation: 1, margin: const EdgeInsets.only(bottom: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            child: ListTile(
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                              leading: Text(isService ? '✂️' : '️', style: TextStyle(fontSize: 24)),
-                              title: Text(item.serviceName.isNotEmpty ? item.serviceName : (item.productName ?? ''), style: const TextStyle(fontWeight: FontWeight.w600)),
-                              subtitle: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text('${SettingsService.formatCurrency(item.priceAtMoment)} x ${item.quantity}', style: const TextStyle(fontSize: 12)),
-                                  if (isService && item.barberName.isNotEmpty) Text('Barbero: ${item.barberName}', style: const TextStyle(fontSize: 12)),
-                                ],
-                              ),
-                              trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                                IconButton(
-                                  icon: const Text('➖', style: TextStyle(fontSize: 16)),
-                                  onPressed: () {
-                                    setModalState(() {
-                                      if (item.quantity <= 1) {
-                                        _cart.removeAt(index);
-                                      } else {
-                                        item.quantity--;
-                                      }
-                                    });
-                                    setState(() {});
-                                  },
-                                ),
-                                Text('${item.quantity}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                                IconButton(
-                                  icon: const Text('➕', style: TextStyle(fontSize: 16)),
-                                  onPressed: () {
-                                    setModalState(() {
-                                      item.quantity++;
-                                    });
-                                    setState(() {});
-                                  },
-                                ),
-                                IconButton(
-                                  icon: const Text('🗑️', style: TextStyle(fontSize: 16)),
-                                  onPressed: () {
-                                    setModalState(() {
-                                      _cart.removeAt(index);
-                                    });
-                                    setState(() {});
-                                  },
-                                ),
-                              ]),
-                            ),
-                          );
-                        },
+                        trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                          IconButton(
+                            icon: const Text('', style: TextStyle(fontSize: 16)),
+                            onPressed: () {
+                              setModalState(() {
+                                if (item.quantity <= 1) {
+                                  _cart.removeAt(index);
+                                } else {
+                                  item.quantity--;
+                                }
+                              });
+                              setState(() {});
+                            },
+                          ),
+                          Text('${item.quantity}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                          IconButton(
+                            icon: const Text('➕', style: TextStyle(fontSize: 16)),
+                            onPressed: () {
+                              setModalState(() {
+                                item.quantity++;
+                              });
+                              setState(() {});
+                            },
+                          ),
+                          IconButton(
+                            icon: const Text('️', style: TextStyle(fontSize: 16)),
+                            onPressed: () {
+                              setModalState(() {
+                                _cart.removeAt(index);
+                              });
+                              setState(() {});
+                            },
+                          ),
+                        ]),
                       ),
+                    );
+                  },
+                ),
               ),
               Container(
                 padding: const EdgeInsets.all(16),
@@ -844,7 +909,7 @@ Future<void> _completeTransaction({required double cashReceived, required double
                     const SizedBox(height: 12),
                     OutlinedButton.icon(onPressed: _showAppointmentSelector, icon: const Text('📅', style: TextStyle(fontSize: 16)), label: Text(_selectedAppointment?.clientName ?? 'Seleccionar cita'), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 40))),
                     const SizedBox(height: 8),
-                    OutlinedButton.icon(onPressed: _showClientSelector, icon: const Text('', style: TextStyle(fontSize: 16)), label: Text(_selectedClient?.name ?? 'Seleccionar cliente'), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 40))),
+                    OutlinedButton.icon(onPressed: _showClientSelector, icon: const Text('👤', style: TextStyle(fontSize: 16)), label: Text(_selectedClient?.name ?? 'Seleccionar cliente'), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 40))),
                     const SizedBox(height: 8),
                     DropdownButtonFormField<String>(
                       value: _paymentMethod,
@@ -873,14 +938,41 @@ Future<void> _completeTransaction({required double cashReceived, required double
 
   @override
   Widget build(BuildContext context) {
-    // ✅ Detectar si es móvil (ancho < 700px)
     final isMobile = MediaQuery.of(context).size.width < 700;
-
     return Scaffold(
       appBar: AppBar(
-        title: Text('${SettingsService.shopName} POS', style: TextStyle(fontWeight: FontWeight.bold, fontSize: isMobile ? 16 : 20, color: Colors.white)),
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                '${SettingsService.shopName} POS',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: isMobile ? 14 : 20, color: Colors.white),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            // ✅ CAMBIO 1: Mostrar nombre del usuario conectado
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.person, size: 16, color: Colors.white),
+                  const SizedBox(width: 6),
+                  Text(
+                    currentUserName.isNotEmpty ? currentUserName : 'Usuario',
+                    style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
         backgroundColor: Colors.indigo[700],
-        foregroundColor: Colors.white, // ✅ Agrega esta línea
+        foregroundColor: Colors.white,
         elevation: 0,
         bottom: TabBar(
           controller: _tabController,
@@ -889,7 +981,7 @@ Future<void> _completeTransaction({required double cashReceived, required double
           unselectedLabelColor: Colors.white70,
           tabs: const [
             Tab(icon: Text('✂️', style: TextStyle(fontSize: 20)), text: 'Servicios'),
-            Tab(icon: Text('📦', style: TextStyle(fontSize: 20)), text: 'Productos'),
+            Tab(icon: Text('', style: TextStyle(fontSize: 20)), text: 'Productos'),
           ],
         ),
         actions: [
@@ -909,7 +1001,7 @@ Future<void> _completeTransaction({required double cashReceived, required double
                 IconButton(icon: const Text('📅', style: TextStyle(fontSize: 20)), tooltip: 'Agenda', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => AppointmentsScreen())); }),
                 IconButton(icon: const Text('📊', style: TextStyle(fontSize: 20)), tooltip: 'Dashboard', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => DashboardScreen())); }),
                 IconButton(icon: const Text('📈', style: TextStyle(fontSize: 20)), tooltip: 'Reportes', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => ReportsScreen())); }),
-                IconButton(icon: const Text('🧾', style: TextStyle(fontSize: 20)), tooltip: 'Historial de Ventas', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => SalesHistoryScreen())); }),
+                IconButton(icon: const Text('', style: TextStyle(fontSize: 20)), tooltip: 'Historial de Ventas', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => SalesHistoryScreen())); }),
                 IconButton(icon: const Text('📝', style: TextStyle(fontSize: 20)), tooltip: 'Reportes Avanzados', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => AdvancedReportsScreen())); }),
                 IconButton(icon: const Text('⚙️', style: TextStyle(fontSize: 20)), tooltip: 'Config', onPressed: () {Navigator.push(context, MaterialPageRoute(builder: (context) => SettingsScreen()));},),
               ],
@@ -927,51 +1019,66 @@ Future<void> _completeTransaction({required double cashReceived, required double
             ],
         ],
       ),
-      // ✅ LAYOUT RESPONSIVE
       body: isMobile ? _buildMobileLayout() : _buildDesktopLayout(),
-      // ✅ FAB para abrir carrito en móvil
       floatingActionButton: isMobile && _cart.isNotEmpty
           ? FloatingActionButton.extended(
-              onPressed: () => _showCartBottomSheet(),
-              backgroundColor: const Color.fromARGB(255, 204, 80, 63),
-              foregroundColor: Colors.black87,
-              icon: const Text('🛒', style: TextStyle(fontSize: 20)),
-              label: Text('${_cart.length} - ${SettingsService.formatCurrency(_total)}', style: const TextStyle(fontWeight: FontWeight.bold)),
-            )
+        onPressed: () => _showCartBottomSheet(),
+        backgroundColor: const Color.fromARGB(255, 204, 80, 63),
+        foregroundColor: Colors.black87,
+        icon: const Text('🛒', style: TextStyle(fontSize: 20)),
+        label: Text('${_cart.length} - ${SettingsService.formatCurrency(_total)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+      )
           : null,
     );
   }
 
-  // ✅ LAYOUT MÓVIL (vertical): solo servicios/productos
+  // ✅ CAMBIO 3: Layout móvil con selector de barbero interactivo
   Widget _buildMobileLayout() {
     return Column(
       children: [
-        // Selector de barbero compacto
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           color: Colors.white,
           child: Row(
             children: [
-              const Text('👤', style: TextStyle(fontSize: 20)),
+              const Text('💈', style: TextStyle(fontSize: 20)),
               const SizedBox(width: 8),
               const Text('Barbero:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
               const SizedBox(width: 8),
               Expanded(
-                child: DropdownButtonFormField<LocalBarber>(
-                  value: _selectedBarber,
-                  decoration: InputDecoration(
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    isDense: true,
+                child: InkWell(
+                  onTap: _showBarberSelector,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: _selectedBarber != null ? Colors.indigo : Colors.grey[300]!),
+                      borderRadius: BorderRadius.circular(8),
+                      color: _selectedBarber != null ? Colors.indigo[50] : Colors.white,
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            _selectedBarber?.name ?? 'Toca para seleccionar',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: _selectedBarber != null ? Colors.indigo[700] : Colors.grey[600],
+                              fontWeight: _selectedBarber != null ? FontWeight.w600 : FontWeight.normal,
+                            ),
+                          ),
+                        ),
+                        Icon(
+                          Icons.arrow_drop_down,
+                          color: _selectedBarber != null ? Colors.indigo : Colors.grey,
+                        ),
+                      ],
+                    ),
                   ),
-                  items: _barbers.map((barber) => DropdownMenuItem(value: barber, child: Text(barber.name, style: const TextStyle(fontSize: 14)))).toList(),
-                  onChanged: (value) { setState(() { _selectedBarber = value; }); },
                 ),
               ),
             ],
           ),
         ),
-        // Grid de servicios/productos (ocupa todo el espacio)
         Expanded(
           child: TabBarView(
             controller: _tabController,
@@ -985,7 +1092,7 @@ Future<void> _completeTransaction({required double cashReceived, required double
     );
   }
 
-  // ✅ LAYOUT DESKTOP (horizontal): servicios + carrito lado a lado
+  // ✅ CAMBIO 3: Layout desktop con selector de barbero interactivo
   Widget _buildDesktopLayout() {
     return Row(
       children: [
@@ -1000,16 +1107,40 @@ Future<void> _completeTransaction({required double cashReceived, required double
                   decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2))]),
                   child: Row(
                     children: [
-                      Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.indigo[50], borderRadius: BorderRadius.circular(8)), child: const Text('👤', style: TextStyle(fontSize: 20))),
+                      Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.indigo[50], borderRadius: BorderRadius.circular(8)), child: const Text('💈', style: TextStyle(fontSize: 20))),
                       const SizedBox(width: 12),
                       const Text('Barbero:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                       const SizedBox(width: 16),
                       Expanded(
-                        child: DropdownButtonFormField<LocalBarber>(
-                          value: _selectedBarber,
-                          decoration: InputDecoration(border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)), contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
-                          items: _barbers.map((barber) => DropdownMenuItem(value: barber, child: Text(barber.name))).toList(),
-                          onChanged: (value) { setState(() { _selectedBarber = value; }); },
+                        child: InkWell(
+                          onTap: _showBarberSelector,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: _selectedBarber != null ? Colors.indigo : Colors.grey[300]!),
+                              borderRadius: BorderRadius.circular(8),
+                              color: _selectedBarber != null ? Colors.indigo[50] : Colors.white,
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    _selectedBarber?.name ?? 'Toca para seleccionar un barbero',
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      color: _selectedBarber != null ? Colors.indigo[700] : Colors.grey[600],
+                                      fontWeight: _selectedBarber != null ? FontWeight.w600 : FontWeight.normal,
+                                    ),
+                                  ),
+                                ),
+                                Icon(
+                                  Icons.arrow_drop_down,
+                                  color: _selectedBarber != null ? Colors.indigo : Colors.grey,
+                                  size: 24,
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
                     ],
@@ -1033,7 +1164,6 @@ Future<void> _completeTransaction({required double cashReceived, required double
     );
   }
 
-  // ✅ Grid de servicios (responsive: 2 cols móvil, 3 cols desktop)
   Widget _buildServicesGrid({required bool mobile}) {
     return GridView.builder(
       padding: const EdgeInsets.all(12),
@@ -1094,7 +1224,6 @@ Future<void> _completeTransaction({required double cashReceived, required double
     );
   }
 
-  // ✅ Grid de productos (responsive: 2 cols móvil, 3 cols desktop)
   Widget _buildProductsGrid({required bool mobile}) {
     return GridView.builder(
       padding: const EdgeInsets.all(12),
@@ -1162,7 +1291,6 @@ Future<void> _completeTransaction({required double cashReceived, required double
     );
   }
 
-  // ✅ Panel de carrito (solo desktop)
   Widget _buildCartPanel() {
     return Container(
       color: Colors.white,
@@ -1203,7 +1331,7 @@ Future<void> _completeTransaction({required double cashReceived, required double
                   elevation: 1, margin: const EdgeInsets.only(bottom: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   child: ListTile(
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    leading: Text(isService ? '✂️' : '🛍️', style: TextStyle(fontSize: 24)),
+                    leading: Text(isService ? '✂️' : '️', style: TextStyle(fontSize: 24)),
                     title: Text(item.serviceName.isNotEmpty ? item.serviceName : (item.productName ?? ''), style: const TextStyle(fontWeight: FontWeight.w600)),
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1234,14 +1362,14 @@ Future<void> _completeTransaction({required double cashReceived, required double
                 const SizedBox(height: 8),
                 Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('TOTAL:', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)), Text(SettingsService.formatCurrency(_total), style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.green[700]))]),
                 const SizedBox(height: 12),
-                OutlinedButton.icon(onPressed: _showAppointmentSelector, icon: const Text('📅', style: TextStyle(fontSize: 16)), label: Text(_selectedAppointment?.clientName ?? 'Seleccionar cita'), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 40), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)))),
+                OutlinedButton.icon(onPressed: _showAppointmentSelector, icon: const Text('', style: TextStyle(fontSize: 16)), label: Text(_selectedAppointment?.clientName ?? 'Seleccionar cita'), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 40), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)))),
                 const SizedBox(height: 8),
-                OutlinedButton.icon(onPressed: _showClientSelector, icon: const Text('', style: TextStyle(fontSize: 16)), label: Text(_selectedClient?.name ?? 'Seleccionar cliente'), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 40), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)))),
+                OutlinedButton.icon(onPressed: _showClientSelector, icon: const Text('👤', style: TextStyle(fontSize: 16)), label: Text(_selectedClient?.name ?? 'Seleccionar cliente'), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 40), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)))),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
                   value: _paymentMethod,
                   decoration: InputDecoration(border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)), contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
-                  items: const [DropdownMenuItem(value: 'cash', child: Text('💵 Efectivo')), DropdownMenuItem(value: 'card', child: Text('💳 Tarjeta')), DropdownMenuItem(value: 'transfer', child: Text('📱 Transferencia'))],
+                  items: const [DropdownMenuItem(value: 'cash', child: Text('💵 Efectivo')), DropdownMenuItem(value: 'card', child: Text('💳 Tarjeta')), DropdownMenuItem(value: 'transfer', child: Text(' Transferencia'))],
                   onChanged: (value) { setState(() { _paymentMethod = value!; }); },
                 ),
                 const SizedBox(height: 12),

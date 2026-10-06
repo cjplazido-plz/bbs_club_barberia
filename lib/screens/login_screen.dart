@@ -16,6 +16,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   String _errorMessage = '';
 
+  // ✅ EMAIL DEL DESARROLLADOR (acceso protegido)
   static const String developerEmail = 'cjplazido@gmail.com';
 
   Future<void> _handleLogin() async {
@@ -38,6 +39,7 @@ class _LoginScreenState extends State<LoginScreen> {
         String userEmail = response.user?.email ?? '';
 
         try {
+          // ✅ PROTECCIÓN: Si es el email del desarrollador, siempre es admin
           if (userEmail.toLowerCase() == developerEmail.toLowerCase()) {
             role = 'admin';
             userName = 'Desarrollador (Acceso Total)';
@@ -100,9 +102,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isMobile = screenWidth < 600;
-
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
@@ -114,16 +113,16 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
         child: Center(
           child: SingleChildScrollView(
-            padding: EdgeInsets.all(isMobile ? 16 : 32),
+            padding: const EdgeInsets.all(32),
             child: Card(
               elevation: 8,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Padding(
-                padding: EdgeInsets.all(isMobile ? 20 : 32),
+                padding: const EdgeInsets.all(32),
                 child: SizedBox(
-                  width: isMobile ? screenWidth * 0.9 : 400,
+                  width: 400,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -133,37 +132,34 @@ class _LoginScreenState extends State<LoginScreen> {
                         child: SettingsService.shopLogoUrl.isNotEmpty
                             ? Image.network(
                                 SettingsService.shopLogoUrl,
-                                width: isMobile ? 120 : 160,
-                                height: isMobile ? 120 : 160,
+                                width: 160,
+                                height: 160,
                                 fit: BoxFit.contain,
                                 errorBuilder: (context, error, stackTrace) {
-                                  return _buildDefaultLogo(isMobile);
+                                  return _buildDefaultLogo();
                                 },
                                 loadingBuilder: (context, child, loadingProgress) {
                                   if (loadingProgress == null) return child;
-                                  return _buildDefaultLogo(isMobile);
+                                  return _buildDefaultLogo();
                                 },
                               )
-                            : _buildDefaultLogo(isMobile),
+                            : _buildDefaultLogo(),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 24),
                       Text(
                         SettingsService.shopName,
-                        style: TextStyle(
-                          fontSize: isMobile ? 22 : 28,
+                        style: const TextStyle(
+                          fontSize: 28,
                           fontWeight: FontWeight.bold,
                           color: Colors.indigo,
                         ),
-                        textAlign: TextAlign.center,
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 8),
                       Text(
                         'Inicia sesión para continuar',
                         style: TextStyle(color: Colors.grey[600], fontSize: 14),
-                        textAlign: TextAlign.center,
                       ),
-                      const SizedBox(height: 24),
-                      // Email
+                      const SizedBox(height: 32),
                       TextField(
                         controller: _emailController,
                         decoration: const InputDecoration(
@@ -174,8 +170,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         keyboardType: TextInputType.emailAddress,
                       ),
-                      const SizedBox(height: 12),
-                      // Contraseña
+                      const SizedBox(height: 16),
                       TextField(
                         controller: _passwordController,
                         decoration: const InputDecoration(
@@ -185,10 +180,10 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         obscureText: true,
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 16),
                       if (_errorMessage.isNotEmpty)
                         Container(
-                          padding: const EdgeInsets.all(10),
+                          padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
                             color: Colors.red[50],
                             borderRadius: BorderRadius.circular(8),
@@ -196,7 +191,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           child: Row(
                             children: [
-                              const Text('⚠️', style: TextStyle(fontSize: 18)),
+                              const Text('⚠️', style: TextStyle(fontSize: 20)),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
@@ -230,15 +225,16 @@ class _LoginScreenState extends State<LoginScreen> {
                               : const Text(
                                   'INICIAR SESIÓN',
                                   style: TextStyle(
-                                      fontSize: 15,
+                                      fontSize: 16,
                                       fontWeight: FontWeight.bold,
                                       color: Colors.white),
                                 ),
                         ),
                       ),
-                      const SizedBox(height: 20),
+                      // ✅ Link para clientes (reservar cita)
+                      const SizedBox(height: 24),
                       const Divider(),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 16),
                       Text(
                         '¿Eres cliente?',
                         style: TextStyle(color: Colors.grey[600], fontSize: 14),
@@ -246,17 +242,13 @@ class _LoginScreenState extends State<LoginScreen> {
                       const SizedBox(height: 8),
                       TextButton.icon(
                         onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (context) => PublicBookingScreen()),
-                          );
+                          Navigator.pushNamed(context, '/reservar');
                         },
                         icon: const Text('📅', style: TextStyle(fontSize: 20)),
                         label: const Text(
                           'Reservar una cita',
                           style: TextStyle(
-                              fontSize: 15,
+                              fontSize: 16,
                               fontWeight: FontWeight.bold,
                               color: Colors.indigo),
                         ),
@@ -272,16 +264,16 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildDefaultLogo(bool isMobile) {
+  Widget _buildDefaultLogo() {
     return Container(
-      width: isMobile ? 120 : 160,
-      height: isMobile ? 120 : 160,
+      width: 160,
+      height: 160,
       decoration: BoxDecoration(
         color: Colors.indigo[100],
         shape: BoxShape.circle,
       ),
-      child: Center(
-        child: Text('💈', style: TextStyle(fontSize: isMobile ? 56 : 72)),
+      child: const Center(
+        child: Text('💈', style: TextStyle(fontSize: 72)),
       ),
     );
   }
