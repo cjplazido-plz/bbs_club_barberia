@@ -64634,7 +64634,7 @@ break
 case 10:p=9
 c=o.pop()
 j=A.a4(c)
-A.bV("\u26a0\ufe0f Error al descargar logo: "+A.i(j))
+A.bV("\ufe0f Error al descargar logo: "+A.i(j))
 s=12
 break
 case 9:s=4
