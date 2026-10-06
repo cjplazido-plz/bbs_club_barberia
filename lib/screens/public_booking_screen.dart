@@ -1,0 +1,643 @@
+import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:intl/intl.dart';
+import '../services/settings_service.dart';
+
+class PublicBookingScreen extends StatefulWidget {
+  @override
+  State<PublicBookingScreen> createState() => _PublicBookingScreenState();
+}
+
+class _PublicBookingScreenState extends State<PublicBookingScreen> {
+  bool _isLoading = true;
+  bool _isSubmitting = false;
+  List<Map<String, dynamic>> _services = [];
+  List<Map<String, dynamic>> _barbers = [];
+  List<Map<String, dynamic>> _existingAppointments = [];
+
+  String? _selectedServiceId;
+  String? _selectedBarberId;
+  DateTime _selectedDate = DateTime.now().add(const Duration(days: 1));
+  String? _selectedTime;
+  final _nameController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _notesController = TextEditingController();
+
+  // Horarios disponibles (puedes personalizarlos según tu horario)
+  final List<String> _availableTimes = [
+    '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
+    '12:00', '12:30', '14:00', '14:30', '15:00', '15:30',
+    '16:00', '16:30', '17:00', '17:30', '18:00', '18:30',
+    '19:00', '19:30', '20:00',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    setState(() { _isLoading = true; });
+    try {
+      // Cargar servicios activos
+      final services = await Supabase.instance.client
+          .from('services')
+          .select('*')
+          .eq('is_active', true)
+          .order('name');
+
+      // Cargar barberos activos
+      final barbers = await Supabase.instance.client
+          .from('barbers')
+          .select('*')
+          .eq('is_active', true)
+          .order('name');
+
+      setState(() {
+        _services = List<Map<String, dynamic>>.from(services);
+        _barbers = List<Map<String, dynamic>>.from(barbers);
+        _isLoading = false;
+      });
+
+      // Cargar citas existentes para la fecha seleccionada
+      await _loadAppointmentsForDate(_selectedDate);
+    } catch (e) {
+      print('❌ Error al cargar datos: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al cargar datos: $e'), backgroundColor: Colors.red),
+        );
+      }
+      setState(() { _isLoading = false; });
+    }
+  }
+
+  Future<void> _loadAppointmentsForDate(DateTime date) async {
+    try {
+      final startOfDay = DateTime(date.year, date.month, date.day);
+      final endOfDay = startOfDay.add(const Duration(days: 1));
+
+      final appointments = await Supabase.instance.client
+          .from('appointments')
+          .select('*')
+          .gte('appointment_date', startOfDay.toIso8601String())
+          .lt('appointment_date', endOfDay.toIso8601String())
+          .neq('status', 'cancelled');
+
+      setState(() {
+        _existingAppointments = List<Map<String, dynamic>>.from(appointments);
+      });
+    } catch (e) {
+      print('⚠️ Error al cargar citas: $e');
+    }
+  }
+
+  // Obtener horarios ocupados para el barbero seleccionado
+  List<String> get _occupiedTimes {
+    return _existingAppointments
+        .where((apt) {
+          // Si hay barbero seleccionado, filtrar solo sus citas
+          if (_selectedBarberId != null && apt['barber_id'] != _selectedBarberId) {
+            return false;
+          }
+          return true;
+        })
+        .map((apt) {
+          final date = DateTime.parse(apt['appointment_date']);
+          return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+        })
+        .toSet()
+        .toList();
+  }
+
+  Future<void> _submitBooking() async {
+    // Validaciones
+    if (_selectedServiceId == null) {
+      _showError('Por favor selecciona un servicio');
+      return;
+    }
+    if (_selectedBarberId == null) {
+      _showError('Por favor selecciona un barbero');
+      return;
+    }
+    if (_selectedTime == null) {
+      _showError('Por favor selecciona un horario');
+      return;
+    }
+    if (_nameController.text.trim().isEmpty) {
+      _showError('Por favor ingresa tu nombre');
+      return;
+    }
+    if (_phoneController.text.trim().isEmpty) {
+      _showError('Por favor ingresa tu teléfono');
+      return;
+    }
+
+    setState(() { _isSubmitting = true; });
+
+    try {
+      final service = _services.firstWhere((s) => s['id'] == _selectedServiceId);
+      final barber = _barbers.firstWhere((b) => b['id'] == _selectedBarberId);
+
+      // Crear fecha y hora de la cita
+      final timeParts = _selectedTime!.split(':');
+      final appointmentDateTime = DateTime(
+        _selectedDate.year,
+        _selectedDate.month,
+        _selectedDate.day,
+        int.parse(timeParts[0]),
+        int.parse(timeParts[1]),
+      );
+
+      // Generar ID único
+      final appointmentId = 'apt-${DateTime.now().millisecondsSinceEpoch}';
+
+      // Insertar cita en Supabase
+      await Supabase.instance.client.from('appointments').insert({
+        'id': appointmentId,
+        'client_id': null,
+        'client_name': _nameController.text.trim(),
+        'client_phone': _phoneController.text.trim(),
+        'client_email': _emailController.text.trim().isEmpty ? null : _emailController.text.trim(),
+        'barber_id': _selectedBarberId,
+        'barber_name': barber['name'],
+        'service_id': _selectedServiceId,
+        'service_name': service['name'],
+        'service_price': service['price'],
+        'appointment_date': appointmentDateTime.toIso8601String(),
+        'status': 'pending',
+        'notes': _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
+        'source': 'web_booking',
+        'created_at': DateTime.now().toIso8601String(),
+        'updated_at': DateTime.now().toIso8601String(),
+      });
+
+      // Enviar WhatsApp de confirmación
+      await _sendConfirmationWhatsApp(
+        name: _nameController.text.trim(),
+        phone: _phoneController.text.trim(),
+        serviceName: service['name'],
+        barberName: barber['name'],
+        date: appointmentDateTime,
+      );
+
+      if (mounted) {
+        _showSuccessDialog();
+      }
+    } catch (e) {
+      print('❌ Error al guardar cita: $e');
+      _showError('Error al guardar la cita: $e');
+    } finally {
+      if (mounted) {
+        setState(() { _isSubmitting = false; });
+      }
+    }
+  }
+
+  Future<void> _sendConfirmationWhatsApp({
+    required String name,
+    required String phone,
+    required String serviceName,
+    required String barberName,
+    required DateTime date,
+  }) async {
+    // Limpiar y formatear número de teléfono
+    String cleanPhone = phone.replaceAll(RegExp(r'[^0-9]'), '');
+    if (cleanPhone.startsWith('0')) cleanPhone = cleanPhone.substring(1);
+    if (!cleanPhone.startsWith('56') && cleanPhone.length == 9) cleanPhone = '56$cleanPhone';
+
+    final dateStr = DateFormat('dd/MM/yyyy').format(date);
+    final timeStr = DateFormat('HH:mm').format(date);
+
+    final message = 'Hola $name, tu solicitud de reserva en ${SettingsService.shopName} ha sido recibida.%0A%0A'
+        '📅 *Fecha:* $dateStr%0A'
+        '⏰ *Hora:* $timeStr%0A'
+        '️ *Servicio:* $serviceName%0A'
+        '💈 *Barbero:* $barberName%0A%0A'
+        'Te contactaremos pronto para confirmar. ¡Gracias! 💈';
+
+    final url = 'https://api.whatsapp.com/send/?phone=$cleanPhone&text=$message';
+    final uri = Uri.parse(url);
+
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, webOnlyWindowName: '_blank');
+        print('✅ WhatsApp abierto para confirmación');
+      } else {
+        print('⚠️ No se pudo abrir WhatsApp');
+      }
+    } catch (e) {
+      print('❌ Error al abrir WhatsApp: $e');
+    }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.red),
+    );
+  }
+
+  void _showSuccessDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Text('✅', style: TextStyle(fontSize: 32)),
+            SizedBox(width: 8),
+            Text('¡Reserva enviada!'),
+          ],
+        ),
+        content: const Text(
+          'Tu solicitud de reserva ha sido recibida exitosamente. Te contactaremos pronto para confirmar tu cita.',
+          style: TextStyle(fontSize: 16),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // Resetear formulario
+              _nameController.clear();
+              _phoneController.clear();
+              _emailController.clear();
+              _notesController.clear();
+              setState(() {
+                _selectedServiceId = null;
+                _selectedBarberId = null;
+                _selectedTime = null;
+              });
+            },
+            style: TextButton.styleFrom(
+              backgroundColor: Colors.indigo[700],
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            ),
+            child: const Text('Nueva reserva', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Text('←', style: TextStyle(fontSize: 24, color: Colors.white)),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text('📅 Reservar Cita'),
+        backgroundColor: Colors.indigo[700],
+        foregroundColor: Colors.white,
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header con logo y nombre
+                  Center(
+                    child: Column(
+                      children: [
+                        if (SettingsService.shopLogoUrl.isNotEmpty)
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(16),
+                            child: Image.network(
+                              SettingsService.shopLogoUrl,
+                              height: 100,
+                              errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                            ),
+                          ),
+                        const SizedBox(height: 16),
+                        Text(
+                          SettingsService.shopName,
+                          style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.indigo),
+                        ),
+                        const SizedBox(height: 8),
+                        if (SettingsService.shopAddress.isNotEmpty)
+                          Text(
+                            SettingsService.shopAddress,
+                            style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                          ),
+                        if (SettingsService.shopPhone.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            'Tel: ${SettingsService.shopPhone}',
+                            style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+
+                  // Paso 1: Seleccionar servicio
+                  _buildSectionTitle('1️⃣ Selecciona el servicio'),
+                  const SizedBox(height: 12),
+                  if (_services.isEmpty)
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(color: Colors.orange[50], borderRadius: BorderRadius.circular(8)),
+                      child: const Text('No hay servicios disponibles', style: TextStyle(color: Colors.orange)),
+                    )
+                  else
+                    ..._services.map((service) => _buildServiceCard(service)),
+                  const SizedBox(height: 24),
+
+                  // Paso 2: Seleccionar barbero
+                  _buildSectionTitle('2️⃣ Selecciona el barbero'),
+                  const SizedBox(height: 12),
+                  if (_barbers.isEmpty)
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(color: Colors.orange[50], borderRadius: BorderRadius.circular(8)),
+                      child: const Text('No hay barberos disponibles', style: TextStyle(color: Colors.orange)),
+                    )
+                  else
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _barbers.map((barber) => _buildBarberChip(barber)).toList(),
+                    ),
+                  const SizedBox(height: 24),
+
+                  // Paso 3: Seleccionar fecha
+                  _buildSectionTitle('3️⃣ Selecciona la fecha'),
+                  const SizedBox(height: 12),
+                  InkWell(
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: _selectedDate,
+                        firstDate: DateTime.now(),
+                        lastDate: DateTime.now().add(const Duration(days: 30)),
+                      );
+                      if (picked != null) {
+                        setState(() {
+                          _selectedDate = picked;
+                          _selectedTime = null; // Resetear hora al cambiar fecha
+                        });
+                        await _loadAppointmentsForDate(picked);
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.indigo),
+                        borderRadius: BorderRadius.circular(8),
+                        color: Colors.indigo[50],
+                      ),
+                      child: Row(
+                        children: [
+                          const Text('📅', style: TextStyle(fontSize: 24)),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              DateFormat('EEEE, dd MMMM yyyy', 'es').format(_selectedDate),
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                          const Icon(Icons.calendar_today, color: Colors.indigo),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Paso 4: Seleccionar horario
+                  _buildSectionTitle('4️⃣ Selecciona el horario'),
+                  const SizedBox(height: 12),
+                  if (_occupiedTimes.length >= _availableTimes.length)
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(color: Colors.red[50], borderRadius: BorderRadius.circular(8)),
+                      child: const Text('No hay horarios disponibles para esta fecha', style: TextStyle(color: Colors.red)),
+                    )
+                  else
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _availableTimes.map((time) {
+                        final isOccupied = _occupiedTimes.contains(time);
+                        final isSelected = _selectedTime == time;
+                        return InkWell(
+                          onTap: isOccupied ? null : () => setState(() => _selectedTime = time),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: isOccupied
+                                  ? Colors.grey[300]
+                                  : isSelected
+                                      ? Colors.indigo
+                                      : Colors.white,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: isOccupied ? Colors.grey : isSelected ? Colors.indigo : Colors.grey[300]!,
+                              ),
+                            ),
+                            child: Text(
+                              time,
+                              style: TextStyle(
+                                color: isOccupied ? Colors.grey[500] : isSelected ? Colors.white : Colors.black87,
+                                fontWeight: FontWeight.w600,
+                                decoration: isOccupied ? TextDecoration.lineThrough : null,
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  const SizedBox(height: 24),
+
+                  // Paso 5: Datos del cliente
+                  _buildSectionTitle('5️⃣ Tus datos'),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _nameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Nombre completo *',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.person),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _phoneController,
+                    decoration: const InputDecoration(
+                      labelText: 'Teléfono *',
+                      hintText: '+56 9 1234 5678',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.phone),
+                    ),
+                    keyboardType: TextInputType.phone,
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _emailController,
+                    decoration: const InputDecoration(
+                      labelText: 'Email (opcional)',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.email),
+                    ),
+                    keyboardType: TextInputType.emailAddress,
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _notesController,
+                    decoration: const InputDecoration(
+                      labelText: 'Notas (opcional)',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.note),
+                    ),
+                    maxLines: 3,
+                  ),
+                  const SizedBox(height: 32),
+
+                  // Botón de enviar
+                  SizedBox(
+                    width: double.infinity,
+                    height: 56,
+                    child: ElevatedButton(
+                      onPressed: _isSubmitting ? null : _submitBooking,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.indigo[700],
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: _isSubmitting
+                          ? const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)),
+                                SizedBox(width: 12),
+                                Text('Enviando...', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                              ],
+                            )
+                          : const Text('CONFIRMAR RESERVA', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+
+                  // Footer informativo
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.blue[50],
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.blue[200]!),
+                    ),
+                    child: const Row(
+                      children: [
+                        Text('ℹ️', style: TextStyle(fontSize: 24)),
+                        SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Tu reserva será confirmada por WhatsApp. Los horarios marcados en gris ya están ocupados.',
+                            style: TextStyle(fontSize: 12, color: Colors.blue),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Text(
+      title,
+      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.indigo),
+    );
+  }
+
+  Widget _buildServiceCard(Map<String, dynamic> service) {
+    final isSelected = _selectedServiceId == service['id'];
+    final price = (service['price'] as num?)?.toDouble() ?? 0.0;
+    final duration = service['duration'];
+
+    return InkWell(
+      onTap: () => setState(() => _selectedServiceId = service['id']),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.indigo[50] : Colors.white,
+          border: Border.all(color: isSelected ? Colors.indigo : Colors.grey[300]!),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            const Text('✂️', style: TextStyle(fontSize: 28)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    service['name'],
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                  if (duration != null)
+                    Text(
+                      '$duration min',
+                      style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                    ),
+                ],
+              ),
+            ),
+            Text(
+              SettingsService.formatCurrency(price),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.indigo[700]),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBarberChip(Map<String, dynamic> barber) {
+    final isSelected = _selectedBarberId == barber['id'];
+    return InkWell(
+      onTap: () => setState(() => _selectedBarberId = barber['id']),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.indigo : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: isSelected ? Colors.indigo : Colors.grey[300]!),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('💈', style: TextStyle(fontSize: 16)),
+            const SizedBox(width: 8),
+            Text(
+              barber['name'],
+              style: TextStyle(
+                color: isSelected ? Colors.white : Colors.black87,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _phoneController.dispose();
+    _emailController.dispose();
+    _notesController.dispose();
+    super.dispose();
+  }
+}

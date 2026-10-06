@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'services/database_service.dart';
 import 'services/settings_service.dart';
 import 'screens/login_screen.dart';
+import 'screens/public_booking_screen.dart';
 
 String currentUserRole = 'admin';
 String currentUserName = '';
@@ -10,19 +11,12 @@ String currentUserEmail = '';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Inicializar Isar
   await DatabaseService.init();
-  
-  // Inicializar Supabase
   await Supabase.initialize(
     url: 'https://kshpmivwtconponuxevx.supabase.co',
     anonKey: 'sb_publishable_Vg3CpOZkRDJbTD-Mw_F3nw_S2Wmajf3',
   );
-  
-  // Cargar configuración de la barbería
   await SettingsService.loadSettings();
-  
   runApp(BarberFlowApp());
 }
 
@@ -36,7 +30,11 @@ class BarberFlowApp extends StatelessWidget {
         primarySwatch: Colors.indigo,
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
-      home: LoginScreen(),
+      initialRoute: '/',
+      routes: {
+        '/': (context) => LoginScreen(),
+        '/reservar': (context) => PublicBookingScreen(),
+      },
     );
   }
 }

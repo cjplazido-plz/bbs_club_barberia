@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../main.dart';
 import '../services/settings_service.dart';
 import 'pos_screen.dart';
+import 'public_booking_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   @override
@@ -14,6 +15,9 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _isLoading = false;
   String _errorMessage = '';
+
+  // ✅ EMAIL DEL DESARROLLADOR (cámbialo por tu email real)
+  static const String developerEmail = 'cjplazido@gmail.com';
 
   Future<void> _handleLogin() async {
     setState(() {
@@ -35,7 +39,12 @@ class _LoginScreenState extends State<LoginScreen> {
         String userEmail = response.user?.email ?? '';
 
         try {
-          if (userEmail.isNotEmpty) {
+          // ✅ PROTECCIÓN 1: Si es el email del desarrollador, siempre es admin
+          if (userEmail.toLowerCase() == developerEmail.toLowerCase()) {
+            role = 'admin';
+            userName = 'Desarrollador (Acceso Total)';
+            print('🔑 Acceso de desarrollador activado');
+          } else if (userEmail.isNotEmpty) {
             final profile = await Supabase.instance.client
                 .from('profiles')
                 .select()
@@ -48,10 +57,14 @@ class _LoginScreenState extends State<LoginScreen> {
                   profile['name'] ??
                   profile['username'] ??
                   userEmail.split('@').first;
+            } else {
+              // Si no existe el perfil, asignar rol por defecto
+              role = 'user';
+              userName = userEmail.split('@').first;
             }
           }
         } catch (e) {
-          print('️⚠️ Error al obtener perfil: $e');
+          print('⚠️ Error al obtener perfil: $e');
           role = 'admin';
           userName = userEmail.split('@').first;
         }
@@ -181,7 +194,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           child: Row(
                             children: [
-                              const Text('️🪒', style: TextStyle(fontSize: 20)),
+                              const Text('⚠️', style: TextStyle(fontSize: 20)),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
@@ -201,7 +214,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           onPressed: _isLoading ? null : _handleLogin,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.indigo[700],
-                            foregroundColor: Colors.white, // ✅ Letras blancas
+                            foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8)),
                           ),
@@ -217,8 +230,34 @@ class _LoginScreenState extends State<LoginScreen> {
                                   style: TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold,
-                                      color: Colors.white), // ✅ Letras blancas
+                                      color: Colors.white),
                                 ),
+                        ),
+                      ),
+                      // ✅ PROTECCIÓN 2: Link para clientes (reservar cita)
+                      const SizedBox(height: 24),
+                      const Divider(),
+                      const SizedBox(height: 16),
+                      Text(
+                        '¿Eres cliente?',
+                        style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                      ),
+                      const SizedBox(height: 8),
+                      TextButton.icon(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => PublicBookingScreen()),
+                          );
+                        },
+                        icon: const Text('📅', style: TextStyle(fontSize: 20)),
+                        label: const Text(
+                          'Reservar una cita',
+                          style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.indigo),
                         ),
                       ),
                     ],
