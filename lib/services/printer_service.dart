@@ -1,10 +1,10 @@
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:printing/printing.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:http/http.dart' as http;
-import 'package:image/image.dart' as img; // ✅ NUEVO: Equivalente a PIL en Python
 import '../models/local_transaction.dart';
 import '../services/settings_service.dart';
 
@@ -23,29 +23,14 @@ class PrinterService {
         try {
           final response = await http.get(Uri.parse(logoUrl));
           if (response.statusCode == 200) {
-            // 1. Decodificar la imagen (equivalente a Image.open)
-            img.Image? decodedImage = img.decodeImage(response.bodyBytes);
-            
-            if (decodedImage != null) {
-              // 2. Redimensionar a max 384px de ancho (como tu script de Python para 80mm)
-              if (decodedImage.width > 384) {
-                decodedImage = img.copyResize(decodedImage, width: 384);
-              }
-              
-              // 3. Convertir a escala de grises (.convert('L'))
-              img.Image grayImage = img.grayscale(decodedImage);
-              
-              // 4. Umbralizar a blanco y negro puro 1-bit (.convert('1'))
-              // Pixeles con luminosidad < 128 se vuelven negro (0), >= 128 se vuelven blanco (255)
-              img.Image bwImage = img.threshold(grayImage, threshold: 128);
-              
-              // 5. Codificar de nuevo a PNG para que el PDF lo renderice perfectamente
-              final processedBytes = img.encodePng(bwImage);
+            // Procesar imagen: convertir a 1-bit (blanco y negro puro)
+            final processedBytes = await _convertTo1Bit(response.bodyBytes);
+            if (processedBytes != null) {
               logoImage = pw.MemoryImage(processedBytes);
             }
           }
         } catch (e) {
-          print('⚠️ Error al procesar logo: $e');
+          print('️ Error al procesar logo: $e');
         }
       }
 
@@ -58,13 +43,12 @@ class PrinterService {
             return pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
-                // ✅ LOGO CON FONDO BLANCO EXPLÍCITO + IMAGEN PROCESADA EN 1-BIT
                 if (logoImage != null)
                   pw.Center(
                     child: pw.Container(
                       width: 70,
                       height: 70,
-                      color: PdfColors.white, // Fondo blanco de seguridad
+                      color: PdfColors.white,
                       child: pw.Image(logoImage, fit: pw.BoxFit.contain),
                     ),
                   ),
@@ -153,6 +137,98 @@ class PrinterService {
       print('❌ Error al generar ticket: $e');
       return false;
     }
+  }
+
+  // ✅ FUNCIÓN: Convertir imagen a 1-bit (blanco y negro puro)
+  Future<Uint8List?> _convertTo1Bit(Uint8List imageBytes) async {
+    try {
+      // Decodificar la imagen
+      final codec = await ui.instantiateImageCodec(imageBytes);
+      final firstFrame = await codec.getNextFrame(); // ✅ RENOMBRADO
+      final image = firstFrame.image;
+      
+      // Redimensionar si es necesario (max 384px de ancho para impresora 80mm)
+      int width = image.width;
+      int height = image.height;
+      if (width > 384) {
+        height = (384 * height / width).round();
+        width = 384;
+      }
+      
+      // Crear un canvas para redimensionar y procesar
+      final recorder = ui.PictureRecorder();
+      final canvas = ui.Canvas(recorder);
+      final paint = ui.Paint();
+      
+      // Dibujar imagen redimensionada
+      canvas.drawImageRect(
+        image,
+        ui.Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()),
+        ui.Rect.fromLTWH(0, 0, width.toDouble(), height.toDouble()),
+        paint,
+      );
+      
+      final picture = recorder.endRecording();
+      final processedImage = await picture.toImage(width, height);
+      final byteData = await processedImage.toByteData();
+      
+      if (byteData == null) return null;
+      
+      // Aplicar threshold manualmente (pixel por pixel)
+      final bytes = byteData.buffer.asUint8List();
+      final resultBytes = Uint8List(bytes.length);
+      
+      for (int i = 0; i < bytes.length; i += 4) {
+        final r = bytes[i];
+        final g = bytes[i + 1];
+        final b = bytes[i + 2];
+        
+        // Calcular luminosidad (fórmula estándar)
+        final luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+        
+        // Aplicar threshold: < 128 = negro (0), >= 128 = blanco (255)
+        final value = luminance < 128 ? 0 : 255;
+        
+        resultBytes[i] = value;     // R
+        resultBytes[i + 1] = value; // G
+        resultBytes[i + 2] = value; // B
+        resultBytes[i + 3] = 255;   // Alpha (opaque)
+      }
+      
+      // Crear la imagen final en blanco y negro
+      final finalRecorder = ui.PictureRecorder();
+      final finalCanvas = ui.Canvas(finalRecorder);
+      
+      // Crear datos de píxeles
+      final imageData = ui.ImageDescriptor.raw(
+        await ui.ImmutableBuffer.fromUint8List(resultBytes),
+        width: width,
+        height: height,
+        pixelFormat: ui.PixelFormat.rgba8888,
+      );
+      
+      final bitmap = await imageData.instantiateCodec();
+      final secondFrame = await bitmap.getNextFrame(); // ✅ RENOMBRADO
+      final finalImage = secondFrame.image;
+      
+      finalCanvas.drawImage(finalImage, ui.Offset.zero, paint);
+      final finalPicture = finalRecorder.endRecording();
+      final finalUiImage = await finalPicture.toImage(width, height);
+      
+      // Codificar como PNG (simplificado para web)
+      final pngBytes = await _encodeToPng(finalUiImage);
+      return pngBytes;
+      
+    } catch (e) {
+      print('❌ Error al convertir a 1-bit: $e');
+      return imageBytes; // Retornar original si falla
+    }
+  }
+
+  // Helper para codificar a PNG
+  Future<Uint8List> _encodeToPng(ui.Image image) async {
+    final byteData = await image.toByteData();
+    return byteData!.buffer.asUint8List();
   }
 
   String _formatDate(DateTime date) {
