@@ -17,7 +17,6 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
   List<Map<String, dynamic>> _existingAppointments = [];
 
   String? _selectedServiceId;
-  String? _selectedBarberId;
   DateTime _selectedDate = DateTime.now().add(const Duration(days: 1));
   String? _selectedTime;
   final _nameController = TextEditingController();
@@ -25,7 +24,6 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
   final _emailController = TextEditingController();
   final _notesController = TextEditingController();
 
-  // Horarios disponibles (puedes personalizarlos según tu horario)
   final List<String> _availableTimes = [
     '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
     '12:00', '12:30', '14:00', '14:30', '15:00', '15:30',
@@ -42,14 +40,12 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
   Future<void> _loadData() async {
     setState(() { _isLoading = true; });
     try {
-      // Cargar servicios activos
       final services = await Supabase.instance.client
           .from('services')
           .select('*')
           .eq('is_active', true)
           .order('name');
 
-      // Cargar barberos activos
       final barbers = await Supabase.instance.client
           .from('barbers')
           .select('*')
@@ -62,7 +58,6 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
         _isLoading = false;
       });
 
-      // Cargar citas existentes para la fecha seleccionada
       await _loadAppointmentsForDate(_selectedDate);
     } catch (e) {
       print('❌ Error al cargar datos: $e');
@@ -91,20 +86,13 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
         _existingAppointments = List<Map<String, dynamic>>.from(appointments);
       });
     } catch (e) {
-      print('⚠️ Error al cargar citas: $e');
+      print('️ Error al cargar citas: $e');
     }
   }
 
-  // Obtener horarios ocupados para el barbero seleccionado
+  // ✅ Horarios ocupados SIN filtrar por barbero
   List<String> get _occupiedTimes {
     return _existingAppointments
-        .where((apt) {
-          // Si hay barbero seleccionado, filtrar solo sus citas
-          if (_selectedBarberId != null && apt['barber_id'] != _selectedBarberId) {
-            return false;
-          }
-          return true;
-        })
         .map((apt) {
           final date = DateTime.parse(apt['appointment_date']);
           return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
@@ -114,13 +102,8 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
   }
 
   Future<void> _submitBooking() async {
-    // Validaciones
     if (_selectedServiceId == null) {
       _showError('Por favor selecciona un servicio');
-      return;
-    }
-    if (_selectedBarberId == null) {
-      _showError('Por favor selecciona un barbero');
       return;
     }
     if (_selectedTime == null) {
@@ -140,9 +123,9 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
 
     try {
       final service = _services.firstWhere((s) => s['id'] == _selectedServiceId);
-      final barber = _barbers.firstWhere((b) => b['id'] == _selectedBarberId);
+      // ✅ Usar el primer barbero disponible
+      final barber = _barbers.isNotEmpty ? _barbers.first : null;
 
-      // Crear fecha y hora de la cita
       final timeParts = _selectedTime!.split(':');
       final appointmentDateTime = DateTime(
         _selectedDate.year,
@@ -152,18 +135,16 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
         int.parse(timeParts[1]),
       );
 
-      // Generar ID único
       final appointmentId = 'apt-${DateTime.now().millisecondsSinceEpoch}';
 
-      // Insertar cita en Supabase
       await Supabase.instance.client.from('appointments').insert({
         'id': appointmentId,
         'client_id': null,
         'client_name': _nameController.text.trim(),
         'client_phone': _phoneController.text.trim(),
         'client_email': _emailController.text.trim().isEmpty ? null : _emailController.text.trim(),
-        'barber_id': _selectedBarberId,
-        'barber_name': barber['name'],
+        'barber_id': barber != null ? barber['id'] : null,
+        'barber_name': barber != null ? barber['name'] : 'Sin asignar',
         'service_id': _selectedServiceId,
         'service_name': service['name'],
         'service_price': service['price'],
@@ -175,12 +156,11 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
         'updated_at': DateTime.now().toIso8601String(),
       });
 
-      // Enviar WhatsApp de confirmación
       await _sendConfirmationWhatsApp(
         name: _nameController.text.trim(),
         phone: _phoneController.text.trim(),
         serviceName: service['name'],
-        barberName: barber['name'],
+        barberName: barber != null ? barber['name'] : 'Sin asignar',
         date: appointmentDateTime,
       );
 
@@ -204,7 +184,6 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
     required String barberName,
     required DateTime date,
   }) async {
-    // Limpiar y formatear número de teléfono
     String cleanPhone = phone.replaceAll(RegExp(r'[^0-9]'), '');
     if (cleanPhone.startsWith('0')) cleanPhone = cleanPhone.substring(1);
     if (!cleanPhone.startsWith('56') && cleanPhone.length == 9) cleanPhone = '56$cleanPhone';
@@ -213,10 +192,10 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
     final timeStr = DateFormat('HH:mm').format(date);
 
     final message = 'Hola $name, tu solicitud de reserva en ${SettingsService.shopName} ha sido recibida.%0A%0A'
-        '📅 *Fecha:* $dateStr%0A'
+        ' *Fecha:* $dateStr%0A'
         '⏰ *Hora:* $timeStr%0A'
-        '️ *Servicio:* $serviceName%0A'
-        '💈 *Barbero:* $barberName%0A%0A'
+        '✂️ *Servicio:* $serviceName%0A'
+        ' *Barbero:* $barberName%0A%0A'
         'Te contactaremos pronto para confirmar. ¡Gracias! 💈';
 
     final url = 'https://api.whatsapp.com/send/?phone=$cleanPhone&text=$message';
@@ -260,14 +239,12 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              // Resetear formulario
               _nameController.clear();
               _phoneController.clear();
               _emailController.clear();
               _notesController.clear();
               setState(() {
                 _selectedServiceId = null;
-                _selectedBarberId = null;
                 _selectedTime = null;
               });
             },
@@ -338,7 +315,7 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
                   ),
                   const SizedBox(height: 32),
 
-                  // Paso 1: Seleccionar servicio
+                  // ✅ Paso 1: Seleccionar servicio
                   _buildSectionTitle('1️⃣ Selecciona el servicio'),
                   const SizedBox(height: 12),
                   if (_services.isEmpty)
@@ -351,25 +328,8 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
                     ..._services.map((service) => _buildServiceCard(service)),
                   const SizedBox(height: 24),
 
-                  // Paso 2: Seleccionar barbero
-                  _buildSectionTitle('2️⃣ Selecciona el barbero'),
-                  const SizedBox(height: 12),
-                  if (_barbers.isEmpty)
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(color: Colors.orange[50], borderRadius: BorderRadius.circular(8)),
-                      child: const Text('No hay barberos disponibles', style: TextStyle(color: Colors.orange)),
-                    )
-                  else
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: _barbers.map((barber) => _buildBarberChip(barber)).toList(),
-                    ),
-                  const SizedBox(height: 24),
-
-                  // Paso 3: Seleccionar fecha
-                  _buildSectionTitle('3️⃣ Selecciona la fecha'),
+                  // ✅ Paso 2: Seleccionar fecha (antes era 3)
+                  _buildSectionTitle('2️⃣ Selecciona la fecha'),
                   const SizedBox(height: 12),
                   InkWell(
                     onTap: () async {
@@ -382,7 +342,7 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
                       if (picked != null) {
                         setState(() {
                           _selectedDate = picked;
-                          _selectedTime = null; // Resetear hora al cambiar fecha
+                          _selectedTime = null;
                         });
                         await _loadAppointmentsForDate(picked);
                       }
@@ -411,8 +371,8 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
                   ),
                   const SizedBox(height: 24),
 
-                  // Paso 4: Seleccionar horario
-                  _buildSectionTitle('4️⃣ Selecciona el horario'),
+                  // ✅ Paso 3: Seleccionar horario (antes era 4)
+                  _buildSectionTitle('3️⃣ Selecciona el horario'),
                   const SizedBox(height: 12),
                   if (_occupiedTimes.length >= _availableTimes.length)
                     Container(
@@ -456,8 +416,8 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
                     ),
                   const SizedBox(height: 24),
 
-                  // Paso 5: Datos del cliente
-                  _buildSectionTitle('5️⃣ Tus datos'),
+                  // ✅ Paso 4: Datos del cliente (antes era 5)
+                  _buildSectionTitle('4️⃣ Tus datos'),
                   const SizedBox(height: 12),
                   TextField(
                     controller: _nameController,
@@ -596,35 +556,6 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
             Text(
               SettingsService.formatCurrency(price),
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.indigo[700]),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBarberChip(Map<String, dynamic> barber) {
-    final isSelected = _selectedBarberId == barber['id'];
-    return InkWell(
-      onTap: () => setState(() => _selectedBarberId = barber['id']),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        decoration: BoxDecoration(
-          color: isSelected ? Colors.indigo : Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: isSelected ? Colors.indigo : Colors.grey[300]!),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('💈', style: TextStyle(fontSize: 16)),
-            const SizedBox(width: 8),
-            Text(
-              barber['name'],
-              style: TextStyle(
-                color: isSelected ? Colors.white : Colors.black87,
-                fontWeight: FontWeight.w600,
-              ),
             ),
           ],
         ),
