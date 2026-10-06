@@ -16,7 +16,8 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
   List<Map<String, dynamic>> _barbers = [];
   List<Map<String, dynamic>> _existingAppointments = [];
 
-  String? _selectedServiceId;
+  // ✅ CAMBIO: Ahora es una lista de IDs (selección múltiple)
+  Set<String> _selectedServiceIds = {};
   DateTime _selectedDate = DateTime.now().add(const Duration(days: 1));
   String? _selectedTime;
   final _nameController = TextEditingController();
@@ -60,7 +61,7 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
 
       await _loadAppointmentsForDate(_selectedDate);
     } catch (e) {
-      print(' Error al cargar datos: $e');
+      print('❌ Error al cargar datos: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error al cargar datos: $e'), backgroundColor: Colors.red),
@@ -100,9 +101,22 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
         .toList();
   }
 
+  // ✅ Calcular total de servicios seleccionados
+  double get _totalPrice {
+    double total = 0;
+    for (var id in _selectedServiceIds) {
+      final service = _services.firstWhere((s) => s['id'] == id, orElse: () => {});
+      if (service.isNotEmpty) {
+        total += (service['price'] as num?)?.toDouble() ?? 0.0;
+      }
+    }
+    return total;
+  }
+
   Future<void> _submitBooking() async {
-    if (_selectedServiceId == null) {
-      _showError('Por favor selecciona un servicio');
+    // ✅ Validación: al menos un servicio
+    if (_selectedServiceIds.isEmpty) {
+      _showError('Por favor selecciona al menos un servicio');
       return;
     }
     if (_selectedTime == null) {
@@ -121,7 +135,6 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
     setState(() { _isSubmitting = true; });
 
     try {
-      final service = _services.firstWhere((s) => s['id'] == _selectedServiceId);
       final barber = _barbers.isNotEmpty ? _barbers.first : null;
 
       final timeParts = _selectedTime!.split(':');
@@ -135,6 +148,13 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
 
       final appointmentId = 'apt-${DateTime.now().millisecondsSinceEpoch}';
 
+      // ✅ Crear lista de servicios seleccionados
+      final selectedServices = _services.where((s) => _selectedServiceIds.contains(s['id'])).toList();
+      final serviceNames = selectedServices.map((s) => s['name'] as String).join(', ');
+      final serviceIds = selectedServices.map((s) => s['id'] as String).toList();
+      final servicePrices = selectedServices.map((s) => (s['price'] as num?)?.toDouble() ?? 0.0).toList();
+
+      // ✅ Insertar cita con múltiples servicios
       await Supabase.instance.client.from('appointments').insert({
         'id': appointmentId,
         'client_id': null,
@@ -143,9 +163,10 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
         'client_email': _emailController.text.trim().isEmpty ? null : _emailController.text.trim(),
         'barber_id': barber != null ? barber['id'] : null,
         'barber_name': barber != null ? barber['name'] : 'Sin asignar',
-        'service_id': _selectedServiceId,
-        'service_name': service['name'],
-        'service_price': service['price'],
+        'service_id': serviceIds.first, // ID principal (primer servicio)
+        'service_name': serviceNames, // ✅ Nombres concatenados
+        'service_price': _totalPrice, // ✅ Precio total
+        'service_ids': serviceIds, // ✅ Lista de IDs (si la columna existe)
         'appointment_date': appointmentDateTime.toIso8601String(),
         'status': 'pending',
         'notes': _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
@@ -155,7 +176,8 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
       await _sendConfirmationWhatsApp(
         name: _nameController.text.trim(),
         phone: _phoneController.text.trim(),
-        serviceName: service['name'],
+        serviceNames: serviceNames,
+        totalPrice: _totalPrice,
         date: appointmentDateTime,
       );
 
@@ -163,7 +185,7 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
         _showSuccessDialog();
       }
     } catch (e) {
-      print(' Error al guardar cita: $e');
+      print('❌ Error al guardar cita: $e');
       _showError('Error al guardar la cita: $e');
     } finally {
       if (mounted) {
@@ -175,7 +197,8 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
   Future<void> _sendConfirmationWhatsApp({
     required String name,
     required String phone,
-    required String serviceName,
+    required String serviceNames,
+    required double totalPrice,
     required DateTime date,
   }) async {
     String cleanPhone = phone.replaceAll(RegExp(r'[^0-9]'), '');
@@ -184,11 +207,13 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
 
     final dateStr = DateFormat('dd/MM/yyyy').format(date);
     final timeStr = DateFormat('HH:mm').format(date);
+    final totalStr = SettingsService.formatCurrency(totalPrice);
 
     final message = 'Hola $name, tu solicitud de reserva en ${SettingsService.shopName} ha sido recibida.%0A%0A'
-        ' *Fecha:* $dateStr%0A'
+        '📅 *Fecha:* $dateStr%0A'
         '⏰ *Hora:* $timeStr%0A'
-        '✂️ *Servicio:* $serviceName%0A%0A'
+        '✂️ *Servicios:* $serviceNames%0A'
+        '💰 *Total estimado:* $totalStr%0A%0A'
         'Te contactaremos pronto para confirmar. ¡Gracias! 💈';
 
     final url = 'https://api.whatsapp.com/send/?phone=$cleanPhone&text=$message';
@@ -199,10 +224,10 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
         await launchUrl(uri, webOnlyWindowName: '_blank');
         print('✅ WhatsApp abierto para confirmación');
       } else {
-        print('⚠️ No se pudo abrir WhatsApp');
+        print('️ No se pudo abrir WhatsApp');
       }
     } catch (e) {
-      print('❌ Error al abrir WhatsApp: $e');
+      print(' Error al abrir WhatsApp: $e');
     }
   }
 
@@ -237,7 +262,7 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
               _emailController.clear();
               _notesController.clear();
               setState(() {
-                _selectedServiceId = null;
+                _selectedServiceIds.clear();
                 _selectedTime = null;
               });
             },
@@ -275,7 +300,7 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Header con logo
+                  // Header
                   Center(
                     child: Column(
                       children: [
@@ -318,8 +343,13 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
                   ),
                   const SizedBox(height: 24),
 
-                  // Paso 1: Servicio
-                  _buildSectionTitle('1️⃣ Selecciona el servicio'),
+                  // Paso 1: Servicios (selección múltiple)
+                  _buildSectionTitle('1️⃣ Selecciona los servicios'),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Puedes seleccionar varios servicios',
+                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                  ),
                   const SizedBox(height: 10),
                   if (_services.isEmpty)
                     Container(
@@ -328,7 +358,29 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
                       child: const Text('No hay servicios disponibles', style: TextStyle(color: Colors.orange)),
                     )
                   else
-                    ..._services.map((service) => _buildServiceCard(service)),
+                    ..._services.map((service) => _buildServiceCardMulti(service)),
+                  
+                  // ✅ Mostrar total seleccionado
+                  if (_selectedServiceIds.isNotEmpty)
+                    Container(
+                      margin: const EdgeInsets.only(top: 10),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.indigo[50],
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.indigo),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Total seleccionado:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                          Text(
+                            SettingsService.formatCurrency(_totalPrice),
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.indigo[700]),
+                          ),
+                        ],
+                      ),
+                    ),
                   const SizedBox(height: 20),
 
                   // Paso 2: Fecha
@@ -359,7 +411,7 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
                       ),
                       child: Row(
                         children: [
-                          const Text('📅', style: TextStyle(fontSize: 22)),
+                          const Text('', style: TextStyle(fontSize: 22)),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
@@ -421,7 +473,7 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
                   const SizedBox(height: 20),
 
                   // Paso 4: Datos
-                  _buildSectionTitle('4️ Tus datos'),
+                  _buildSectionTitle('4️⃣ Tus datos'),
                   const SizedBox(height: 10),
                   TextField(
                     controller: _nameController,
@@ -483,9 +535,9 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
                                 Text('Enviando...', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                               ],
                             )
-                          : const Text('CONFIRMAR RESERVA', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-                    ),
-                  ),
+                          : const Text('CONFIRMAR RESERVA', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white)),
+                          ),
+                        ),
                   const SizedBox(height: 24),
 
                   // Footer
@@ -522,13 +574,22 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
     );
   }
 
-  Widget _buildServiceCard(Map<String, dynamic> service) {
-    final isSelected = _selectedServiceId == service['id'];
+  // ✅ Tarjeta de servicio con selección múltiple (checkbox)
+  Widget _buildServiceCardMulti(Map<String, dynamic> service) {
+    final isSelected = _selectedServiceIds.contains(service['id']);
     final price = (service['price'] as num?)?.toDouble() ?? 0.0;
     final duration = service['duration'];
 
     return InkWell(
-      onTap: () => setState(() => _selectedServiceId = service['id']),
+      onTap: () {
+        setState(() {
+          if (isSelected) {
+            _selectedServiceIds.remove(service['id']);
+          } else {
+            _selectedServiceIds.add(service['id']);
+          }
+        });
+      },
       child: Container(
         margin: const EdgeInsets.only(bottom: 6),
         padding: const EdgeInsets.all(14),
@@ -539,6 +600,20 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
         ),
         child: Row(
           children: [
+            // ✅ Checkbox visual
+            Container(
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(
+                color: isSelected ? Colors.indigo : Colors.white,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: isSelected ? Colors.indigo : Colors.grey),
+              ),
+              child: isSelected
+                  ? const Icon(Icons.check, color: Colors.white, size: 16)
+                  : null,
+            ),
+            const SizedBox(width: 12),
             const Text('✂️', style: TextStyle(fontSize: 26)),
             const SizedBox(width: 10),
             Expanded(
@@ -547,7 +622,11 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
                 children: [
                   Text(
                     service['name'],
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: isSelected ? Colors.indigo : Colors.black87,
+                    ),
                   ),
                   if (duration != null)
                     Text(
