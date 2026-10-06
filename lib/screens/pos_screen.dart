@@ -136,39 +136,58 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
   }
 
   // ✅ CAMBIO 3: Diálogo para solicitar barbero
-  void _showBarberRequiredDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            Text('', style: TextStyle(fontSize: 24)),
-            SizedBox(width: 8),
-            Text('Selecciona un barbero'),
-          ],
-        ),
-        content: const Text(
-          'Para agregar servicios al carrito, primero debes seleccionar un barbero.',
-          style: TextStyle(fontSize: 14),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
+    void _showBarberRequiredDialog() {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('💈', style: TextStyle(fontSize: 24)),
+                const SizedBox(width: 8),
+                const Text(
+                  'Selecciona un barbero',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
           ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _showBarberSelector();
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo[700]),
-            child: const Text('Seleccionar barbero'),
-          ),
-        ],
+      content: const Text(
+        'Para agregar servicios al carrito, primero debes seleccionar un barbero.',
+        style: TextStyle(fontSize: 14),
       ),
-    );
-  }
-
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancelar'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            Navigator.pop(context);
+            _showBarberSelector();
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.indigo[700],
+            foregroundColor: Colors.white, // ✅ Texto blanco
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          child: const Text(
+            'Seleccionar barbero',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: Colors.white, // ✅ Asegura texto blanco
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
   // ✅ CAMBIO 3: Selector de barbero
   void _showBarberSelector() {
     if (_barbers.isEmpty) {
