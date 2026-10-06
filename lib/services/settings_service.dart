@@ -26,34 +26,40 @@ class SettingsService {
   }
 
   static Future<void> loadSettings() async {
-    try {
-      print('🔄 Cargando configuración desde Supabase...');
-      final response = await Supabase.instance.client
-          .from('settings')
-          .select('*')
-          .limit(1)
-          .maybeSingle();
+  try {
+    print('🔄 Cargando configuración desde Supabase...');
+    
+    // ✅ OBTENER LA FILA MÁS RECIENTE (ordenada por updated_at DESC)
+    final response = await Supabase.instance.client
+        .from('settings')
+        .select('*')
+        .order('updated_at', ascending: false)
+        .limit(1)
+        .maybeSingle();
 
-      if (response != null) {
-        shopName = response['shop_name'] ?? shopName;
-        shopRif = response['shop_rif'] ?? shopRif;
-        shopAddress = response['shop_address'] ?? shopAddress;
-        shopPhone = response['shop_phone'] ?? shopPhone;
-        shopEmail = response['shop_email'] ?? shopEmail;
-        shopLogoUrl = response['shop_logo_url'] ?? shopLogoUrl;
-        ticketLogoUrl = response['ticket_logo_url'] ?? '';
-        currencySymbol = response['currency_symbol'] ?? currencySymbol;
-        currencyCode = response['currency_code'] ?? currencyCode;
-        ticketHeader = response['ticket_header'] ?? ticketHeader;
-        ticketFooter = response['ticket_footer'] ?? ticketFooter;
-        print('✅ Configuración cargada');
-      } else {
-        print('⚠️ No hay configuración en Supabase');
-      }
-    } catch (e) {
-      print('❌ Error al cargar configuración: $e');
+    if (response != null) {
+      shopName = response['shop_name'] ?? shopName;
+      shopRif = response['shop_rif'] ?? shopRif;
+      shopAddress = response['shop_address'] ?? shopAddress;
+      shopPhone = response['shop_phone'] ?? shopPhone;
+      shopEmail = response['shop_email'] ?? shopEmail;
+      shopLogoUrl = response['shop_logo_url'] ?? shopLogoUrl;
+      ticketLogoUrl = response['ticket_logo_url'] ?? '';
+      currencySymbol = response['currency_symbol'] ?? currencySymbol;
+      currencyCode = response['currency_code'] ?? currencyCode;
+      ticketHeader = response['ticket_header'] ?? ticketHeader;
+      ticketFooter = response['ticket_footer'] ?? ticketFooter;
+      
+      print('✅ Configuración cargada');
+      print('️ Logo URL: $shopLogoUrl');
+      print('🖨️ Ticket Logo URL: $ticketLogoUrl');
+    } else {
+      print('⚠️ No hay configuración en Supabase');
     }
+  } catch (e) {
+    print('❌ Error al cargar configuración: $e');
   }
+}
 
   static Future<bool> updateMultiple(Map<String, String> values) async {
     try {
