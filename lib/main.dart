@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:intl/date_symbol_data_local.dart'; // ✅ NUEVO: Para inicializar locale
 import 'services/database_service.dart';
 import 'services/settings_service.dart';
 import 'screens/login_screen.dart';
@@ -11,12 +12,22 @@ String currentUserEmail = '';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // ✅ INICIALIZAR LOCALE ESPAÑOL (necesario para DateFormat)
+  await initializeDateFormatting('es', null);
+  
+  // Inicializar Isar
   await DatabaseService.init();
+  
+  // Inicializar Supabase
   await Supabase.initialize(
     url: 'https://kshpmivwtconponuxevx.supabase.co',
     anonKey: 'sb_publishable_Vg3CpOZkRDJbTD-Mw_F3nw_S2Wmajf3',
   );
+  
+  // Cargar configuración de la barbería
   await SettingsService.loadSettings();
+  
   runApp(BarberFlowApp());
 }
 
