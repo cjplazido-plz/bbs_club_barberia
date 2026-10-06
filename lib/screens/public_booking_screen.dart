@@ -286,7 +286,7 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
-          icon: const Text('←', style: TextStyle(fontSize: 24, color: Colors.white)),
+          icon: const Text('', style: TextStyle(fontSize: 24, color: Colors.white)),
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text('📅 Reservar Cita'),
@@ -488,7 +488,7 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
                     controller: _phoneController,
                     decoration: const InputDecoration(
                       labelText: 'Teléfono *',
-                      hintText: '+56 9 1234 5678',
+                      hintText: 'Anteponga +56',
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.phone),
                     ),

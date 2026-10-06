@@ -785,7 +785,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
                     _buildMenuItem('📜', 'Historial', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => SalesHistoryScreen())); }),
                     _buildMenuItem('📅', 'Agenda de Citas', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => AppointmentsScreen())); }),
                   ],
-                  _buildMenuItem('👨‍👩‍👦‍👦', 'Clientes', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ClientsScreen())).then((_) => _loadData()); }),
+                  _buildMenuItem('👨‍💼', 'Clientes', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ClientsScreen())).then((_) => _loadData()); }),
                   const Divider(),
                   _buildMenuItem('🚪', 'Cerrar sesión', () { Navigator.pop(context); _handleLogout(); }, isLogout: true),
                 ],
@@ -884,7 +884,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
                             },
                           ),
                           IconButton(
-                            icon: const Text('️', style: TextStyle(fontSize: 16)),
+                            icon: const Text('️➖', style: TextStyle(fontSize: 16)),
                             onPressed: () {
                               setModalState(() {
                                 _cart.removeAt(index);
@@ -981,7 +981,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
           unselectedLabelColor: Colors.white70,
           tabs: const [
             Tab(icon: Text('✂️', style: TextStyle(fontSize: 20)), text: 'Servicios'),
-            Tab(icon: Text('', style: TextStyle(fontSize: 20)), text: 'Productos'),
+            Tab(icon: Text('📦', style: TextStyle(fontSize: 20)), text: 'Productos'),
           ],
         ),
         actions: [
@@ -1014,7 +1014,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
                 IconButton(icon: const Text('📜', style: TextStyle(fontSize: 20)), tooltip: 'Historial', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => SalesHistoryScreen())); }),
                 IconButton(icon: const Text('📅', style: TextStyle(fontSize: 20)), tooltip: 'Agenda', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => AppointmentsScreen())); }),
               ],
-              IconButton(icon: const Text('👨‍👩‍👦‍👦', style: TextStyle(fontSize: 20)), tooltip: 'Clientes', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => ClientsScreen())).then((_) => _loadData()); }),
+              IconButton(icon: const Text('👨‍💼', style: TextStyle(fontSize: 20)), tooltip: 'Clientes', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => ClientsScreen())).then((_) => _loadData()); }),
               IconButton(icon: const Text('🚪', style: TextStyle(fontSize: 20)), tooltip: 'Salir', onPressed: _handleLogout),
             ],
         ],
@@ -1331,7 +1331,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
                   elevation: 1, margin: const EdgeInsets.only(bottom: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   child: ListTile(
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    leading: Text(isService ? '✂️' : '️', style: TextStyle(fontSize: 24)),
+                    leading: Text(isService ? '✂️' : '️🗑️', style: TextStyle(fontSize: 24)),
                     title: Text(item.serviceName.isNotEmpty ? item.serviceName : (item.productName ?? ''), style: const TextStyle(fontWeight: FontWeight.w600)),
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1369,7 +1369,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
                 DropdownButtonFormField<String>(
                   value: _paymentMethod,
                   decoration: InputDecoration(border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)), contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
-                  items: const [DropdownMenuItem(value: 'cash', child: Text('💵 Efectivo')), DropdownMenuItem(value: 'card', child: Text('💳 Tarjeta')), DropdownMenuItem(value: 'transfer', child: Text(' Transferencia'))],
+                  items: const [DropdownMenuItem(value: 'cash', child: Text('💵 Efectivo')), DropdownMenuItem(value: 'card', child: Text('💳 Tarjeta')), DropdownMenuItem(value: 'transfer', child: Text('📲 Transferencia'))],
                   onChanged: (value) { setState(() { _paymentMethod = value!; }); },
                 ),
                 const SizedBox(height: 12),
