@@ -250,17 +250,17 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('📊 Reportes Avanzados'),
+        title: const Text('📚 Reportes Avanzados'),
         backgroundColor: Colors.indigo[700],
         foregroundColor: Colors.white,
         actions: [
           IconButton(
-            icon: const Text('🅰️', style: TextStyle(fontSize: 20)),
+            icon: const Text('🅰️PDF', style: TextStyle(fontSize: 20)),
             tooltip: 'Exportar PDF',
             onPressed: _exportToPDF,
           ),
           IconButton(
-            icon: const Text('🅴xcel', style: TextStyle(fontSize: 20)),
+            icon: const Text('🔢EXCEL', style: TextStyle(fontSize: 20)),
             tooltip: 'Exportar Excel',
             onPressed: _exportToExcel,
           ),
