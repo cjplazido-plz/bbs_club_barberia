@@ -63969,7 +63969,7 @@ a8=j.dr()
 a9=B.p.bx(m.ax.a.a)
 if(a9.length===0)a9=null
 s=7
-return A.r(b.hX(0,A.a7(["id",i,"client_id",null,"client_name",a,"client_phone",a2,"client_email",a3,"barber_id",a4,"barber_name",a5,"service_id",a6,"service_name",g,"service_price",a7,"service_ids",f,"appointment_date",a8,"status","pending","notes",a9,"source","web_booking"],t.N,t.z)),$async$Bh)
+return A.r(b.hX(0,A.a7(["id",i,"client_id",null,"client_name",a,"client_phone",a2,"client_email",a3,"barber_id",a4,"barber_name",a5,"service_id",a6,"service_name",g,"service_price",a7,"appointment_date",a8,"status","pending","notes",a9,"source","web_booking"],t.N,t.z)),$async$Bh)
 case 7:s=8
 return A.r(m.B8(j,B.p.bx(d.a.a),B.p.bx(c.a.a),g,m.gR7()),$async$Bh)
 case 8:if(m.c!=null)m.aGJ()

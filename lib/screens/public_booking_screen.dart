@@ -166,7 +166,7 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
         'service_id': serviceIds.first, // ID principal (primer servicio)
         'service_name': serviceNames, // ✅ Nombres concatenados
         'service_price': _totalPrice, // ✅ Precio total
-        'service_ids': serviceIds, // ✅ Lista de IDs (si la columna existe)
+        //'service_ids': serviceIds, // ✅ Lista de IDs (si la columna existe)
         'appointment_date': appointmentDateTime.toIso8601String(),
         'status': 'pending',
         'notes': _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
