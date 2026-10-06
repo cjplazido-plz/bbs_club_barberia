@@ -9687,7 +9687,7 @@ $.NC=m==null?$.NC:m
 m=J.l(o,"ticket_footer")
 $.NB=m==null?$.NB:m
 A.bF("\u2705 Configuraci\xf3n cargada")
-A.bF("\ufe0f Logo URL: "+$.uA)
+A.bF("\ud83d\uddbc\ufe0f Logo URL: "+$.uA)
 A.bF("\ud83d\udda8\ufe0f Ticket Logo URL: "+$.ND)}else A.bF("\u26a0\ufe0f No hay configuraci\xf3n en Supabase")
 q=1
 s=5

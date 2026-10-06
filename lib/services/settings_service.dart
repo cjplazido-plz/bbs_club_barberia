@@ -29,13 +29,13 @@ class SettingsService {
   try {
     print('🔄 Cargando configuración desde Supabase...');
     
-    // ✅ OBTENER LA FILA MÁS RECIENTE (ordenada por updated_at DESC)
+    // ✅ OBTENER LA FILA MÁS RECIENTE
     final response = await Supabase.instance.client
-        .from('settings')
-        .select('*')
-        .order('updated_at', ascending: false)
-        .limit(1)
-        .maybeSingle();
+    .from('settings')
+    .select('*')
+    .order('updated_at', ascending: false)
+    .limit(1)
+    .maybeSingle();
 
     if (response != null) {
       shopName = response['shop_name'] ?? shopName;
@@ -51,7 +51,7 @@ class SettingsService {
       ticketFooter = response['ticket_footer'] ?? ticketFooter;
       
       print('✅ Configuración cargada');
-      print('️ Logo URL: $shopLogoUrl');
+      print('🖼️ Logo URL: $shopLogoUrl');
       print('🖨️ Ticket Logo URL: $ticketLogoUrl');
     } else {
       print('⚠️ No hay configuración en Supabase');
