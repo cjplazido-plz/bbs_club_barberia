@@ -60,7 +60,7 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
 
       await _loadAppointmentsForDate(_selectedDate);
     } catch (e) {
-      print('❌ Error al cargar datos: $e');
+      print(' Error al cargar datos: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error al cargar datos: $e'), backgroundColor: Colors.red),
@@ -135,7 +135,6 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
 
       final appointmentId = 'apt-${DateTime.now().millisecondsSinceEpoch}';
 
-      // ✅ SIN client_email (la columna no existe aún)
       await Supabase.instance.client.from('appointments').insert({
         'id': appointmentId,
         'client_id': null,
@@ -151,15 +150,12 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
         'status': 'pending',
         'notes': _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
         'source': 'web_booking',
-        'created_at': DateTime.now().toIso8601String(),
-        'updated_at': DateTime.now().toIso8601String(),
       });
 
       await _sendConfirmationWhatsApp(
         name: _nameController.text.trim(),
         phone: _phoneController.text.trim(),
         serviceName: service['name'],
-        barberName: barber != null ? barber['name'] : 'Sin asignar',
         date: appointmentDateTime,
       );
 
@@ -167,7 +163,7 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
         _showSuccessDialog();
       }
     } catch (e) {
-      print('❌ Error al guardar cita: $e');
+      print(' Error al guardar cita: $e');
       _showError('Error al guardar la cita: $e');
     } finally {
       if (mounted) {
@@ -180,7 +176,6 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
     required String name,
     required String phone,
     required String serviceName,
-    required String barberName,
     required DateTime date,
   }) async {
     String cleanPhone = phone.replaceAll(RegExp(r'[^0-9]'), '');
@@ -191,10 +186,9 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
     final timeStr = DateFormat('HH:mm').format(date);
 
     final message = 'Hola $name, tu solicitud de reserva en ${SettingsService.shopName} ha sido recibida.%0A%0A'
-        '📅 *Fecha:* $dateStr%0A'
+        ' *Fecha:* $dateStr%0A'
         '⏰ *Hora:* $timeStr%0A'
-        '✂️ *Servicio:* $serviceName%0A'
-        '💈 *Barbero:* $barberName%0A%0A'
+        '✂️ *Servicio:* $serviceName%0A%0A'
         'Te contactaremos pronto para confirmar. ¡Gracias! 💈';
 
     final url = 'https://api.whatsapp.com/send/?phone=$cleanPhone&text=$message';
@@ -325,7 +319,7 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
                   const SizedBox(height: 24),
 
                   // Paso 1: Servicio
-                  _buildSectionTitle('1️ Selecciona el servicio'),
+                  _buildSectionTitle('1️⃣ Selecciona el servicio'),
                   const SizedBox(height: 10),
                   if (_services.isEmpty)
                     Container(
@@ -338,7 +332,7 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
                   const SizedBox(height: 20),
 
                   // Paso 2: Fecha
-                  _buildSectionTitle('2️ Selecciona la fecha'),
+                  _buildSectionTitle('2️⃣ Selecciona la fecha'),
                   const SizedBox(height: 10),
                   InkWell(
                     onTap: () async {
@@ -381,7 +375,7 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
                   const SizedBox(height: 20),
 
                   // Paso 3: Horario
-                  _buildSectionTitle('3️ Selecciona el horario'),
+                  _buildSectionTitle('3️⃣ Selecciona el horario'),
                   const SizedBox(height: 10),
                   if (_occupiedTimes.length >= _availableTimes.length)
                     Container(
@@ -427,7 +421,7 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
                   const SizedBox(height: 20),
 
                   // Paso 4: Datos
-                  _buildSectionTitle('4️⃣ Tus datos'),
+                  _buildSectionTitle('4️ Tus datos'),
                   const SizedBox(height: 10),
                   TextField(
                     controller: _nameController,
