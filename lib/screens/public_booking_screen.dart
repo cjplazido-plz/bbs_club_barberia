@@ -86,11 +86,10 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
         _existingAppointments = List<Map<String, dynamic>>.from(appointments);
       });
     } catch (e) {
-      print('️ Error al cargar citas: $e');
+      print('⚠️ Error al cargar citas: $e');
     }
   }
 
-  // ✅ Horarios ocupados SIN filtrar por barbero
   List<String> get _occupiedTimes {
     return _existingAppointments
         .map((apt) {
@@ -123,7 +122,6 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
 
     try {
       final service = _services.firstWhere((s) => s['id'] == _selectedServiceId);
-      // ✅ Usar el primer barbero disponible
       final barber = _barbers.isNotEmpty ? _barbers.first : null;
 
       final timeParts = _selectedTime!.split(':');
@@ -137,6 +135,7 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
 
       final appointmentId = 'apt-${DateTime.now().millisecondsSinceEpoch}';
 
+      // ✅ SIN client_email (la columna no existe aún)
       await Supabase.instance.client.from('appointments').insert({
         'id': appointmentId,
         'client_id': null,
@@ -192,10 +191,10 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
     final timeStr = DateFormat('HH:mm').format(date);
 
     final message = 'Hola $name, tu solicitud de reserva en ${SettingsService.shopName} ha sido recibida.%0A%0A'
-        ' *Fecha:* $dateStr%0A'
+        '📅 *Fecha:* $dateStr%0A'
         '⏰ *Hora:* $timeStr%0A'
         '✂️ *Servicio:* $serviceName%0A'
-        ' *Barbero:* $barberName%0A%0A'
+        '💈 *Barbero:* $barberName%0A%0A'
         'Te contactaremos pronto para confirmar. ¡Gracias! 💈';
 
     final url = 'https://api.whatsapp.com/send/?phone=$cleanPhone&text=$message';
@@ -262,6 +261,9 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 600;
+
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -275,49 +277,56 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
+              padding: EdgeInsets.all(isMobile ? 16 : 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Header con logo y nombre
+                  // Header con logo
                   Center(
                     child: Column(
                       children: [
                         if (SettingsService.shopLogoUrl.isNotEmpty)
                           ClipRRect(
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: BorderRadius.circular(12),
                             child: Image.network(
                               SettingsService.shopLogoUrl,
-                              height: 100,
+                              height: isMobile ? 70 : 100,
                               errorBuilder: (_, __, ___) => const SizedBox.shrink(),
                             ),
                           ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 12),
                         Text(
                           SettingsService.shopName,
-                          style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.indigo),
+                          style: TextStyle(
+                            fontSize: isMobile ? 22 : 28,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.indigo,
+                          ),
+                          textAlign: TextAlign.center,
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 6),
                         if (SettingsService.shopAddress.isNotEmpty)
                           Text(
                             SettingsService.shopAddress,
-                            style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                            style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                            textAlign: TextAlign.center,
                           ),
                         if (SettingsService.shopPhone.isNotEmpty) ...[
                           const SizedBox(height: 4),
                           Text(
                             'Tel: ${SettingsService.shopPhone}',
-                            style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                            style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                            textAlign: TextAlign.center,
                           ),
                         ],
                       ],
                     ),
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 24),
 
-                  // ✅ Paso 1: Seleccionar servicio
-                  _buildSectionTitle('1️⃣ Selecciona el servicio'),
-                  const SizedBox(height: 12),
+                  // Paso 1: Servicio
+                  _buildSectionTitle('1️ Selecciona el servicio'),
+                  const SizedBox(height: 10),
                   if (_services.isEmpty)
                     Container(
                       padding: const EdgeInsets.all(16),
@@ -326,11 +335,11 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
                     )
                   else
                     ..._services.map((service) => _buildServiceCard(service)),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
 
-                  // ✅ Paso 2: Seleccionar fecha (antes era 3)
-                  _buildSectionTitle('2️⃣ Selecciona la fecha'),
-                  const SizedBox(height: 12),
+                  // Paso 2: Fecha
+                  _buildSectionTitle('2️ Selecciona la fecha'),
+                  const SizedBox(height: 10),
                   InkWell(
                     onTap: () async {
                       final picked = await showDatePicker(
@@ -348,7 +357,7 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
                       }
                     },
                     child: Container(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
                         border: Border.all(color: Colors.indigo),
                         borderRadius: BorderRadius.circular(8),
@@ -356,24 +365,24 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
                       ),
                       child: Row(
                         children: [
-                          const Text('📅', style: TextStyle(fontSize: 24)),
-                          const SizedBox(width: 12),
+                          const Text('📅', style: TextStyle(fontSize: 22)),
+                          const SizedBox(width: 10),
                           Expanded(
                             child: Text(
                               DateFormat('EEEE, dd MMMM yyyy', 'es').format(_selectedDate),
-                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                             ),
                           ),
-                          const Icon(Icons.calendar_today, color: Colors.indigo),
+                          const Icon(Icons.calendar_today, color: Colors.indigo, size: 20),
                         ],
                       ),
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
 
-                  // ✅ Paso 3: Seleccionar horario (antes era 4)
-                  _buildSectionTitle('3️⃣ Selecciona el horario'),
-                  const SizedBox(height: 12),
+                  // Paso 3: Horario
+                  _buildSectionTitle('3️ Selecciona el horario'),
+                  const SizedBox(height: 10),
                   if (_occupiedTimes.length >= _availableTimes.length)
                     Container(
                       padding: const EdgeInsets.all(16),
@@ -382,22 +391,22 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
                     )
                   else
                     Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
+                      spacing: 6,
+                      runSpacing: 6,
                       children: _availableTimes.map((time) {
                         final isOccupied = _occupiedTimes.contains(time);
                         final isSelected = _selectedTime == time;
                         return InkWell(
                           onTap: isOccupied ? null : () => setState(() => _selectedTime = time),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             decoration: BoxDecoration(
                               color: isOccupied
                                   ? Colors.grey[300]
                                   : isSelected
                                       ? Colors.indigo
                                       : Colors.white,
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(6),
                               border: Border.all(
                                 color: isOccupied ? Colors.grey : isSelected ? Colors.indigo : Colors.grey[300]!,
                               ),
@@ -407,6 +416,7 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
                               style: TextStyle(
                                 color: isOccupied ? Colors.grey[500] : isSelected ? Colors.white : Colors.black87,
                                 fontWeight: FontWeight.w600,
+                                fontSize: 13,
                                 decoration: isOccupied ? TextDecoration.lineThrough : null,
                               ),
                             ),
@@ -414,11 +424,11 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
                         );
                       }).toList(),
                     ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
 
-                  // ✅ Paso 4: Datos del cliente (antes era 5)
+                  // Paso 4: Datos
                   _buildSectionTitle('4️⃣ Tus datos'),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   TextField(
                     controller: _nameController,
                     decoration: const InputDecoration(
@@ -427,7 +437,7 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
                       prefixIcon: Icon(Icons.person),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   TextField(
                     controller: _phoneController,
                     decoration: const InputDecoration(
@@ -438,7 +448,7 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
                     ),
                     keyboardType: TextInputType.phone,
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   TextField(
                     controller: _emailController,
                     decoration: const InputDecoration(
@@ -448,7 +458,7 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
                     ),
                     keyboardType: TextInputType.emailAddress,
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   TextField(
                     controller: _notesController,
                     decoration: const InputDecoration(
@@ -458,12 +468,12 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
                     ),
                     maxLines: 3,
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 24),
 
-                  // Botón de enviar
+                  // Botón enviar
                   SizedBox(
                     width: double.infinity,
-                    height: 56,
+                    height: 52,
                     child: ElevatedButton(
                       onPressed: _isSubmitting ? null : _submitBooking,
                       style: ElevatedButton.styleFrom(
@@ -476,17 +486,17 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
                               children: [
                                 SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)),
                                 SizedBox(width: 12),
-                                Text('Enviando...', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                Text('Enviando...', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                               ],
                             )
-                          : const Text('CONFIRMAR RESERVA', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          : const Text('CONFIRMAR RESERVA', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                     ),
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 24),
 
-                  // Footer informativo
+                  // Footer
                   Container(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
                       color: Colors.blue[50],
                       borderRadius: BorderRadius.circular(8),
@@ -494,8 +504,8 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
                     ),
                     child: const Row(
                       children: [
-                        Text('ℹ️', style: TextStyle(fontSize: 24)),
-                        SizedBox(width: 12),
+                        Text('ℹ️', style: TextStyle(fontSize: 22)),
+                        SizedBox(width: 10),
                         Expanded(
                           child: Text(
                             'Tu reserva será confirmada por WhatsApp. Los horarios marcados en gris ya están ocupados.',
@@ -514,7 +524,7 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
   Widget _buildSectionTitle(String title) {
     return Text(
       title,
-      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.indigo),
+      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.indigo),
     );
   }
 
@@ -526,8 +536,8 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
     return InkWell(
       onTap: () => setState(() => _selectedServiceId = service['id']),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.all(16),
+        margin: const EdgeInsets.only(bottom: 6),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: isSelected ? Colors.indigo[50] : Colors.white,
           border: Border.all(color: isSelected ? Colors.indigo : Colors.grey[300]!),
@@ -535,8 +545,8 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
         ),
         child: Row(
           children: [
-            const Text('✂️', style: TextStyle(fontSize: 28)),
-            const SizedBox(width: 12),
+            const Text('✂️', style: TextStyle(fontSize: 26)),
+            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -555,7 +565,7 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
             ),
             Text(
               SettingsService.formatCurrency(price),
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.indigo[700]),
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.indigo[700]),
             ),
           ],
         ),

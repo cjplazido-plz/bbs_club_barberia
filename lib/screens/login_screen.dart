@@ -16,7 +16,6 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   String _errorMessage = '';
 
-  // ✅ EMAIL DEL DESARROLLADOR (cámbialo por tu email real)
   static const String developerEmail = 'cjplazido@gmail.com';
 
   Future<void> _handleLogin() async {
@@ -39,7 +38,6 @@ class _LoginScreenState extends State<LoginScreen> {
         String userEmail = response.user?.email ?? '';
 
         try {
-          // ✅ PROTECCIÓN 1: Si es el email del desarrollador, siempre es admin
           if (userEmail.toLowerCase() == developerEmail.toLowerCase()) {
             role = 'admin';
             userName = 'Desarrollador (Acceso Total)';
@@ -58,7 +56,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   profile['username'] ??
                   userEmail.split('@').first;
             } else {
-              // Si no existe el perfil, asignar rol por defecto
               role = 'user';
               userName = userEmail.split('@').first;
             }
@@ -103,6 +100,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 600;
+
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
@@ -114,79 +114,81 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(32),
+            padding: EdgeInsets.all(isMobile ? 16 : 32),
             child: Card(
               elevation: 8,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Padding(
-                padding: const EdgeInsets.all(32),
+                padding: EdgeInsets.all(isMobile ? 20 : 32),
                 child: SizedBox(
-                  width: 400,
+                  width: isMobile ? screenWidth * 0.9 : 400,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // ✅ LOGO DE LA BARBERÍA (140x140)
+                      // Logo
                       ClipRRect(
                         borderRadius: BorderRadius.circular(16),
                         child: SettingsService.shopLogoUrl.isNotEmpty
                             ? Image.network(
                                 SettingsService.shopLogoUrl,
-                                width: 160,
-                                height: 160,
+                                width: isMobile ? 120 : 160,
+                                height: isMobile ? 120 : 160,
                                 fit: BoxFit.contain,
                                 errorBuilder: (context, error, stackTrace) {
-                                  return _buildDefaultLogo();
+                                  return _buildDefaultLogo(isMobile);
                                 },
                                 loadingBuilder: (context, child, loadingProgress) {
                                   if (loadingProgress == null) return child;
-                                  return _buildDefaultLogo();
+                                  return _buildDefaultLogo(isMobile);
                                 },
                               )
-                            : _buildDefaultLogo(),
+                            : _buildDefaultLogo(isMobile),
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 16),
                       Text(
                         SettingsService.shopName,
-                        style: const TextStyle(
-                          fontSize: 28,
+                        style: TextStyle(
+                          fontSize: isMobile ? 22 : 28,
                           fontWeight: FontWeight.bold,
                           color: Colors.indigo,
                         ),
+                        textAlign: TextAlign.center,
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 4),
                       Text(
                         'Inicia sesión para continuar',
                         style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                        textAlign: TextAlign.center,
                       ),
-                      const SizedBox(height: 32),
-                      // ✅ Campo de correo SIN icono
+                      const SizedBox(height: 24),
+                      // Email
                       TextField(
                         controller: _emailController,
-                        decoration: InputDecoration(
+                        decoration: const InputDecoration(
                           labelText: 'Correo electrónico',
                           hintText: 'ej: carlos@barber.com',
                           border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8)),
+                              borderRadius: BorderRadius.all(Radius.circular(8))),
                         ),
                         keyboardType: TextInputType.emailAddress,
                       ),
-                      const SizedBox(height: 16),
-                      // ✅ Campo de contraseña SIN icono
+                      const SizedBox(height: 12),
+                      // Contraseña
                       TextField(
                         controller: _passwordController,
-                        decoration: InputDecoration(
+                        decoration: const InputDecoration(
                           labelText: 'Contraseña',
                           border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8)),
+                              borderRadius: BorderRadius.all(Radius.circular(8))),
                         ),
                         obscureText: true,
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
                       if (_errorMessage.isNotEmpty)
                         Container(
-                          padding: const EdgeInsets.all(12),
+                          padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
                             color: Colors.red[50],
                             borderRadius: BorderRadius.circular(8),
@@ -194,7 +196,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           child: Row(
                             children: [
-                              const Text('⚠️', style: TextStyle(fontSize: 20)),
+                              const Text('⚠️', style: TextStyle(fontSize: 18)),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
@@ -228,16 +230,15 @@ class _LoginScreenState extends State<LoginScreen> {
                               : const Text(
                                   'INICIAR SESIÓN',
                                   style: TextStyle(
-                                      fontSize: 16,
+                                      fontSize: 15,
                                       fontWeight: FontWeight.bold,
                                       color: Colors.white),
                                 ),
                         ),
                       ),
-                      // ✅ PROTECCIÓN 2: Link para clientes (reservar cita)
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 20),
                       const Divider(),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
                       Text(
                         '¿Eres cliente?',
                         style: TextStyle(color: Colors.grey[600], fontSize: 14),
@@ -255,7 +256,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         label: const Text(
                           'Reservar una cita',
                           style: TextStyle(
-                              fontSize: 16,
+                              fontSize: 15,
                               fontWeight: FontWeight.bold,
                               color: Colors.indigo),
                         ),
@@ -271,17 +272,16 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  // ✅ Logo por defecto (140x140, emoji 72px)
-  Widget _buildDefaultLogo() {
+  Widget _buildDefaultLogo(bool isMobile) {
     return Container(
-      width: 160,
-      height: 160,
+      width: isMobile ? 120 : 160,
+      height: isMobile ? 120 : 160,
       decoration: BoxDecoration(
         color: Colors.indigo[100],
         shape: BoxShape.circle,
       ),
-      child: const Center(
-        child: Text('💈', style: TextStyle(fontSize: 72)),
+      child: Center(
+        child: Text('💈', style: TextStyle(fontSize: isMobile ? 56 : 72)),
       ),
     );
   }
