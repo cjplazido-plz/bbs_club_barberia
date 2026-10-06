@@ -4,6 +4,7 @@ import 'package:printing/printing.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:http/http.dart' as http;
+import 'package:image/image.dart' as img; // ✅ NUEVO: Equivalente a PIL en Python
 import '../models/local_transaction.dart';
 import '../services/settings_service.dart';
 
@@ -22,10 +23,29 @@ class PrinterService {
         try {
           final response = await http.get(Uri.parse(logoUrl));
           if (response.statusCode == 200) {
-            logoImage = pw.MemoryImage(response.bodyBytes);
+            // 1. Decodificar la imagen (equivalente a Image.open)
+            img.Image? decodedImage = img.decodeImage(response.bodyBytes);
+            
+            if (decodedImage != null) {
+              // 2. Redimensionar a max 384px de ancho (como tu script de Python para 80mm)
+              if (decodedImage.width > 384) {
+                decodedImage = img.copyResize(decodedImage, width: 384);
+              }
+              
+              // 3. Convertir a escala de grises (.convert('L'))
+              img.Image grayImage = img.grayscale(decodedImage);
+              
+              // 4. Umbralizar a blanco y negro puro 1-bit (.convert('1'))
+              // Pixeles con luminosidad < 128 se vuelven negro (0), >= 128 se vuelven blanco (255)
+              img.Image bwImage = img.threshold(grayImage, threshold: 128);
+              
+              // 5. Codificar de nuevo a PNG para que el PDF lo renderice perfectamente
+              final processedBytes = img.encodePng(bwImage);
+              logoImage = pw.MemoryImage(processedBytes);
+            }
           }
         } catch (e) {
-          print('️ Error al descargar logo: $e');
+          print('⚠️ Error al procesar logo: $e');
         }
       }
 
@@ -38,13 +58,13 @@ class PrinterService {
             return pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
-                // ✅ LOGO CON FONDO BLANCO
+                // ✅ LOGO CON FONDO BLANCO EXPLÍCITO + IMAGEN PROCESADA EN 1-BIT
                 if (logoImage != null)
                   pw.Center(
                     child: pw.Container(
                       width: 70,
                       height: 70,
-                      color: PdfColors.white,
+                      color: PdfColors.white, // Fondo blanco de seguridad
                       child: pw.Image(logoImage, fit: pw.BoxFit.contain),
                     ),
                   ),
