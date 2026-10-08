@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 class ThemeService {
   // ✅ Estado global del tema
-  static bool isDarkMode = false;
-  static ThemeMode themeMode = ThemeMode.system;
+  static bool isDarkMode = true; // ✅ Cambiado a true (oscuro por defecto)
+  static ThemeMode themeMode = ThemeMode.dark; // ✅ Cambiado a dark
 
   // ✅ Cambiar entre modos
   static void setDarkMode(bool value) {
@@ -13,10 +13,10 @@ class ThemeService {
 
   static void setSystemMode() {
     themeMode = ThemeMode.system;
-    isDarkMode = false; // Se detectará automáticamente
+    isDarkMode = false;
   }
 
-  // ✅ Tema claro (actual)
+  // ✅ Tema claro
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
@@ -29,7 +29,6 @@ class ThemeService {
         elevation: 0,
         centerTitle: true,
       ),
-      // ✅ CORREGIDO: CardThemeData en lugar de CardTheme
       cardTheme: CardThemeData(
         elevation: 2,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -51,21 +50,20 @@ class ThemeService {
     );
   }
 
-  // ✅ Tema oscuro (nuevo)
+  // ✅ Tema oscuro (ahora es el predeterminado)
   static ThemeData get darkTheme {
     return ThemeData(
       useMaterial3: true,
       colorSchemeSeed: Colors.indigo,
       brightness: Brightness.dark,
-      scaffoldBackgroundColor: const Color(0xFF0F172A), // Azul muy oscuro
-      cardColor: const Color(0xFF1E293B), // Azul oscuro para cards
+      scaffoldBackgroundColor: const Color(0xFF0F172A),
+      cardColor: const Color(0xFF1E293B),
       appBarTheme: const AppBarTheme(
         backgroundColor: Color(0xFF1E293B),
         foregroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
       ),
-      // ✅ CORREGIDO: CardThemeData en lugar de CardTheme
       cardTheme: CardThemeData(
         elevation: 2,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -73,7 +71,7 @@ class ThemeService {
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF6366F1), // Indigo brillante
+          backgroundColor: const Color(0xFF6366F1),
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
