@@ -29,7 +29,8 @@ class ThemeService {
         elevation: 0,
         centerTitle: true,
       ),
-      cardTheme: CardTheme(
+      // ✅ CORREGIDO: CardThemeData en lugar de CardTheme
+      cardTheme: CardThemeData(
         elevation: 2,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         color: Colors.white,
@@ -64,7 +65,8 @@ class ThemeService {
         elevation: 0,
         centerTitle: true,
       ),
-      cardTheme: CardTheme(
+      // ✅ CORREGIDO: CardThemeData en lugar de CardTheme
+      cardTheme: CardThemeData(
         elevation: 2,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         color: const Color(0xFF1E293B),
