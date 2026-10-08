@@ -880,7 +880,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
                         ),
                         trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                           IconButton(
-                            icon: const Text('', style: TextStyle(fontSize: 16)),
+                            icon: const Text('➖', style: TextStyle(fontSize: 16)),
                             onPressed: () {
                               setModalState(() {
                                 if (item.quantity <= 1) {
