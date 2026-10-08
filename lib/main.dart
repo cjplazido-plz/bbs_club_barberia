@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'services/database_service.dart';
 import 'services/settings_service.dart';
+import 'services/theme_service.dart';
 import 'screens/login_screen.dart';
 import 'screens/public_booking_screen.dart';
 
@@ -31,16 +32,21 @@ void main() async {
   runApp(BarberFlowApp());
 }
 
-class BarberFlowApp extends StatelessWidget {
+class BarberFlowApp extends StatefulWidget {
+  @override
+  State<BarberFlowApp> createState() => _BarberFlowAppState();
+}
+
+class _BarberFlowAppState extends State<BarberFlowApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: SettingsService.shopName,
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        primarySwatch: Colors.indigo,
-        visualDensity: VisualDensity.adaptivePlatformDensity,
-      ),
+      // ✅ Soporte para tema claro, oscuro y automático
+      theme: ThemeService.lightTheme,
+      darkTheme: ThemeService.darkTheme,
+      themeMode: ThemeService.themeMode,
       initialRoute: '/',
       routes: {
         '/': (context) => LoginScreen(),
