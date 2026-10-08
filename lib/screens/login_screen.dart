@@ -338,35 +338,65 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                           SizedBox(height: isSmallMobile ? 16 : 24),
                           Divider(color: isDark ? Colors.grey[700] : Colors.grey[300]),
                           SizedBox(height: isSmallMobile ? 10 : 16),
-                          Text(
-                            '¿Eres cliente?',
-                            style: TextStyle(
-                              color: isDark ? Colors.grey[400] : Colors.grey[600],
-                              fontSize: isSmallMobile ? 12 : 14,
-                            ),
-                          ),
-                          SizedBox(height: isSmallMobile ? 6 : 8),
-                          // ✅ Botón Reservar una cita
-                          TextButton.icon(
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (context) => PublicBookingScreen()),
-                              );
-                            },
-                            icon: const Text('📅', style: TextStyle(fontSize: 20)),
-                            label: Text(
-                              'Reservar una cita',
-                              style: TextStyle(
-                                fontSize: isSmallMobile ? 14 : 16,
-                                fontWeight: FontWeight.bold,
-                                color: isDark ? const Color(0xFF818CF8) : Colors.indigo,
-                              ),
-                            ),
-                          ),
-                          SizedBox(height: isSmallMobile ? 8 : 0),
-                        ],
+Text(
+  '¿Eres cliente?',
+  style: TextStyle(
+    color: isDark ? Colors.grey[400] : Colors.grey[600],
+    fontSize: isSmallMobile ? 12 : 14,
+  ),
+),
+SizedBox(height: isSmallMobile ? 10 : 12),
+// ✅ Botón "Reservar una cita" con estilo de botón real
+Container(
+  width: double.infinity,
+  height: buttonHeight,
+  decoration: BoxDecoration(
+    borderRadius: BorderRadius.circular(8),
+    boxShadow: isDark
+        ? [
+            BoxShadow(
+              color: Colors.indigo.withOpacity(0.3),
+              blurRadius: 8,
+              spreadRadius: 0,
+            ),
+          ]
+        : null,
+  ),
+  child: ElevatedButton.icon(
+    onPressed: () {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+            builder: (context) => PublicBookingScreen()),
+      );
+    },
+    icon: const Text('📅', style: TextStyle(fontSize: 18)),
+    label: Text(
+      'Reservar una cita',
+      style: TextStyle(
+        fontSize: isSmallMobile ? 14 : 15,
+        fontWeight: FontWeight.bold,
+      ),
+    ),
+    style: ElevatedButton.styleFrom(
+      backgroundColor: isDark ? Colors.transparent : Colors.indigo[50],
+      foregroundColor: isDark ? const Color(0xFF818CF8) : Colors.indigo[700],
+      side: BorderSide(
+        color: isDark ? const Color(0xFF6366F1) : Colors.indigo[300]!,
+        width: 1.5,
+      ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+      ),
+      padding: EdgeInsets.symmetric(
+        horizontal: isSmallMobile ? 12 : 16,
+        vertical: 10,
+      ),
+      minimumSize: const Size(double.infinity, 44),
+    ),
+  ),
+),
+SizedBox(height: isSmallMobile ? 8 : 0),                        ],
                       ),
                     ),
                   ),
