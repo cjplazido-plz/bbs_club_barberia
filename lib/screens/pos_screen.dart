@@ -48,10 +48,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
   List<LocalAppointment> _todayAppointments = [];
   List<LocalTransactionItem> _cart = [];
   String _paymentMethod = 'cash';
-  
-  // ✅ CAMBIO 3: Inicia en null (no se selecciona barbero por defecto)
   LocalBarber? _selectedBarber;
-  
   LocalClient? _selectedClient;
   LocalAppointment? _selectedAppointment;
   double _discount = 0.0;
@@ -86,12 +83,9 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
       _clients = clients;
       _products = products;
       _todayAppointments = pendingAppointments;
-      // ✅ CAMBIO 3: NO seleccionar barbero por defecto
-      // if (barbers.isNotEmpty) _selectedBarber = barbers.first; // ❌ ELIMINADO
     });
   }
 
-  // ✅ CAMBIO 3: Validación al agregar servicio
   void _addServiceToCart(LocalService service) {
     if (_selectedBarber == null) {
       _showBarberRequiredDialog();
@@ -135,61 +129,66 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
     _showSnackbar('✅ ${product.name} agregado', Colors.green);
   }
 
-  // ✅ CAMBIO 3: Diálogo para solicitar barbero
-    void _showBarberRequiredDialog() {
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('💈', style: TextStyle(fontSize: 24)),
-                const SizedBox(width: 8),
-                const Text(
-                  'Selecciona un barbero',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+  void _showBarberRequiredDialog() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('💈', style: TextStyle(fontSize: 24)),
+              const SizedBox(width: 8),
+              Text(
+                'Selecciona un barbero',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : Colors.black87,
                 ),
-              ],
+              ),
+            ],
+          ),
+        ),
+        content: Text(
+          'Para agregar servicios al carrito, primero debes seleccionar un barbero.',
+          style: TextStyle(
+            fontSize: 14,
+            color: isDark ? Colors.grey[300] : Colors.black87,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancelar', style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600])),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _showBarberSelector();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF6366F1),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text(
+              'Seleccionar',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
             ),
           ),
-      content: const Text(
-        'Para agregar servicios al carrito, primero debes seleccionar un barbero.',
-        style: TextStyle(fontSize: 14),
+        ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancelar'),
-        ),
-        ElevatedButton(
-          onPressed: () {
-            Navigator.pop(context);
-            _showBarberSelector();
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.indigo[700],
-            foregroundColor: Colors.white, // ✅ Texto blanco
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          ),
-          child: const Text(
-            'Seleccionar barbero',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: Colors.white, // ✅ Asegura texto blanco
-            ),
-          ),
-        ),
-      ],
-    ),
-  );
-}
-  // ✅ CAMBIO 3: Selector de barbero
+    );
+  }
+
   void _showBarberSelector() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     if (_barbers.isEmpty) {
       _showSnackbar('No hay barberos registrados', Colors.orange);
       return;
@@ -197,9 +196,21 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Seleccionar Barbero'),
+        backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            'Seleccionar Barbero',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white : Colors.black87,
+            ),
+          ),
+        ),
         content: SizedBox(
-          width: 400,
+          width: MediaQuery.of(context).size.width * 0.85,
           height: 300,
           child: ListView.builder(
             itemCount: _barbers.length,
@@ -208,14 +219,27 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
               final isSelected = _selectedBarber?.remoteId == barber.remoteId;
               return ListTile(
                 leading: CircleAvatar(
-                  backgroundColor: isSelected ? Colors.indigo[100] : Colors.grey[200],
-                  child: Text(barber.name[0].toUpperCase(),
-                      style: TextStyle(color: isSelected ? Colors.indigo[700] : Colors.grey[700])),
+                  backgroundColor: isSelected
+                      ? const Color(0xFF6366F1).withOpacity(0.2)
+                      : (isDark ? Colors.grey[800] : Colors.grey[200]),
+                  child: Text(
+                    barber.name[0].toUpperCase(),
+                    style: TextStyle(
+                      color: isSelected ? const Color(0xFF6366F1) : (isDark ? Colors.grey[300] : Colors.grey[700]),
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
-                title: Text(barber.name,
-                    style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+                title: Text(
+                  barber.name,
+                  style: TextStyle(
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    fontSize: 14,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                ),
                 trailing: isSelected
-                    ? const Icon(Icons.check_circle, color: Colors.indigo)
+                    ? const Icon(Icons.check_circle, color: Color(0xFF6366F1), size: 20)
                     : null,
                 onTap: () {
                   setState(() {
@@ -231,7 +255,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
+            child: Text('Cancelar', style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600])),
           ),
         ],
       ),
@@ -260,30 +284,32 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
       _showSnackbar('Agrega servicios o productos al carrito', Colors.orange);
       return;
     }
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Confirmar venta'),
+        backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+        title: Text('Confirmar venta', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Total: ${SettingsService.formatCurrency(_total)}',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87)),
             const SizedBox(height: 8),
             Text('Método de pago: ${_formatPaymentMethod(_paymentMethod)}',
-                style: TextStyle(color: Colors.grey[700])),
+                style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[700])),
             if (_selectedBarber != null) ...[
               const SizedBox(height: 8),
               Text('Barbero: ${_selectedBarber!.name}',
-                  style: TextStyle(color: Colors.grey[700])),
+                  style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[700])),
             ],
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
+            child: Text('Cancelar', style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600])),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
@@ -317,6 +343,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
   }
 
   Future<Map<String, double>?> _showCashPaymentDialog() async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final receivedController = TextEditingController();
     double change = 0.0;
     return showDialog<Map<String, double>>(
@@ -330,11 +357,12 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
             });
           }
           return AlertDialog(
-            title: const Row(
+            backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+            title: Row(
               children: [
-                Text('💵', style: TextStyle(fontSize: 24)),
-                SizedBox(width: 8),
-                Text('Pago en Efectivo'),
+                const Text('💵', style: TextStyle(fontSize: 24)),
+                const SizedBox(width: 8),
+                Text('Pago en Efectivo', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
               ],
             ),
             content: SizedBox(
@@ -346,17 +374,17 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.indigo[50],
+                      color: isDark ? const Color(0xFF312E81) : Colors.indigo[50],
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.indigo[200]!),
+                      border: Border.all(color: isDark ? const Color(0xFF6366F1) : Colors.indigo[200]!),
                     ),
                     child: Column(
                       children: [
-                        const Text('Total a pagar', style: TextStyle(color: Colors.grey, fontSize: 14)),
+                        Text('Total a pagar', style: TextStyle(color: isDark ? Colors.grey[300] : Colors.grey, fontSize: 14)),
                         const SizedBox(height: 4),
                         Text(
                           SettingsService.formatCurrency(_total),
-                          style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.indigo[700]),
+                          style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: isDark ? const Color(0xFF818CF8) : Colors.indigo[700]),
                         ),
                       ],
                     ),
@@ -365,22 +393,25 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
                   TextField(
                     controller: receivedController,
                     autofocus: true,
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87),
                     keyboardType: TextInputType.numberWithOptions(decimal: true),
                     decoration: InputDecoration(
                       labelText: 'Monto recibido',
                       hintText: '0',
+                      labelStyle: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600]),
+                      hintStyle: TextStyle(color: isDark ? Colors.grey[600] : Colors.grey[400]),
                       prefixText: '${SettingsService.currencySymbol} ',
+                      prefixStyle: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600]),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                         borderSide: BorderSide(color: Colors.green[700]!, width: 2),
                       ),
                     ),
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     onChanged: (_) => calculateChange(),
                   ),
                   const SizedBox(height: 12),
-                  const Text('Billetes rápidos:', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  Text('Billetes rápidos:', style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[400] : Colors.grey)),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
@@ -392,8 +423,8 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
                           calculateChange();
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green[50],
-                          foregroundColor: Colors.green[700],
+                          backgroundColor: isDark ? Colors.green[900] : Colors.green[50],
+                          foregroundColor: isDark ? Colors.green[300] : Colors.green[700],
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                         ),
                         child: Text(SettingsService.formatCurrency(amount.toDouble())),
@@ -405,10 +436,14 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: change >= 0 ? Colors.green[50] : Colors.red[50],
+                      color: change >= 0
+                          ? (isDark ? Colors.green[900] : Colors.green[50])
+                          : (isDark ? Colors.red[900] : Colors.red[50]),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: change >= 0 ? Colors.green[300]! : Colors.red[300]!,
+                        color: change >= 0
+                            ? (isDark ? Colors.green[700]! : Colors.green[300]!)
+                            : (isDark ? Colors.red[700]! : Colors.red[300]!),
                         width: 2,
                       ),
                     ),
@@ -417,7 +452,9 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
                         Text(
                           change >= 0 ? 'Vuelto a devolver' : 'Falta por pagar',
                           style: TextStyle(
-                            color: change >= 0 ? Colors.green[700] : Colors.red[700],
+                            color: change >= 0
+                                ? (isDark ? Colors.green[300] : Colors.green[700])
+                                : (isDark ? Colors.red[300] : Colors.red[700]),
                             fontSize: 14,
                           ),
                         ),
@@ -427,7 +464,9 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
                           style: TextStyle(
                             fontSize: 28,
                             fontWeight: FontWeight.bold,
-                            color: change >= 0 ? Colors.green[700] : Colors.red[700],
+                            color: change >= 0
+                                ? (isDark ? Colors.green[300] : Colors.green[700])
+                                : (isDark ? Colors.red[300] : Colors.red[700]),
                           ),
                         ),
                       ],
@@ -439,7 +478,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, null),
-                child: const Text('Cancelar'),
+                child: Text('Cancelar', style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600])),
               ),
               ElevatedButton(
                 onPressed: () {
@@ -593,14 +632,16 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
 
     if (_paymentMethod == 'cash' && change > 0) {
       if (mounted) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
         showDialog(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Row(
+            backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+            title: Row(
               children: [
-                Text('✅', style: TextStyle(fontSize: 24)),
-                SizedBox(width: 8),
-                Text('¡Pago Exitoso!'),
+                const Text('✅', style: TextStyle(fontSize: 24)),
+                const SizedBox(width: 8),
+                Text('¡Pago Exitoso!', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
               ],
             ),
             content: Column(
@@ -609,16 +650,16 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.green[50],
+                    color: isDark ? Colors.green[900] : Colors.green[50],
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Column(
                     children: [
-                      const Text('Vuelto a entregar', style: TextStyle(color: Colors.grey)),
+                      Text('Vuelto a entregar', style: TextStyle(color: isDark ? Colors.grey[300] : Colors.grey)),
                       const SizedBox(height: 4),
                       Text(
                         SettingsService.formatCurrency(change),
-                        style: TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: Colors.green[700]),
+                        style: TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: isDark ? Colors.green[300] : Colors.green[700]),
                       ),
                     ],
                   ),
@@ -626,7 +667,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
                 const SizedBox(height: 16),
                 Text(
                   'Recibido: ${SettingsService.formatCurrency(cashReceived)}',
-                  style: const TextStyle(fontSize: 14),
+                  style: TextStyle(fontSize: 14, color: isDark ? Colors.grey[400] : Colors.black87),
                 ),
               ],
             ),
@@ -646,37 +687,43 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
   }
 
   void _showClientSelector() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Seleccionar Cliente'),
+        backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+        title: Text('Seleccionar Cliente', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
         content: SizedBox(
           width: 400, height: 400,
           child: _clients.isEmpty
-              ? const Center(child: Text('No hay clientes registrados'))
+              ? Center(child: Text('No hay clientes registrados', style: TextStyle(color: isDark ? Colors.grey[400] : Colors.black87)))
               : ListView.builder(
             itemCount: _clients.length,
             itemBuilder: (context, index) {
               final client = _clients[index];
               return ListTile(
                 leading: CircleAvatar(
-                    backgroundColor: Colors.indigo[100],
-                    child: Text(client.name[0].toUpperCase(), style: TextStyle(color: Colors.indigo[700]))),
-                title: Text(client.name),
-                subtitle: Text(client.phone ?? 'Sin teléfono'),
+                    backgroundColor: const Color(0xFF6366F1).withOpacity(0.2),
+                    child: Text(client.name[0].toUpperCase(), style: TextStyle(color: const Color(0xFF6366F1)))),
+                title: Text(client.name, style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+                subtitle: Text(client.phone ?? 'Sin teléfono', style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600])),
                 onTap: () { setState(() { _selectedClient = client; }); Navigator.pop(context); },
               );
             },
           ),
         ),
         actions: [
-          TextButton(onPressed: () { setState(() { _selectedClient = null; }); Navigator.pop(context); }, child: const Text('Sin cliente')),
+          TextButton(
+            onPressed: () { setState(() { _selectedClient = null; }); Navigator.pop(context); },
+            child: Text('Sin cliente', style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600])),
+          ),
         ],
       ),
     );
   }
 
   void _showAppointmentSelector() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     if (_todayAppointments.isEmpty) {
       _showSnackbar('No hay citas pendientes para hoy', Colors.orange);
       return;
@@ -684,7 +731,8 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Seleccionar Cita'),
+        backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+        title: Text('Seleccionar Cita', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
         content: SizedBox(
           width: 400, height: 400,
           child: ListView.builder(
@@ -693,11 +741,16 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
               final apt = _todayAppointments[index];
               return ListTile(
                 leading: CircleAvatar(
-                  backgroundColor: apt.status == 'pending' ? Colors.orange[100] : Colors.green[100],
-                  child: const Text('', style: TextStyle(fontSize: 20)),
+                  backgroundColor: apt.status == 'pending'
+                      ? Colors.orange.withOpacity(0.2)
+                      : Colors.green.withOpacity(0.2),
+                  child: const Text('📅', style: TextStyle(fontSize: 20)),
                 ),
-                title: Text(apt.clientName ?? 'Sin cliente'),
-                subtitle: Text('${apt.serviceName ?? ''} - ${apt.barberName ?? ''} - ${apt.appointmentDate.hour.toString().padLeft(2, '0')}:${apt.appointmentDate.minute.toString().padLeft(2, '0')}'),
+                title: Text(apt.clientName ?? 'Sin cliente', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+                subtitle: Text(
+                  '${apt.serviceName ?? ''} - ${apt.barberName ?? ''} - ${apt.appointmentDate.hour.toString().padLeft(2, '0')}:${apt.appointmentDate.minute.toString().padLeft(2, '0')}',
+                  style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600]),
+                ),
                 trailing: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
@@ -706,7 +759,11 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
                   ),
                   child: Text(
                     apt.status == 'pending' ? 'Pendiente' : 'Confirmada',
-                    style: TextStyle(color: apt.status == 'pending' ? Colors.orange[700] : Colors.green[700], fontSize: 12, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      color: apt.status == 'pending' ? Colors.orange[700] : Colors.green[700],
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
                 onTap: () {
@@ -723,7 +780,10 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
           ),
         ),
         actions: [
-          TextButton(onPressed: () { setState(() { _selectedAppointment = null; }); Navigator.pop(context); }, child: const Text('Sin cita')),
+          TextButton(
+            onPressed: () { setState(() { _selectedAppointment = null; }); Navigator.pop(context); },
+            child: Text('Sin cita', style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600])),
+          ),
         ],
       ),
     );
@@ -735,14 +795,23 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
   }
 
   Future<void> _handleLogout() async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Cerrar sesión'),
-        content: const Text('¿Estás seguro que deseas cerrar sesión?'),
+        backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+        title: Text('Cerrar sesión', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+        content: Text('¿Estás seguro que deseas cerrar sesión?', style: TextStyle(color: isDark ? Colors.grey[300] : Colors.black87)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
-          ElevatedButton(onPressed: () => Navigator.pop(context, true), style: ElevatedButton.styleFrom(backgroundColor: Colors.red), child: const Text('Cerrar sesión')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Cancelar', style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600])),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Cerrar sesión'),
+          ),
         ],
       ),
     );
@@ -755,10 +824,12 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
   }
 
   void _showMobileMenu() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
       builder: (context) => DraggableScrollableSheet(
         initialChildSize: 0.9,
         minChildSize: 0.5,
@@ -771,7 +842,10 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
             children: [
               Container(
                 padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(color: Colors.indigo[700], borderRadius: const BorderRadius.vertical(top: Radius.circular(20))),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF6366F1),
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                ),
                 child: Row(
                   children: [
                     const Text('☰', style: TextStyle(fontSize: 28, color: Colors.white)),
@@ -783,7 +857,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
               Column(
                 children: [
                   if (currentUserRole == 'admin') ...[
-                    _buildMenuItem('🗐', 'Reportes Avanzados', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => AdvancedReportsScreen())); }),
+                    _buildMenuItem('📝', 'Reportes Avanzados', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => AdvancedReportsScreen())); }),
                     _buildMenuItem('💰', 'Comisiones', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => CommissionsScreen())); }),
                     _buildMenuItem('💈', 'Barberos', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => BarbersScreen())).then((_) => _loadData()); }),
                     _buildMenuItem('✂️', 'Servicios', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ServicesScreen())).then((_) => _loadData()); }),
@@ -793,7 +867,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
                     _buildMenuItem('📖', 'Dashboard', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => DashboardScreen())); }),
                     _buildMenuItem('📈', 'Reportes', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ReportsScreen())); }),
                     _buildMenuItem('🧾', 'Historial de Ventas', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => SalesHistoryScreen())); }),
-                    _buildMenuItem('️🛠️', 'Configuración', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => SettingsScreen())); }),
+                    _buildMenuItem('⚙️', 'Configuración', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => SettingsScreen())); }),
                   ],
                   if (currentUserRole == 'cashier') ...[
                     _buildMenuItem('📜', 'Historial', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => SalesHistoryScreen())); }),
@@ -805,7 +879,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
                     _buildMenuItem('📅', 'Agenda de Citas', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => AppointmentsScreen())); }),
                   ],
                   _buildMenuItem('👨‍💼', 'Clientes', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ClientsScreen())).then((_) => _loadData()); }),
-                  const Divider(),
+                  Divider(color: isDark ? Colors.grey[700] : Colors.grey[300]),
                   _buildMenuItem('🚪', 'Cerrar sesión', () { Navigator.pop(context); _handleLogout(); }, isLogout: true),
                 ],
               ),
@@ -818,19 +892,29 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
   }
 
   Widget _buildMenuItem(String icon, String text, VoidCallback onTap, {bool isLogout = false}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return ListTile(
       leading: Text(icon, style: const TextStyle(fontSize: 24)),
-      title: Text(text, style: TextStyle(fontSize: 16, color: isLogout ? Colors.red : Colors.black87, fontWeight: FontWeight.w500)),
+      title: Text(
+        text,
+        style: TextStyle(
+          fontSize: 16,
+          color: isLogout ? Colors.red : (isDark ? Colors.white : Colors.black87),
+          fontWeight: FontWeight.w500,
+        ),
+      ),
       onTap: onTap,
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
     );
   }
 
   void _showCartBottomSheet() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
       builder: (context) => StatefulBuilder(
         builder: (context, setModalState) => DraggableScrollableSheet(
           initialChildSize: 0.9,
@@ -841,8 +925,15 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
             children: [
               Container(
                 padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(color: Colors.indigo[700], borderRadius: const BorderRadius.vertical(top: Radius.circular(20))),
-                child: Row(children: [const Text('🛒', style: TextStyle(fontSize: 20)), const SizedBox(width: 8), Text('Carrito (${_cart.length})', style: const TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold))]),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF6366F1),
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                ),
+                child: Row(children: [
+                  const Text('', style: TextStyle(fontSize: 20)),
+                  const SizedBox(width: 8),
+                  Text('Carrito (${_cart.length})', style: const TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold)),
+                ]),
               ),
               Expanded(
                 child: _cart.isEmpty
@@ -852,9 +943,9 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
                     children: [
                       const Text('🛒', style: TextStyle(fontSize: 64)),
                       const SizedBox(height: 16),
-                      Text('Carrito vacío', style: TextStyle(color: Colors.grey[400], fontSize: 16)),
+                      Text('Carrito vacío', style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[400], fontSize: 16)),
                       const SizedBox(height: 8),
-                      Text('Agrega servicios o productos', style: TextStyle(color: Colors.grey[400], fontSize: 12)),
+                      Text('Agrega servicios o productos', style: TextStyle(color: isDark ? Colors.grey[500] : Colors.grey[400], fontSize: 12)),
                     ],
                   ),
                 )
@@ -866,16 +957,29 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
                     final item = _cart[index];
                     final isService = item.type == 'service';
                     return Card(
-                      elevation: 1, margin: const EdgeInsets.only(bottom: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      elevation: 1,
+                      margin: const EdgeInsets.only(bottom: 8),
+                      color: isDark ? const Color(0xFF334155) : Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       child: ListTile(
                         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                         leading: Text(isService ? '✂️' : '🛍️', style: TextStyle(fontSize: 24)),
-                        title: Text(item.serviceName.isNotEmpty ? item.serviceName : (item.productName ?? ''), style: const TextStyle(fontWeight: FontWeight.w600)),
+                        title: Text(
+                          item.serviceName.isNotEmpty ? item.serviceName : (item.productName ?? ''),
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? Colors.white : Colors.black87,
+                          ),
+                        ),
                         subtitle: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('${SettingsService.formatCurrency(item.priceAtMoment)} x ${item.quantity}', style: const TextStyle(fontSize: 12)),
-                            if (isService && item.barberName.isNotEmpty) Text('Barbero: ${item.barberName}', style: const TextStyle(fontSize: 12)),
+                            Text(
+                              '${SettingsService.formatCurrency(item.priceAtMoment)} x ${item.quantity}',
+                              style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[400] : Colors.grey[600]),
+                            ),
+                            if (isService && item.barberName.isNotEmpty)
+                              Text('Barbero: ${item.barberName}', style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[400] : Colors.grey[600])),
                           ],
                         ),
                         trailing: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -892,7 +996,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
                               setState(() {});
                             },
                           ),
-                          Text('${item.quantity}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                          Text('${item.quantity}', style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87)),
                           IconButton(
                             icon: const Text('➕', style: TextStyle(fontSize: 16)),
                             onPressed: () {
@@ -903,8 +1007,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
                             },
                           ),
                           IconButton(
-                            icon: const Text('️➖', style: TextStyle(fontSize: 16)),
-                            onPressed: () {
+                            icon: const Text('🗑️', style: TextStyle(fontSize: 16)),                            onPressed: () {
                               setModalState(() {
                                 _cart.removeAt(index);
                               });
@@ -919,29 +1022,83 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
               ),
               Container(
                 padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(color: Colors.grey[50], border: Border(top: BorderSide(color: Colors.grey[300]!))),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF0F172A) : Colors.grey[50],
+                  border: Border(top: BorderSide(color: isDark ? Colors.grey[700]! : Colors.grey[300]!)),
+                ),
                 child: Column(
                   children: [
-                    Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Subtotal:', style: TextStyle(fontSize: 14, color: Colors.grey)), Text(SettingsService.formatCurrency(_subtotal), style: const TextStyle(fontSize: 14))]),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Subtotal:', style: TextStyle(fontSize: 14, color: isDark ? Colors.grey[400] : Colors.grey)),
+                        Text(SettingsService.formatCurrency(_subtotal), style: TextStyle(fontSize: 14, color: isDark ? Colors.white : Colors.black87)),
+                      ],
+                    ),
                     const SizedBox(height: 8),
-                    Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('TOTAL:', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)), Text(SettingsService.formatCurrency(_total), style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.green[700]))]),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('TOTAL:', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                        Text(
+                          SettingsService.formatCurrency(_total),
+                          style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.green[400]),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 12),
-                    OutlinedButton.icon(onPressed: _showAppointmentSelector, icon: const Text('📅', style: TextStyle(fontSize: 16)), label: Text(_selectedAppointment?.clientName ?? 'Seleccionar cita'), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 40))),
+                    OutlinedButton.icon(
+                      onPressed: _showAppointmentSelector,
+                      icon: const Text('📅', style: TextStyle(fontSize: 16)),
+                      label: Text(
+                        _selectedAppointment?.clientName ?? 'Seleccionar cita',
+                        style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(double.infinity, 40),
+                        side: BorderSide(color: isDark ? Colors.grey[600]! : Colors.grey[400]!),
+                      ),
+                    ),
                     const SizedBox(height: 8),
-                    OutlinedButton.icon(onPressed: _showClientSelector, icon: const Text('👤', style: TextStyle(fontSize: 16)), label: Text(_selectedClient?.name ?? 'Seleccionar cliente'), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 40))),
+                    OutlinedButton.icon(
+                      onPressed: _showClientSelector,
+                      icon: const Text('👤', style: TextStyle(fontSize: 16)),
+                      label: Text(
+                        _selectedClient?.name ?? 'Seleccionar cliente',
+                        style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(double.infinity, 40),
+                        side: BorderSide(color: isDark ? Colors.grey[600]! : Colors.grey[400]!),
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     DropdownButtonFormField<String>(
                       value: _paymentMethod,
-                      decoration: InputDecoration(border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))),
-                      items: const [DropdownMenuItem(value: 'cash', child: Text('💵 Efectivo')), DropdownMenuItem(value: 'card', child: Text('💳 Tarjeta')), DropdownMenuItem(value: 'transfer', child: Text('📱 Transferencia'))],
+                      dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+                      style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                      decoration: InputDecoration(
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        filled: true,
+                        fillColor: isDark ? const Color(0xFF334155) : Colors.white,
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 'cash', child: Text('💵 Efectivo')),
+                        DropdownMenuItem(value: 'card', child: Text('💳 Tarjeta')),
+                        DropdownMenuItem(value: 'transfer', child: Text('📱 Transferencia')),
+                      ],
                       onChanged: (value) { setState(() { _paymentMethod = value!; }); },
                     ),
                     const SizedBox(height: 12),
                     SizedBox(
-                      width: double.infinity, height: 52,
+                      width: double.infinity,
+                      height: 52,
                       child: ElevatedButton(
                         onPressed: _cart.isEmpty ? null : _processPayment,
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.green[600], shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green[600],
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
                         child: const Text('COBRAR', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                       ),
                     ),
@@ -957,7 +1114,9 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isMobile = MediaQuery.of(context).size.width < 700;
+
     return Scaffold(
       appBar: AppBar(
         title: Row(
@@ -969,7 +1128,6 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            // ✅ CAMBIO 1: Mostrar nombre del usuario conectado
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
@@ -990,12 +1148,12 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
             ),
           ],
         ),
-        backgroundColor: Colors.indigo[700],
+        backgroundColor: const Color(0xFF1E293B),
         foregroundColor: Colors.white,
         elevation: 0,
         bottom: TabBar(
           controller: _tabController,
-          indicatorColor: Colors.white,
+          indicatorColor: const Color(0xFF6366F1),
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white70,
           tabs: const [
@@ -1020,7 +1178,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
                 IconButton(icon: const Text('📅', style: TextStyle(fontSize: 20)), tooltip: 'Agenda', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => AppointmentsScreen())); }),
                 IconButton(icon: const Text('📊', style: TextStyle(fontSize: 20)), tooltip: 'Dashboard', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => DashboardScreen())); }),
                 IconButton(icon: const Text('📈', style: TextStyle(fontSize: 20)), tooltip: 'Reportes', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => ReportsScreen())); }),
-                IconButton(icon: const Text('🗐', style: TextStyle(fontSize: 20)), tooltip: 'Historial de Ventas', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => SalesHistoryScreen())); }),
+                IconButton(icon: const Text('🧾', style: TextStyle(fontSize: 20)), tooltip: 'Historial de Ventas', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => SalesHistoryScreen())); }),
                 IconButton(icon: const Text('📝', style: TextStyle(fontSize: 20)), tooltip: 'Reportes Avanzados', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => AdvancedReportsScreen())); }),
                 IconButton(icon: const Text('⚙️', style: TextStyle(fontSize: 20)), tooltip: 'Config', onPressed: () {Navigator.push(context, MaterialPageRoute(builder: (context) => SettingsScreen()));},),
               ],
@@ -1042,22 +1200,22 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
       floatingActionButton: isMobile && _cart.isNotEmpty
           ? FloatingActionButton.extended(
         onPressed: () => _showCartBottomSheet(),
-        backgroundColor: const Color.fromARGB(255, 204, 80, 63),
-        foregroundColor: Colors.black87,
-        icon: const Text('🛒', style: TextStyle(fontSize: 20)),
+        backgroundColor: const Color(0xFF6366F1),
+        foregroundColor: Colors.white,
+        icon: const Text('', style: TextStyle(fontSize: 20)),
         label: Text('${_cart.length} - ${SettingsService.formatCurrency(_total)}', style: const TextStyle(fontWeight: FontWeight.bold)),
       )
           : null,
     );
   }
 
-  // ✅ CAMBIO 3: Layout móvil con selector de barbero interactivo
   Widget _buildMobileLayout() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       children: [
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          color: Colors.white,
+          color: isDark ? const Color(0xFF1E293B) : Colors.white,
           child: Row(
             children: [
               const Text('💈', style: TextStyle(fontSize: 20)),
@@ -1070,9 +1228,11 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     decoration: BoxDecoration(
-                      border: Border.all(color: _selectedBarber != null ? Colors.indigo : Colors.grey[300]!),
+                      border: Border.all(color: _selectedBarber != null ? const Color(0xFF6366F1) : (isDark ? Colors.grey[700]! : Colors.grey[300]!)),
                       borderRadius: BorderRadius.circular(8),
-                      color: _selectedBarber != null ? Colors.indigo[50] : Colors.white,
+                      color: _selectedBarber != null
+                          ? const Color(0xFF6366F1).withOpacity(0.1)
+                          : (isDark ? const Color(0xFF334155) : Colors.white),
                     ),
                     child: Row(
                       children: [
@@ -1081,14 +1241,16 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
                             _selectedBarber?.name ?? 'Toca para seleccionar',
                             style: TextStyle(
                               fontSize: 14,
-                              color: _selectedBarber != null ? Colors.indigo[700] : Colors.grey[600],
+                              color: _selectedBarber != null
+                                  ? const Color(0xFF818CF8)
+                                  : (isDark ? Colors.grey[400] : Colors.grey[600]),
                               fontWeight: _selectedBarber != null ? FontWeight.w600 : FontWeight.normal,
                             ),
                           ),
                         ),
                         Icon(
                           Icons.arrow_drop_down,
-                          color: _selectedBarber != null ? Colors.indigo : Colors.grey,
+                          color: _selectedBarber != null ? const Color(0xFF6366F1) : (isDark ? Colors.grey[500] : Colors.grey),
                         ),
                       ],
                     ),
@@ -1111,22 +1273,32 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
     );
   }
 
-  // ✅ CAMBIO 3: Layout desktop con selector de barbero interactivo
   Widget _buildDesktopLayout() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Row(
       children: [
         Expanded(
           flex: 2,
           child: Container(
-            color: Colors.grey[50],
+            color: isDark ? const Color(0xFF0F172A) : Colors.grey[50],
             child: Column(
               children: [
                 Container(
                   padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2))]),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2))],
+                  ),
                   child: Row(
                     children: [
-                      Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.indigo[50], borderRadius: BorderRadius.circular(8)), child: const Text('💈', style: TextStyle(fontSize: 20))),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF6366F1).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Text('💈', style: TextStyle(fontSize: 20)),
+                      ),
                       const SizedBox(width: 12),
                       const Text('Barbero:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                       const SizedBox(width: 16),
@@ -1136,9 +1308,11 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                             decoration: BoxDecoration(
-                              border: Border.all(color: _selectedBarber != null ? Colors.indigo : Colors.grey[300]!),
+                              border: Border.all(color: _selectedBarber != null ? const Color(0xFF6366F1) : (isDark ? Colors.grey[700]! : Colors.grey[300]!)),
                               borderRadius: BorderRadius.circular(8),
-                              color: _selectedBarber != null ? Colors.indigo[50] : Colors.white,
+                              color: _selectedBarber != null
+                                  ? const Color(0xFF6366F1).withOpacity(0.1)
+                                  : (isDark ? const Color(0xFF334155) : Colors.white),
                             ),
                             child: Row(
                               children: [
@@ -1147,14 +1321,16 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
                                     _selectedBarber?.name ?? 'Toca para seleccionar un barbero',
                                     style: TextStyle(
                                       fontSize: 15,
-                                      color: _selectedBarber != null ? Colors.indigo[700] : Colors.grey[600],
+                                      color: _selectedBarber != null
+                                          ? const Color(0xFF818CF8)
+                                          : (isDark ? Colors.grey[400] : Colors.grey[600]),
                                       fontWeight: _selectedBarber != null ? FontWeight.w600 : FontWeight.normal,
                                     ),
                                   ),
                                 ),
                                 Icon(
                                   Icons.arrow_drop_down,
-                                  color: _selectedBarber != null ? Colors.indigo : Colors.grey,
+                                  color: _selectedBarber != null ? const Color(0xFF6366F1) : (isDark ? Colors.grey[500] : Colors.grey),
                                   size: 24,
                                 ),
                               ],
@@ -1184,6 +1360,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
   }
 
   Widget _buildServicesGrid({required bool mobile}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return GridView.builder(
       padding: const EdgeInsets.all(12),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
@@ -1197,6 +1374,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
         final service = _services[index];
         return Card(
           elevation: 2,
+          color: isDark ? const Color(0xFF1E293B) : Colors.white,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           child: InkWell(
             onTap: () => _addServiceToCart(service),
@@ -1204,7 +1382,13 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
             child: Container(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
-                gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Colors.indigo[50]!, Colors.white]),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: isDark
+                      ? [const Color(0xFF312E81), const Color(0xFF1E293B)]
+                      : [Colors.indigo[50]!, Colors.white],
+                ),
               ),
               child: Padding(
                 padding: const EdgeInsets.all(10),
@@ -1213,13 +1397,20 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
                   children: [
                     Container(
                       padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(color: Colors.indigo[100], shape: BoxShape.circle),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF6366F1).withOpacity(0.2),
+                        shape: BoxShape.circle,
+                      ),
                       child: Text('✂️', style: TextStyle(fontSize: mobile ? 24 : 32)),
                     ),
                     const SizedBox(height: 6),
                     Text(
                       service.name,
-                      style: TextStyle(fontSize: mobile ? 12 : 15, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: mobile ? 12 : 15,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : Colors.black87,
+                      ),
                       textAlign: TextAlign.center,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -1227,10 +1418,17 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
                     const SizedBox(height: 4),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(color: Colors.green[100], borderRadius: BorderRadius.circular(20)),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
                       child: Text(
                         SettingsService.formatCurrency(service.price),
-                        style: TextStyle(fontSize: mobile ? 12 : 16, color: Colors.green[700], fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontSize: mobile ? 12 : 16,
+                          color: Colors.green[400],
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ],
@@ -1244,6 +1442,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
   }
 
   Widget _buildProductsGrid({required bool mobile}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return GridView.builder(
       padding: const EdgeInsets.all(12),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
@@ -1258,6 +1457,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
         final isLowStock = product.stock <= product.minStock;
         return Card(
           elevation: 2,
+          color: isDark ? const Color(0xFF1E293B) : Colors.white,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           child: InkWell(
             onTap: product.stock > 0 ? () => _addProductToCart(product) : null,
@@ -1265,7 +1465,13 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
             child: Container(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
-                gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Colors.orange[50]!, Colors.white]),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: isDark
+                      ? [const Color(0xFF7C2D12), const Color(0xFF1E293B)]
+                      : [Colors.orange[50]!, Colors.white],
+                ),
                 border: isLowStock ? Border.all(color: Colors.red, width: 2) : null,
               ),
               child: Padding(
@@ -1275,13 +1481,20 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
                   children: [
                     Container(
                       padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(color: Colors.orange[100], shape: BoxShape.circle),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withOpacity(0.2),
+                        shape: BoxShape.circle,
+                      ),
                       child: Text('🛍️', style: TextStyle(fontSize: mobile ? 24 : 32)),
                     ),
                     const SizedBox(height: 6),
                     Text(
                       product.name,
-                      style: TextStyle(fontSize: mobile ? 12 : 15, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: mobile ? 12 : 15,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : Colors.black87,
+                      ),
                       textAlign: TextAlign.center,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -1289,16 +1502,27 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
                     const SizedBox(height: 4),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(color: Colors.green[100], borderRadius: BorderRadius.circular(20)),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
                       child: Text(
                         SettingsService.formatCurrency(product.price),
-                        style: TextStyle(fontSize: mobile ? 12 : 16, color: Colors.green[700], fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontSize: mobile ? 12 : 16,
+                          color: Colors.green[400],
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       'Stock: ${product.stock}',
-                      style: TextStyle(fontSize: 10, color: isLowStock ? Colors.red : Colors.grey[600], fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: isLowStock ? Colors.red : (isDark ? Colors.grey[400] : Colors.grey[600]),
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ],
                 ),
@@ -1311,35 +1535,62 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
   }
 
   Widget _buildCartPanel() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      color: Colors.white,
+      color: isDark ? const Color(0xFF1E293B) : Colors.white,
       child: Column(
         children: [
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(color: Colors.indigo[700], boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4, offset: const Offset(0, 2))]),
-            child: Row(children: [const Text('🛒', style: TextStyle(fontSize: 20)), const SizedBox(width: 8), Text('Carrito (${_cart.length})', style: const TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold))]),
+            decoration: BoxDecoration(
+              color: const Color(0xFF6366F1),
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4, offset: const Offset(0, 2))],
+            ),
+            child: Row(children: [
+              const Text('🛒', style: TextStyle(fontSize: 20)),
+              const SizedBox(width: 8),
+              Text('Carrito (${_cart.length})', style: const TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold)),
+            ]),
           ),
           if (_selectedAppointment != null)
             Container(
               padding: const EdgeInsets.all(8),
-              color: Colors.blue[50],
+              color: Colors.blue.withOpacity(0.1),
               child: Row(children: [
                 const Text('📅', style: TextStyle(fontSize: 16)),
                 const SizedBox(width: 8),
-                Expanded(child: Text('Cita: ${_selectedAppointment!.clientName}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500))),
-                IconButton(icon: const Text('✕', style: TextStyle(fontSize: 14)), onPressed: () { setState(() { _selectedAppointment = null; }); }),
+                Expanded(child: Text('Cita: ${_selectedAppointment!.clientName}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: isDark ? Colors.white : Colors.black87))),
+                IconButton(
+                  icon: const Text('✕', style: TextStyle(fontSize: 14)),
+                  onPressed: () { setState(() { _selectedAppointment = null; }); },
+                  color: isDark ? Colors.grey[400] : Colors.grey[600],
+                ),
               ]),
             ),
           if (_selectedClient != null)
             Container(
               padding: const EdgeInsets.all(8),
-              color: Colors.green[50],
-              child: Row(children: [const Text('👤', style: TextStyle(fontSize: 16)), const SizedBox(width: 8), Expanded(child: Text(_selectedClient!.name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500))), IconButton(icon: const Text('✕', style: TextStyle(fontSize: 14)), onPressed: () { setState(() { _selectedClient = null; }); })]),
+              color: Colors.green.withOpacity(0.1),
+              child: Row(children: [
+                const Text('👤', style: TextStyle(fontSize: 16)),
+                const SizedBox(width: 8),
+                Expanded(child: Text(_selectedClient!.name, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: isDark ? Colors.white : Colors.black87))),
+                IconButton(
+                  icon: const Text('', style: TextStyle(fontSize: 14)),
+                  onPressed: () { setState(() { _selectedClient = null; }); },
+                  color: isDark ? Colors.grey[400] : Colors.grey[600],
+                ),
+              ]),
             ),
           Expanded(
             child: _cart.isEmpty
-                ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [const Text('🛒', style: TextStyle(fontSize: 64)), const SizedBox(height: 16), Text('Carrito vacío', style: TextStyle(color: Colors.grey[400], fontSize: 16)), const SizedBox(height: 8), Text('Agrega servicios o productos', style: TextStyle(color: Colors.grey[400], fontSize: 12))]))
+                ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    const Text('🛒', style: TextStyle(fontSize: 64)),
+                    const SizedBox(height: 16),
+                    Text('Carrito vacío', style: TextStyle(color: isDark ? Colors.grey[500] : Colors.grey[400], fontSize: 16)),
+                    const SizedBox(height: 8),
+                    Text('Agrega servicios o productos', style: TextStyle(color: isDark ? Colors.grey[600] : Colors.grey[400], fontSize: 12)),
+                  ]))
                 : ListView.builder(
               padding: const EdgeInsets.all(16),
               itemCount: _cart.length,
@@ -1347,24 +1598,33 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
                 final item = _cart[index];
                 final isService = item.type == 'service';
                 return Card(
-                  elevation: 1, margin: const EdgeInsets.only(bottom: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  elevation: 1,
+                  color: isDark ? const Color(0xFF334155) : Colors.white,
+                  margin: const EdgeInsets.only(bottom: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   child: ListTile(
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    leading: Text(isService ? '✂️' : '️🗑️', style: TextStyle(fontSize: 24)),
-                    title: Text(item.serviceName.isNotEmpty ? item.serviceName : (item.productName ?? ''), style: const TextStyle(fontWeight: FontWeight.w600)),
+                    leading: Text(isService ? '✂️' : '🛍️', style: TextStyle(fontSize: 24)),
+                    title: Text(
+                      item.serviceName.isNotEmpty ? item.serviceName : (item.productName ?? ''),
+                      style: TextStyle(fontWeight: FontWeight.w600, color: isDark ? Colors.white : Colors.black87),
+                    ),
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('${SettingsService.formatCurrency(item.priceAtMoment)} x ${item.quantity}', style: const TextStyle(fontSize: 12)),
-                        if (isService && item.barberName.isNotEmpty) Text('Barbero: ${item.barberName}', style: const TextStyle(fontSize: 12)),
+                        Text('${SettingsService.formatCurrency(item.priceAtMoment)} x ${item.quantity}', style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[400] : Colors.grey[600])),
+                        if (isService && item.barberName.isNotEmpty) Text('Barbero: ${item.barberName}', style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[400] : Colors.grey[600])),
                       ],
                     ),
                     trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                       IconButton(icon: const Text('➖', style: TextStyle(fontSize: 16)), onPressed: () => _updateQuantity(index, item.quantity - 1)),
-                      Text('${item.quantity}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      Text('${item.quantity}', style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87)),
                       IconButton(icon: const Text('➕', style: TextStyle(fontSize: 16)), onPressed: () => _updateQuantity(index, item.quantity + 1)),
                       const SizedBox(width: 8),
-                      Text(SettingsService.formatCurrency(item.priceAtMoment * item.quantity), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.indigo)),
+                      Text(
+                        SettingsService.formatCurrency(item.priceAtMoment * item.quantity),
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: const Color(0xFF818CF8)),
+                      ),
                     ]),
                   ),
                 );
@@ -1373,28 +1633,98 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
           ),
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(color: Colors.grey[50], border: Border(top: BorderSide(color: Colors.grey[300]!)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, -2))]),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF0F172A) : Colors.grey[50],
+              border: Border(top: BorderSide(color: isDark ? Colors.grey[700]! : Colors.grey[300]!)),
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, -2))],
+            ),
             child: Column(
               children: [
-                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Subtotal:', style: TextStyle(fontSize: 14, color: Colors.grey)), Text(SettingsService.formatCurrency(_subtotal), style: const TextStyle(fontSize: 14))]),
-                if (_discount > 0) Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Descuento:', style: TextStyle(fontSize: 14, color: Colors.red)), Text('-${SettingsService.formatCurrency(_discount)}', style: const TextStyle(fontSize: 14, color: Colors.red))]),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Subtotal:', style: TextStyle(fontSize: 14, color: isDark ? Colors.grey[400] : Colors.grey)),
+                    Text(SettingsService.formatCurrency(_subtotal), style: TextStyle(fontSize: 14, color: isDark ? Colors.white : Colors.black87)),
+                  ],
+                ),
+                if (_discount > 0) Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Descuento:', style: TextStyle(fontSize: 14, color: Colors.red)),
+                    Text('-${SettingsService.formatCurrency(_discount)}', style: const TextStyle(fontSize: 14, color: Colors.red)),
+                  ],
+                ),
                 const SizedBox(height: 8),
-                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('TOTAL:', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)), Text(SettingsService.formatCurrency(_total), style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.green[700]))]),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('TOTAL:', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                    Text(
+                      SettingsService.formatCurrency(_total),
+                      style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.green[400]),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 12),
-                OutlinedButton.icon(onPressed: _showAppointmentSelector, icon: const Text('', style: TextStyle(fontSize: 16)), label: Text(_selectedAppointment?.clientName ?? 'Seleccionar cita'), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 40), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)))),
+                OutlinedButton.icon(
+                  onPressed: _showAppointmentSelector,
+                  icon: const Text('📅', style: TextStyle(fontSize: 16)),
+                  label: Text(
+                    _selectedAppointment?.clientName ?? 'Seleccionar cita',
+                    style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 40),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    side: BorderSide(color: isDark ? Colors.grey[600]! : Colors.grey[400]!),
+                  ),
+                ),
                 const SizedBox(height: 8),
-                OutlinedButton.icon(onPressed: _showClientSelector, icon: const Text('👤', style: TextStyle(fontSize: 16)), label: Text(_selectedClient?.name ?? 'Seleccionar cliente'), style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 40), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)))),
+                OutlinedButton.icon(
+                  onPressed: _showClientSelector,
+                  icon: const Text('👤', style: TextStyle(fontSize: 16)),
+                  label: Text(
+                    _selectedClient?.name ?? 'Seleccionar cliente',
+                    style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 40),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    side: BorderSide(color: isDark ? Colors.grey[600]! : Colors.grey[400]!),
+                  ),
+                ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
                   value: _paymentMethod,
-                  decoration: InputDecoration(border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)), contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
-                  items: const [DropdownMenuItem(value: 'cash', child: Text('💵 Efectivo')), DropdownMenuItem(value: 'card', child: Text('💳 Tarjeta')), DropdownMenuItem(value: 'transfer', child: Text('📲 Transferencia'))],
+                  dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+                  style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    filled: true,
+                    fillColor: isDark ? const Color(0xFF334155) : Colors.white,
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'cash', child: Text('💵 Efectivo')),
+                    DropdownMenuItem(value: 'card', child: Text('💳 Tarjeta')),
+                    DropdownMenuItem(value: 'transfer', child: Text('📱 Transferencia')),
+                  ],
                   onChanged: (value) { setState(() { _paymentMethod = value!; }); },
                 ),
                 const SizedBox(height: 12),
                 SizedBox(
-                  width: double.infinity, height: 52,
-                  child: ElevatedButton(onPressed: _cart.isEmpty ? null : _processPayment, style: ElevatedButton.styleFrom(backgroundColor: Colors.green[600], disabledBackgroundColor: Colors.grey[300], shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)), elevation: 2), child: const Text('COBRAR', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
+                  width: double.infinity,
+                  height: 52,
+                  child: ElevatedButton(
+                    onPressed: _cart.isEmpty ? null : _processPayment,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green[600],
+                      disabledBackgroundColor: Colors.grey[300],
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      elevation: 2,
+                    ),
+                    child: const Text('COBRAR', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  ),
                 ),
               ],
             ),
