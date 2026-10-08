@@ -107,22 +107,34 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
 
   Future<void> _selectDateRange() async {
     final initialDateRange = DateTimeRange(start: _startDate, end: _endDate);
-    final picked = await showDateRangePicker(
-      context: context,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
-      initialDateRange: initialDateRange,
-      builder: (context, child) => Theme(
-        data: Theme.of(context).copyWith(
-          colorScheme: ColorScheme.light(
-            primary: Colors.indigo[700]!,
-            onPrimary: Colors.white,
-            onSurface: Colors.black,
-          ),
-        ),
-        child: child!,
-      ),
-    );
+// ✅ DESPUÉS (con tema adaptativo para modo oscuro)
+final isDark = Theme.of(context).brightness == Brightness.dark;
+final picked = await showDateRangePicker(
+  context: context,
+  firstDate: DateTime(2020),
+  lastDate: DateTime.now(),
+  builder: (context, child) => Theme(
+    data: Theme.of(context).copyWith(
+      colorScheme: isDark
+          ? const ColorScheme.dark(
+              primary: Color(0xFF6366F1), // Púrpura para selección
+              onPrimary: Colors.white,
+              surface: Color(0xFF1E293B), // Fondo oscuro
+              onSurface: Colors.white,
+              outline: Color(0xFF334155),
+              onSurfaceVariant: Colors.white,
+            )
+          : const ColorScheme.light(
+              primary: Color(0xFF6366F1),
+              onPrimary: Colors.white,
+              surface: Colors.white,
+              onSurface: Colors.black87,
+            ),
+      dialogBackgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
+    ),
+    child: child!,
+  ),
+);
 
     if (picked != null) {
       setState(() {
