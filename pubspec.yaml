@@ -18,6 +18,8 @@ dependencies:
   pdf: ^3.10.0
   http: ^1.1.0
   shared_preferences: ^2.2.0
+  fl_chart: ^0.66.0
+  excel: ^4.0.0
 
 dev_dependencies:
   flutter_test:

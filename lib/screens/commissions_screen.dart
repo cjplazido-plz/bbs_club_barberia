@@ -6,6 +6,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:http/http.dart' as http;
 import '../services/settings_service.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 class SalesHistoryScreen extends StatefulWidget {
   @override
@@ -21,7 +22,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
   @override
   void initState() {
     super.initState();
-    _loadTransactions();
+    _loadCommissions();
   }
 
   Future<void> _loadTransactions() async {
@@ -325,7 +326,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
         _startDate = picked.start;
         _endDate = picked.end;
       });
-      _loadTransactions();
+      _loadCommissions();
     }
   }
 

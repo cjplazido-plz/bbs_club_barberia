@@ -5,6 +5,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:http/http.dart' as http;
 import '../services/settings_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SalesHistoryScreen extends StatefulWidget {
   @override

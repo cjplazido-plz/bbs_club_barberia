@@ -1,4 +1,4 @@
-import 'commissions_screen.dart';
+import 'commissions_screen.dart' hide SalesHistoryScreen;
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/local_service.dart';
