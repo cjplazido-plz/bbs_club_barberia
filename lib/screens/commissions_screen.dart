@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/intl.dart';
 import '../services/settings_service.dart';
 
@@ -93,46 +94,59 @@ transactions!inner(created_at, status)
     }
   }
 
-  Future<void> _selectDateRange() async {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final picked = await showDateRangePicker(
-      context: context,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
-      builder: (context, child) => Theme(
-        data: Theme.of(context).copyWith(
-          colorScheme: isDark
-              ? const ColorScheme.dark(
-                  primary: Color(0xFF6366F1),
-                  onPrimary: Colors.white,
-                  surface: Color(0xFF1E293B),
-                  onSurface: Colors.white,
-                  outline: Color(0xFF334155),
-                  onSurfaceVariant: Colors.white,
-                )
-              : const ColorScheme.light(
-                  primary: Color(0xFF6366F1),
-                  onPrimary: Colors.white,
-                  surface: Colors.white,
-                  onSurface: Colors.black87,
-                ),
-          dialogBackgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
-        ),
-        child: Localizations.override(
-          context: context,
-          child: child!,
-        ),
+Future<void> _selectDateRange() async {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+  
+  final picked = await showDateRangePicker(
+    context: context,
+    firstDate: DateTime(2020),
+    lastDate: DateTime.now(),
+    initialDateRange: DateTimeRange(start: _startDate, end: _endDate),
+    builder: (context, child) => MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        colorScheme: isDark
+            ? const ColorScheme.dark(
+                primary: Color(0xFF6366F1),
+                onPrimary: Colors.white,
+                surface: Color(0xFF1E293B),
+                onSurface: Colors.white,
+                outline: Color(0xFF334155),
+                onSurfaceVariant: Colors.white,
+              )
+            : const ColorScheme.light(
+                primary: Color(0xFF6366F1),
+                onPrimary: Colors.white,
+                surface: Colors.white,
+                onSurface: Colors.black87,
+              ),
+        dialogBackgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
       ),
-    );
-    if (picked != null) {
-      setState(() {
-        _startDate = picked.start;
-        _endDate = picked.end;
-      });
-      _loadCommissions(); // ✅ CORRECTO (no _loadTransactions)
-    }
-  }
+      localizationsDelegates: [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('es', ''),
+        Locale('en', ''),
+      ],
+      locale: const Locale('es', ''),
+      home: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: child!,
+      ),
+    ),
+  );
 
+  if (picked != null) {
+    setState(() {
+      _startDate = picked.start;
+      _endDate = picked.end;
+    });
+    _loadCommissions(); // o _loadCommissions() en commissions_screen.dart
+  }
+}
   void _setQuickFilter(String period) {
     final now = DateTime.now();
     DateTime start;
