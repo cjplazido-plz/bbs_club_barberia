@@ -13,7 +13,7 @@ dependencies:
     sdk: flutter
   cupertino_icons: ^1.0.2
   supabase_flutter: ^2.0.0
-  intl: ^0.18.0
+  intl: ^0.20.3
   printing: ^5.11.0
   pdf: ^3.10.0
   http: ^1.1.0
