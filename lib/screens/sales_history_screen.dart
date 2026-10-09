@@ -29,7 +29,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
     try {
       final startStr = _startDate.toIso8601String();
       final endStr = _endDate.add(const Duration(days: 1)).toIso8601String();
-
+      
       final response = await Supabase.instance.client
           .from('transactions')
           .select('*')
@@ -43,7 +43,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
         _isLoading = false;
       });
     } catch (e) {
-      print(' Error al cargar ventas: $e');
+      print('❌ Error al cargar ventas: $e');
       setState(() { _isLoading = false; });
     }
   }
@@ -56,7 +56,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
         .from('transaction_items')
         .select('*')
         .eq('transaction_id', transactionId);
-
+    
     final items = List<Map<String, dynamic>>.from(itemsResponse);
 
     if (!mounted) return;
@@ -81,7 +81,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
               ),
               child: Row(
                 children: [
-                  const Text('', style: TextStyle(fontSize: 24)),
+                  const Text('🧾', style: TextStyle(fontSize: 24)),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -96,7 +96,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                     ),
                   ),
                   IconButton(
-                    icon: const Text('🖨️', style: TextStyle(fontSize: 20)),
+                    icon: const Text('️', style: TextStyle(fontSize: 20)),
                     onPressed: () {
                       Navigator.pop(context);
                       _printTicket(transaction, items);
@@ -120,7 +120,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           _infoRow('ID', (transaction['id']?.toString() ?? 'N/A').length > 20 
-                           ? '${transaction['id'].toString().substring(0, 20)}...' 
+                              ? '${transaction['id'].toString().substring(0, 20)}...' 
                               : transaction['id']?.toString() ?? 'N/A'),
                           const Divider(),
                           _infoRow('Cajero', transaction['cashier_name'] ?? 'N/A'),
@@ -150,7 +150,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                           Row(
                             children: [
                               Text(
-                                item['item_type'] == 'service' ? '✂️' : '📦',
+                                item['item_type'] == 'service' ? '✂️' : '',
                                 style: const TextStyle(fontSize: 20),
                               ),
                               const SizedBox(width: 8),
@@ -249,8 +249,8 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
   Future<void> _printTicket(Map<String, dynamic> transaction, List<Map<String, dynamic>> items) async {
     final pdf = pw.Document();
     final logoUrl = SettingsService.shopLogoUrl;
-
     pw.MemoryImage? logoImage;
+
     if (logoUrl.isNotEmpty) {
       try {
         final response = await http.get(Uri.parse(logoUrl));
@@ -263,6 +263,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
     }
 
     final pageFormat = PdfPageFormat(66 * PdfPageFormat.mm, 200 * PdfPageFormat.mm);
+    
     pdf.addPage(
       pw.Page(
         pageFormat: pageFormat,
@@ -358,13 +359,35 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
   }
 
   Future<void> _selectDateRange() async {
-    final initialDateRange = DateTimeRange(start: _startDate, end: _endDate);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     final picked = await showDateRangePicker(
       context: context,
       firstDate: DateTime(2020),
       lastDate: DateTime.now(),
-      initialDateRange: initialDateRange,
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: isDark
+              ? const ColorScheme.dark(
+                  primary: Color(0xFF6366F1),
+                  onPrimary: Colors.white,
+                  surface: Color(0xFF1E293B),
+                  onSurface: Colors.white,
+                  outline: Color(0xFF334155),
+                  onSurfaceVariant: Colors.white,
+                )
+              : const ColorScheme.light(
+                  primary: Color(0xFF6366F1),
+                  onPrimary: Colors.white,
+                  surface: Colors.white,
+                  onSurface: Colors.black87,
+                ),
+          dialogBackgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
+        ),
+        child: child!,
+      ),
     );
+
     if (picked != null) {
       setState(() {
         _startDate = picked.start;
@@ -402,7 +425,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
             color: Colors.indigo[50],
             child: Row(
               children: [
-                const Text('', style: TextStyle(fontSize: 18)),
+                const Text('📅', style: TextStyle(fontSize: 18)),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -423,7 +446,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Text('', style: TextStyle(fontSize: 64)),
+                            const Text('📊', style: TextStyle(fontSize: 64)),
                             const SizedBox(height: 16),
                             Text('No hay ventas en este período', style: TextStyle(color: Colors.grey[400], fontSize: 16)),
                           ],
