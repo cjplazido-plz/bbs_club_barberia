@@ -1,23 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
-import 'package:printing/printing.dart';
-import 'package:pdf/pdf.dart';
-import 'package:pdf/widgets.dart' as pw;
-import 'package:http/http.dart' as http;
 import '../services/settings_service.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 
-class SalesHistoryScreen extends StatefulWidget {
+class CommissionsScreen extends StatefulWidget {
   @override
-  State<SalesHistoryScreen> createState() => _SalesHistoryScreenState();
+  State<CommissionsScreen> createState() => _CommissionsScreenState();
 }
 
-class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
+class _CommissionsScreenState extends State<CommissionsScreen> {
   bool _isLoading = true;
-  List<Map<String, dynamic>> _transactions = [];
-  DateTime _startDate = DateTime.now().subtract(const Duration(days: 7));
+  DateTime _startDate = DateTime.now().subtract(const Duration(days: 30));
   DateTime _endDate = DateTime.now();
+  List<Map<String, dynamic>> _commissions = [];
+  double _totalCommissions = 0;
+  double _totalSales = 0;
 
   @override
   void initState() {
@@ -25,257 +22,75 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
     _loadCommissions();
   }
 
-  Future<void> _loadTransactions() async {
+  Future<void> _loadCommissions() async {
     setState(() { _isLoading = true; });
     try {
       final startStr = _startDate.toIso8601String();
       final endStr = _endDate.add(const Duration(days: 1)).toIso8601String();
+      print('📊 Cargando comisiones del $startStr al $endStr');
       final response = await Supabase.instance.client
-          .from('transactions')
-          .select('*')
-          .gte('created_at', startStr)
-          .lte('created_at', endStr)
-          .eq('status', 'completed')
-          .order('created_at', ascending: false);
+          .from('transaction_items')
+          .select('''
+barber_id,
+barber_name,
+price_at_moment,
+quantity,
+commission_earned,
+transactions!inner(created_at, status)
+''')
+          .eq('item_type', 'service')
+          .gte('transactions.created_at', startStr)
+          .lt('transactions.created_at', endStr)
+          .eq('transactions.status', 'completed');
+      final items = List<Map<String, dynamic>>.from(response);
+      print('✅ ${items.length} items de servicios encontrados');
+      Map<String, Map<String, dynamic>> barberMap = {};
+      for (final item in items) {
+        final barberId = item['barber_id'] ?? 'unknown';
+        final barberName = item['barber_name'] ?? 'Desconocido';
+        final price = (item['price_at_moment'] as num?)?.toDouble() ?? 0.0;
+        final quantity = (item['quantity'] as num?)?.toInt() ?? 1;
+        final commission = (item['commission_earned'] as num?)?.toDouble() ?? 0.0;
+        final totalItem = price * quantity;
+        if (!barberMap.containsKey(barberId)) {
+          barberMap[barberId] = {
+            'barber_id': barberId,
+            'barber_name': barberName,
+            'total_sales': 0.0,
+            'total_commission': 0.0,
+            'services_count': 0,
+          };
+        }
+        barberMap[barberId]!['total_sales'] =
+            (barberMap[barberId]!['total_sales'] as double) + totalItem;
+        barberMap[barberId]!['total_commission'] =
+            (barberMap[barberId]!['total_commission'] as double) + commission;
+        barberMap[barberId]!['services_count'] =
+            (barberMap[barberId]!['services_count'] as int) + quantity;
+      }
+      final commissions = barberMap.values.toList();
+      commissions.sort((a, b) =>
+          (b['total_commission'] as double).compareTo(a['total_commission'] as double));
+      final totalCommissions = commissions.fold(0.0,
+          (sum, c) => sum + (c['total_commission'] as double));
+      final totalSales = commissions.fold(0.0,
+          (sum, c) => sum + (c['total_sales'] as double));
       setState(() {
-        _transactions = List<Map<String, dynamic>>.from(response);
+        _commissions = commissions;
+        _totalCommissions = totalCommissions;
+        _totalSales = totalSales;
         _isLoading = false;
       });
+      print('💰 Total comisiones: ${SettingsService.formatCurrency(totalCommissions)}');
     } catch (e) {
-      print('❌ Error al cargar ventas: $e');
+      print(' Error al cargar comisiones: $e');
       setState(() { _isLoading = false; });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al cargar: $e'), backgroundColor: Colors.red),
+        );
+      }
     }
-  }
-
-  Future<void> _showTransactionDetail(Map<String, dynamic> transaction) async {
-    final transactionId = transaction['id'];
-    final itemsResponse = await Supabase.instance.client
-        .from('transaction_items')
-        .select('*')
-        .eq('transaction_id', transactionId);
-    final items = List<Map<String, dynamic>>.from(itemsResponse);
-    if (!mounted) return;
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.85,
-        minChildSize: 0.5,
-        maxChildSize: 0.95,
-        expand: false,
-        builder: (context, scrollController) => Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: Colors.indigo[700], borderRadius: const BorderRadius.vertical(top: Radius.circular(20))),
-              child: Row(
-                children: [
-                  const Text('🧾', style: TextStyle(fontSize: 24)),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Detalle de Venta', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
-                        Text(DateFormat('dd/MM/yyyy HH:mm').format(DateTime.parse(transaction['created_at'])), style: TextStyle(color: Colors.white70, fontSize: 12)),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Text('🖨️', style: TextStyle(fontSize: 20)),
-                    onPressed: () { Navigator.pop(context); _printTicket(transaction, items); },
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: ListView(
-                controller: scrollController,
-                padding: const EdgeInsets.all(16),
-                children: [
-                  Card(
-                    color: Colors.indigo[50],
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _infoRow('ID', (transaction['id']?.toString() ?? 'N/A').length > 20 ? '${transaction['id'].toString().substring(0, 20)}...' : transaction['id']?.toString() ?? 'N/A'),
-                          const Divider(),
-                          _infoRow('Cajero', transaction['cashier_name'] ?? 'N/A'),
-                          if (transaction['barber_name'] != null && transaction['barber_name'].toString().isNotEmpty) _infoRow('Barbero', transaction['barber_name']),
-                          _infoRow('Método de pago', _formatPaymentMethod(transaction['payment_method'])),
-                          if (transaction['payment_method'] == 'cash') ...[
-                            _infoRow('Recibido', SettingsService.formatCurrency((transaction['cash_received'] as num?)?.toDouble() ?? 0.0)),
-                            if (((transaction['change_amount'] as num?)?.toDouble() ?? 0.0) > 0) _infoRow('Vuelto', SettingsService.formatCurrency((transaction['change_amount'] as num?)?.toDouble() ?? 0.0)),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  const Text('ITEMS', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  ...items.map((item) => Card(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Text(item['item_type'] == 'service' ? '✂️' : '', style: const TextStyle(fontSize: 20)),
-                              const SizedBox(width: 8),
-                              Expanded(child: Text(item['service_name'] ?? item['product_name'] ?? 'Sin nombre', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14))),
-                              Text('${SettingsService.formatCurrency((item['price_at_moment'] as num?)?.toDouble() ?? 0.0)} x${item['quantity']}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                            ],
-                          ),
-                          if (item['barber_name'] != null && item['barber_name'].toString().isNotEmpty)
-                            Padding(padding: const EdgeInsets.only(left: 28, top: 4), child: Text('Barbero: ${item['barber_name']}', style: TextStyle(fontSize: 12, color: Colors.grey[600]))),
-                          const SizedBox(height: 8),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [Text(SettingsService.formatCurrency(((item['price_at_moment'] as num?)?.toDouble() ?? 0.0) * (item['quantity'] as num? ?? 1)), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.indigo))],
-                          ),
-                        ],
-                      ),
-                    ),
-                  )),
-                  const SizedBox(height: 16),
-                  Card(
-                    color: Colors.green[50],
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        children: [
-                          _totalRow('Subtotal', SettingsService.formatCurrency((transaction['subtotal'] as num?)?.toDouble() ?? 0.0)),
-                          const SizedBox(height: 8),
-                          _totalRow('TOTAL', SettingsService.formatCurrency((transaction['total'] as num?)?.toDouble() ?? 0.0), isTotal: true),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _infoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Text('$label:', style: TextStyle(color: Colors.grey[700], fontSize: 12, fontWeight: FontWeight.w500)),
-          const SizedBox(width: 8),
-          Expanded(child: Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black87))),
-        ],
-      ),
-    );
-  }
-
-  Widget _totalRow(String label, String value, {bool isTotal = false}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(label, style: TextStyle(fontSize: isTotal ? 18 : 14, fontWeight: isTotal ? FontWeight.bold : FontWeight.w600, color: Colors.black87)),
-        Text(value, style: TextStyle(fontSize: isTotal ? 20 : 14, fontWeight: FontWeight.bold, color: isTotal ? Colors.green[700] : Colors.black87)),
-      ],
-    );
-  }
-
-  String _formatPaymentMethod(String method) {
-    switch (method) {
-      case 'cash': return '💵 Efectivo';
-      case 'card': return '💳 Tarjeta';
-      case 'transfer': return '📱 Transferencia';
-      default: return method;
-    }
-  }
-
-  Future<void> _printTicket(Map<String, dynamic> transaction, List<Map<String, dynamic>> items) async {
-    final pdf = pw.Document();
-    final logoUrl = SettingsService.shopLogoUrl;
-    pw.MemoryImage? logoImage;
-    if (logoUrl.isNotEmpty) {
-      try {
-        final response = await http.get(Uri.parse(logoUrl));
-        if (response.statusCode == 200) logoImage = pw.MemoryImage(response.bodyBytes);
-      } catch (e) { print('⚠️ Error al descargar logo: $e'); }
-    }
-    final pageFormat = PdfPageFormat(66 * PdfPageFormat.mm, 200 * PdfPageFormat.mm);
-    pdf.addPage(
-      pw.Page(
-        pageFormat: pageFormat,
-        margin: const pw.EdgeInsets.only(left: 2, right: 2, top: 2, bottom: 2),
-        build: (pw.Context context) {
-          return pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              if (logoImage != null) pw.Center(child: pw.Container(width: 70, height: 70, child: pw.Image(logoImage, fit: pw.BoxFit.contain))),
-              pw.SizedBox(height: 3),
-              pw.Center(child: pw.Text(SettingsService.ticketHeader, style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold))),
-              pw.SizedBox(height: 2),
-              if (SettingsService.shopRif.isNotEmpty) pw.Center(child: pw.Text('RUT: ${SettingsService.shopRif}', style: pw.TextStyle(fontSize: 9))),
-              if (SettingsService.shopAddress.isNotEmpty) pw.Center(child: pw.Text(SettingsService.shopAddress, style: pw.TextStyle(fontSize: 9))),
-              if (SettingsService.shopPhone.isNotEmpty) pw.Center(child: pw.Text('Tel: ${SettingsService.shopPhone}', style: pw.TextStyle(fontSize: 9))),
-              pw.SizedBox(height: 2),
-              pw.Divider(),
-              pw.SizedBox(height: 2),
-              pw.Center(child: pw.Text('ID: ${transaction['id']}', style: pw.TextStyle(fontSize: 9))),
-              pw.Center(child: pw.Text('Fecha: ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.parse(transaction['created_at']))}', style: pw.TextStyle(fontSize: 9))),
-              pw.Center(child: pw.Text('Cajero: ${transaction['cashier_name']}', style: pw.TextStyle(fontSize: 9))),
-              pw.SizedBox(height: 2),
-              pw.Divider(),
-              pw.SizedBox(height: 2),
-              pw.Text('ITEMS:', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
-              pw.SizedBox(height: 2),
-              ...items.map((item) {
-                final name = item['service_name'] ?? item['product_name'] ?? 'Producto';
-                final icon = item['item_type'] == 'service' ? '*' : '-';
-                final price = (item['price_at_moment'] as num?)?.toDouble() ?? 0.0;
-                final qty = (item['quantity'] as num?)?.toInt() ?? 1;
-                final total = price * qty;
-                return pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    pw.Text('$icon $name', style: pw.TextStyle(fontSize: 7)),
-                    pw.Container(alignment: pw.Alignment.centerRight, child: pw.Text('${SettingsService.formatCurrency(price)} x$qty = ${SettingsService.formatCurrency(total)}', style: pw.TextStyle(fontSize: 10))),
-                    if (item['barber_name'] != null && item['barber_name'].toString().isNotEmpty) pw.Text('Barbero: ${item['barber_name']}', style: pw.TextStyle(fontSize: 10)),
-                    pw.SizedBox(height: 2),
-                  ],
-                );
-              }),
-              pw.Divider(),
-              pw.SizedBox(height: 2),
-              pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Subtotal:', style: pw.TextStyle(fontSize: 10)), pw.Text(SettingsService.formatCurrency((transaction['subtotal'] as num?)?.toDouble() ?? 0.0), style: pw.TextStyle(fontSize: 10))]),
-              pw.SizedBox(height: 2),
-              pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('TOTAL:', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)), pw.Text(SettingsService.formatCurrency((transaction['total'] as num?)?.toDouble() ?? 0.0), style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold))]),
-              pw.SizedBox(height: 2),
-              pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Pago:', style: pw.TextStyle(fontSize: 7)), pw.Text(_formatPaymentMethod(transaction['payment_method']), style: pw.TextStyle(fontSize: 7))]),
-              if (transaction['payment_method'] == 'cash') ...[
-                pw.SizedBox(height: 2),
-                pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Recibido:', style: pw.TextStyle(fontSize: 7)), pw.Text(SettingsService.formatCurrency((transaction['cash_received'] as num?)?.toDouble() ?? 0.0), style: pw.TextStyle(fontSize: 7))]),
-                if (((transaction['change_amount'] as num?)?.toDouble() ?? 0.0) > 0) ...[
-                  pw.SizedBox(height: 2),
-                  pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Vuelto:', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)), pw.Text(SettingsService.formatCurrency((transaction['change_amount'] as num?)?.toDouble() ?? 0.0), style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold))]),
-                ],
-              ],
-              pw.SizedBox(height: 3),
-              pw.Divider(),
-              pw.SizedBox(height: 2),
-              pw.Center(child: pw.Text(SettingsService.ticketFooter, style: pw.TextStyle(fontSize: 7, fontStyle: pw.FontStyle.italic))),
-            ],
-          );
-        },
-      ),
-    );
-    await Printing.layoutPdf(onLayout: (PdfPageFormat format) async => pdf.save(), name: 'Ticket_${transaction['id']}.pdf');
   }
 
   Future<void> _selectDateRange() async {
@@ -284,10 +99,8 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
       context: context,
       firstDate: DateTime(2020),
       lastDate: DateTime.now(),
-      initialDateRange: DateTimeRange(start: _startDate, end: _endDate),
-      builder: (context, child) => MaterialApp(
-        debugShowCheckedModeBanner: false,
-        theme: ThemeData(
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
           colorScheme: isDark
               ? const ColorScheme.dark(
                   primary: Color(0xFF6366F1),
@@ -305,19 +118,9 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                 ),
           dialogBackgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
         ),
-        localizationsDelegates: const [
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        supportedLocales: const [
-          Locale('es', ''),
-          Locale('en', ''),
-        ],
-        locale: const Locale('es', ''),
-        home: Scaffold(
-          backgroundColor: Colors.transparent,
-          body: child!,
+        child: Localizations.override(
+          context: context,
+          child: child!,
         ),
       ),
     );
@@ -326,89 +129,287 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
         _startDate = picked.start;
         _endDate = picked.end;
       });
-      _loadCommissions();
+      _loadCommissions(); // ✅ CORRECTO (no _loadTransactions)
     }
+  }
+
+  void _setQuickFilter(String period) {
+    final now = DateTime.now();
+    DateTime start;
+    switch (period) {
+      case 'today':
+        start = DateTime(now.year, now.month, now.day);
+        break;
+      case 'week':
+        start = now.subtract(Duration(days: now.weekday - 1));
+        start = DateTime(start.year, start.month, start.day);
+        break;
+      case 'month':
+        start = DateTime(now.year, now.month, 1);
+        break;
+      case 'last_month':
+        start = DateTime(now.year, now.month - 1, 1);
+        _endDate = DateTime(now.year, now.month, 0);
+        break;
+      default:
+        start = now.subtract(const Duration(days: 30));
+    }
+    setState(() {
+      _startDate = start;
+      if (period != 'last_month') _endDate = now;
+    });
+    _loadCommissions();
+  }
+
+  bool _isPeriodSelected(String period) {
+    final now = DateTime.now();
+    switch (period) {
+      case 'today':
+        return _startDate.year == now.year &&
+            _startDate.month == now.month &&
+            _startDate.day == now.day;
+      case 'week':
+        final weekStart = now.subtract(Duration(days: now.weekday - 1));
+        return _startDate.year == weekStart.year &&
+            _startDate.month == weekStart.month &&
+            _startDate.day == weekStart.day;
+      case 'month':
+        return _startDate.year == now.year &&
+            _startDate.month == now.month &&
+            _startDate.day == 1;
+      case 'last_month':
+        return _startDate.year == now.year &&
+            _startDate.month == now.month - 1 &&
+            _startDate.day == 1;
+      case 'last_30':
+        final thirtyDaysAgo = now.subtract(const Duration(days: 30));
+        return _startDate.year == thirtyDaysAgo.year &&
+            _startDate.month == thirtyDaysAgo.month &&
+            _startDate.day == thirtyDaysAgo.day;
+      default:
+        return false;
+    }
+  }
+
+  Widget _buildFilterChip(String label, String period) {
+    final isSelected = _isPeriodSelected(period);
+    return FilterChip(
+      label: Text(label, style: const TextStyle(fontSize: 12)),
+      selected: isSelected,
+      onSelected: (selected) => _setQuickFilter(period),
+      backgroundColor: Colors.white,
+      selectedColor: Colors.indigo[100],
+      checkmarkColor: Colors.indigo[700],
+      labelStyle: TextStyle(
+        color: isSelected ? Colors.indigo[700] : Colors.black87,
+        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+      ),
+    );
+  }
+
+  Widget _buildSummaryCards() {
+    return Row(
+      children: [
+        Expanded(
+          child: Card(
+            elevation: 2,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('💵 Total Ventas', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                  const SizedBox(height: 4),
+                  Text(
+                    SettingsService.formatCurrency(_totalSales),
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.blue),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Card(
+            elevation: 2,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('💰 Total Comisiones', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                  const SizedBox(height: 4),
+                  Text(
+                    SettingsService.formatCurrency(_totalCommissions),
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.green),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBarberCard(Map<String, dynamic> barber, int position) {
+    final barberName = barber['barber_name'] as String;
+    final totalSales = barber['total_sales'] as double;
+    final totalCommission = barber['total_commission'] as double;
+    final servicesCount = barber['services_count'] as int;
+    final commissionRate = totalSales > 0 ? (totalCommission / totalSales * 100) : 0.0;
+    final medals = ['🥇', '🥈', ''];
+    final medal = position <= 3 ? medals[position - 1] : '$position';
+    return Card(
+      elevation: 2,
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(medal, style: const TextStyle(fontSize: 24)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(barberName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      Text('$servicesCount servicios realizados', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.indigo[100],
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '${commissionRate.toStringAsFixed(1)}%',
+                    style: TextStyle(color: Colors.indigo[700], fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Ventas', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                    Text(SettingsService.formatCurrency(totalSales), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                  ],
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    const Text('Comisión a pagar', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                    Text(SettingsService.formatCurrency(totalCommission), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.green)),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('🧾 Historial de Ventas'),
+        title: const Text('💰 Comisiones por Barbero'),
         backgroundColor: Colors.indigo[700],
         foregroundColor: Colors.white,
         actions: [
-          IconButton(icon: const Text('', style: TextStyle(fontSize: 20)), tooltip: 'Filtrar por fecha', onPressed: _selectDateRange),
-          IconButton(icon: const Text('🔄', style: TextStyle(fontSize: 20)), tooltip: 'Actualizar', onPressed: _loadTransactions),
+          IconButton(
+            icon: const Text('🔄', style: TextStyle(fontSize: 20)),
+            tooltip: 'Actualizar',
+            onPressed: _loadCommissions,
+          ),
         ],
       ),
       body: Column(
         children: [
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(16),
             color: Colors.indigo[50],
-            child: Row(
+            child: Column(
               children: [
-                const Text('', style: TextStyle(fontSize: 18)),
-                const SizedBox(width: 8),
-                Expanded(child: Text('${DateFormat('dd/MM/yyyy').format(_startDate)} - ${DateFormat('dd/MM/yyyy').format(_endDate)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
-                Text('${_transactions.length} ventas', style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+                Row(
+                  children: [
+                    const Text('📅', style: TextStyle(fontSize: 20)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '${DateFormat('dd/MM/yyyy').format(_startDate)} - ${DateFormat('dd/MM/yyyy').format(_endDate)}',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87),
+                      ),
+                    ),
+                    ElevatedButton.icon(
+                      onPressed: _selectDateRange,
+                      icon: const Text('📆', style: TextStyle(fontSize: 16)),
+                      label: const Text('Rango'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.indigo[700],
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _buildFilterChip('Hoy', 'today'),
+                    _buildFilterChip('Esta semana', 'week'),
+                    _buildFilterChip('Este mes', 'month'),
+                    _buildFilterChip('Mes anterior', 'last_month'),
+                    _buildFilterChip('Últimos 30 días', 'last_30'),
+                  ],
+                ),
               ],
             ),
           ),
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : _transactions.isEmpty
-                    ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [const Text('📊', style: TextStyle(fontSize: 64)), const SizedBox(height: 16), Text('No hay ventas en este período', style: TextStyle(color: Colors.grey[400], fontSize: 16))]))
-                    : ListView.builder(
+                : _commissions.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Text('💰', style: TextStyle(fontSize: 64)),
+                            const SizedBox(height: 16),
+                            Text('No hay comisiones en este período', style: TextStyle(color: Colors.grey[400], fontSize: 16)),
+                          ],
+                        ),
+                      )
+                    : ListView(
                         padding: const EdgeInsets.all(16),
-                        itemCount: _transactions.length,
-                        itemBuilder: (context, index) {
-                          final transaction = _transactions[index];
-                          final total = (transaction['total'] as num?)?.toDouble() ?? 0.0;
-                          final date = DateTime.parse(transaction['created_at']);
-                          return Card(
-                            elevation: 2,
-                            margin: const EdgeInsets.only(bottom: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            child: InkWell(
-                              onTap: () => _showTransactionDetail(transaction),
-                              borderRadius: BorderRadius.circular(12),
-                              child: Padding(
-                                padding: const EdgeInsets.all(16),
-                                child: Row(
-                                  children: [
-                                    Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.indigo[100], shape: BoxShape.circle), child: const Text('🧾', style: TextStyle(fontSize: 24))),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(DateFormat('dd/MM/yyyy HH:mm').format(date), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                                          const SizedBox(height: 4),
-                                          Row(children: [
-                                            Text(_formatPaymentMethod(transaction['payment_method'] ?? 'cash'), style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-                                            const SizedBox(width: 12),
-                                            if (transaction['cashier_name'] != null) Text('Cajero: ${transaction['cashier_name']}', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-                                          ]),
-                                        ],
-                                      ),
-                                    ),
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.end,
-                                      children: [
-                                        Text(SettingsService.formatCurrency(total), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green)),
-                                        const SizedBox(height: 4),
-                                        Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), decoration: BoxDecoration(color: Colors.green[100], borderRadius: BorderRadius.circular(12)), child: const Text('Ver detalle', style: TextStyle(fontSize: 10, color: Colors.green))),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          );
-                        },
+                        children: [
+                          _buildSummaryCards(),
+                          const SizedBox(height: 16),
+                          const Text('Detalle por Barbero', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 8),
+                          ..._commissions.asMap().entries.map((entry) {
+                            final index = entry.key;
+                            final barber = entry.value;
+                            return _buildBarberCard(barber, index + 1);
+                          }),
+                        ],
                       ),
           ),
         ],
