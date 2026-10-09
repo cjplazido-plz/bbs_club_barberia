@@ -44,92 +44,79 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.dispose();
   }
 
-  Future<void> _saveSettings() async {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+ Future<void> _saveSettings() async {
+  // Actualizar variables en memoria
+  SettingsService.shopName = _shopNameController.text.trim();
+  SettingsService.shopRif = _shopRifController.text.trim();
+  SettingsService.shopAddress = _shopAddressController.text.trim();
+  SettingsService.shopPhone = _shopPhoneController.text.trim();
+  SettingsService.shopLogoUrl = _shopLogoController.text.trim();
+  SettingsService.ticketLogoUrl = _ticketLogoController.text.trim();
+  SettingsService.ticketHeader = _ticketHeaderController.text.trim();
+  SettingsService.ticketFooter = _ticketFooterController.text.trim();
+
+  try {
+    // Guardar cada configuración directamente en Supabase
+    await Supabase.instance.client.from('settings').upsert({
+      'key': 'shop_name',
+      'value': SettingsService.shopName,
+    });
     
-    SettingsService.shopName = _shopNameController.text.trim();
-    SettingsService.shopRif = _shopRifController.text.trim();
-    SettingsService.shopAddress = _shopAddressController.text.trim();
-    SettingsService.shopPhone = _shopPhoneController.text.trim();
-    SettingsService.shopLogoUrl = _shopLogoController.text.trim();
-    SettingsService.ticketLogoUrl = _ticketLogoController.text.trim();
-    SettingsService.ticketHeader = _ticketHeaderController.text.trim();
-    SettingsService.ticketFooter = _ticketFooterController.text.trim();
+    await Supabase.instance.client.from('settings').upsert({
+      'key': 'shop_rif',
+      'value': SettingsService.shopRif,
+    });
+    
+    await Supabase.instance.client.from('settings').upsert({
+      'key': 'shop_address',
+      'value': SettingsService.shopAddress,
+    });
+    
+    await Supabase.instance.client.from('settings').upsert({
+      'key': 'shop_phone',
+      'value': SettingsService.shopPhone,
+    });
+    
+    await Supabase.instance.client.from('settings').upsert({
+      'key': 'shop_logo_url',
+      'value': SettingsService.shopLogoUrl,
+    });
+    
+    await Supabase.instance.client.from('settings').upsert({
+      'key': 'ticket_logo_url',
+      'value': SettingsService.ticketLogoUrl,
+    });
+    
+    await Supabase.instance.client.from('settings').upsert({
+      'key': 'ticket_header',
+      'value': SettingsService.ticketHeader,
+    });
+    
+    await Supabase.instance.client.from('settings').upsert({
+      'key': 'ticket_footer',
+      'value': SettingsService.ticketFooter,
+    });
 
-    try {
-      // ✅ CORREGIDO: Guardar en Supabase directamente
-      await Supabase.instance.client
-          .from('settings')
-          .upsert({
-            'key': 'shop_name',
-            'value': SettingsService.shopName,
-            'description': 'Nombre de la barbería',
-          });
-      await Supabase.instance.client
-          .from('settings')
-          .upsert({
-            'key': 'shop_rif',
-            'value': SettingsService.shopRif,
-            'description': 'RUT de la barbería',
-          });
-      await Supabase.instance.client
-          .from('settings')
-          .upsert({
-            'key': 'shop_address',
-            'value': SettingsService.shopAddress,
-            'description': 'Dirección de la barbería',
-          });
-      await Supabase.instance.client
-          .from('settings')
-          .upsert({
-            'key': 'shop_phone',
-            'value': SettingsService.shopPhone,
-            'description': 'Teléfono de la barbería',
-          });
-      await Supabase.instance.client
-          .from('settings')
-          .upsert({
-            'key': 'shop_logo_url',
-            'value': SettingsService.shopLogoUrl,
-            'description': 'URL del logo principal',
-          });
-      await Supabase.instance.client
-          .from('settings')
-          .upsert({
-            'key': 'ticket_logo_url',
-            'value': SettingsService.ticketLogoUrl,
-            'description': 'URL del logo para tickets',
-          });
-      await Supabase.instance.client
-          .from('settings')
-          .upsert({
-            'key': 'ticket_header',
-            'value': SettingsService.ticketHeader,
-            'description': 'Encabezado del ticket',
-          });
-      await Supabase.instance.client
-          .from('settings')
-          .upsert({
-            'key': 'ticket_footer',
-            'value': SettingsService.ticketFooter,
-            'description': 'Pie del ticket',
-          });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('✅ Configuración guardada'), backgroundColor: Colors.green),
-        );
-        Navigator.pop(context);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ Error al guardar: $e'), backgroundColor: Colors.red),
-        );
-      }
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✅ Configuración guardada'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      Navigator.pop(context);
+    }
+  } catch (e) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('❌ Error al guardar: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
-
+}
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
