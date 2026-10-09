@@ -365,6 +365,7 @@ Future<void> _selectDateRange() async {
     context: context,
     firstDate: DateTime(2020),
     lastDate: DateTime.now(),
+    initialDateRange: DateTimeRange(start: _startDate, end: _endDate),
     builder: (context, child) => Theme(
       data: Theme.of(context).copyWith(
         colorScheme: isDark
@@ -384,6 +385,7 @@ Future<void> _selectDateRange() async {
               ),
         dialogBackgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
       ),
+      // ✅ CLAVE: Localizations.override para que herede el español
       child: Localizations.override(
         context: context,
         child: child!,
@@ -391,6 +393,7 @@ Future<void> _selectDateRange() async {
     ),
   );
 
+  // ✅ Cierre correcto del método
   if (picked != null) {
     setState(() {
       _startDate = picked.start;
@@ -399,7 +402,9 @@ Future<void> _selectDateRange() async {
     _loadTransactions();
   }
 }
-  @override
+
+@override
+Widget build(BuildContext context) {  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
