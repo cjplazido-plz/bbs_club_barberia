@@ -105,46 +105,47 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
     }
   }
 
-  Future<void> _selectDateRange() async {
-    final initialDateRange = DateTimeRange(start: _startDate, end: _endDate);
-// ✅ DESPUÉS (con tema adaptativo para modo oscuro)
-final isDark = Theme.of(context).brightness == Brightness.dark;
-final picked = await showDateRangePicker(
-  context: context,
-  firstDate: DateTime(2020),
-  lastDate: DateTime.now(),
-  builder: (context, child) => Theme(
-    data: Theme.of(context).copyWith(
-      colorScheme: isDark
-          ? const ColorScheme.dark(
-              primary: Color(0xFF6366F1), // Púrpura para selección
-              onPrimary: Colors.white,
-              surface: Color(0xFF1E293B), // Fondo oscuro
-              onSurface: Colors.white,
-              outline: Color(0xFF334155),
-              onSurfaceVariant: Colors.white,
-            )
-          : const ColorScheme.light(
-              primary: Color(0xFF6366F1),
-              onPrimary: Colors.white,
-              surface: Colors.white,
-              onSurface: Colors.black87,
-            ),
-      dialogBackgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
+Future<void> _selectDateRange() async {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+  
+  final picked = await showDateRangePicker(
+    context: context,
+    firstDate: DateTime(2020),
+    lastDate: DateTime.now(),
+    builder: (context, child) => Theme(
+      data: Theme.of(context).copyWith(
+        colorScheme: isDark
+            ? const ColorScheme.dark(
+                primary: Color(0xFF6366F1),
+                onPrimary: Colors.white,
+                surface: Color(0xFF1E293B),
+                onSurface: Colors.white,
+                outline: Color(0xFF334155),
+                onSurfaceVariant: Colors.white,
+              )
+            : const ColorScheme.light(
+                primary: Color(0xFF6366F1),
+                onPrimary: Colors.white,
+                surface: Colors.white,
+                onSurface: Colors.black87,
+              ),
+        dialogBackgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
+      ),
+      child: Localizations.override(
+        context: context,
+        child: child!,
+      ),
     ),
-    child: child!,
-  ),
-);
+  );
 
-    if (picked != null) {
-      setState(() {
-        _startDate = picked.start;
-        _endDate = picked.end;
-      });
-      _loadCommissions();
-    }
+  if (picked != null) {
+    setState(() {
+      _startDate = picked.start;
+      _endDate = picked.end;
+    });
+        _loadCommissions();
   }
-
+}
   void _setQuickFilter(String period) {
     final now = DateTime.now();
     DateTime start;
