@@ -275,7 +275,7 @@ Future<void> _selectDateRange() async {
     final totalCommission = barber['total_commission'] as double;
     final servicesCount = barber['services_count'] as int;
     final commissionRate = totalSales > 0 ? (totalCommission / totalSales * 100) : 0.0;
-    final medals = ['🥇', '🥈', ''];
+    final medals = ['🥇', '🥈', '🥉'];
     final medal = position <= 3 ? medals[position - 1] : '$position';
     return Card(
       elevation: 2,

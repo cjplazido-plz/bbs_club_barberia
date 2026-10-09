@@ -64203,7 +64203,7 @@ A.aVw.prototype={
 $1(a){return this.a.aHz(this.b)},
 $S:8}
 A.aVG.prototype={
-$1(a){var s,r,q,p=null,o=a.b,n=a.a+1,m=J.ai(o),l=A.bI(m.h(o,"barber_name")),k=A.c1(m.h(o,"total_sales")),j=A.c1(m.h(o,"total_commission")),i=A.bs(m.h(o,"services_count")),h=k>0?j/k*100:0,g=n<=3?["\ud83e\udd47","\ud83e\udd48",""][n-1]:""+n
+$1(a){var s,r,q,p=null,o=a.b,n=a.a+1,m=J.ai(o),l=A.bI(m.h(o,"barber_name")),k=A.c1(m.h(o,"total_sales")),j=A.c1(m.h(o,"total_commission")),i=A.bs(m.h(o,"services_count")),h=k>0?j/k*100:0,g=n<=3?["\ud83e\udd47","\ud83e\udd48","\ud83e\udd49"][n-1]:""+n
 n=A.b6(12)
 m=A.N(g,p,p,p,p,B.fb,p,p,p)
 s=t.p
