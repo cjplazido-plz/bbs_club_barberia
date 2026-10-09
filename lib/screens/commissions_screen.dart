@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/intl.dart';
 import '../services/settings_service.dart';
 
@@ -28,7 +27,7 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
     try {
       final startStr = _startDate.toIso8601String();
       final endStr = _endDate.add(const Duration(days: 1)).toIso8601String();
-      print('📊 Cargando comisiones del $startStr al $endStr');
+      
       final response = await Supabase.instance.client
           .from('transaction_items')
           .select('''
@@ -43,9 +42,10 @@ transactions!inner(created_at, status)
           .gte('transactions.created_at', startStr)
           .lt('transactions.created_at', endStr)
           .eq('transactions.status', 'completed');
+      
       final items = List<Map<String, dynamic>>.from(response);
-      print('✅ ${items.length} items de servicios encontrados');
       Map<String, Map<String, dynamic>> barberMap = {};
+      
       for (final item in items) {
         final barberId = item['barber_id'] ?? 'unknown';
         final barberName = item['barber_name'] ?? 'Desconocido';
@@ -53,6 +53,7 @@ transactions!inner(created_at, status)
         final quantity = (item['quantity'] as num?)?.toInt() ?? 1;
         final commission = (item['commission_earned'] as num?)?.toDouble() ?? 0.0;
         final totalItem = price * quantity;
+        
         if (!barberMap.containsKey(barberId)) {
           barberMap[barberId] = {
             'barber_id': barberId,
@@ -62,111 +63,84 @@ transactions!inner(created_at, status)
             'services_count': 0,
           };
         }
-        barberMap[barberId]!['total_sales'] =
-            (barberMap[barberId]!['total_sales'] as double) + totalItem;
-        barberMap[barberId]!['total_commission'] =
-            (barberMap[barberId]!['total_commission'] as double) + commission;
-        barberMap[barberId]!['services_count'] =
-            (barberMap[barberId]!['services_count'] as int) + quantity;
+        barberMap[barberId]!['total_sales'] = (barberMap[barberId]!['total_sales'] as double) + totalItem;
+        barberMap[barberId]!['total_commission'] = (barberMap[barberId]!['total_commission'] as double) + commission;
+        barberMap[barberId]!['services_count'] = (barberMap[barberId]!['services_count'] as int) + quantity;
       }
+      
       final commissions = barberMap.values.toList();
-      commissions.sort((a, b) =>
-          (b['total_commission'] as double).compareTo(a['total_commission'] as double));
-      final totalCommissions = commissions.fold(0.0,
-          (sum, c) => sum + (c['total_commission'] as double));
-      final totalSales = commissions.fold(0.0,
-          (sum, c) => sum + (c['total_sales'] as double));
+      commissions.sort((a, b) => (b['total_commission'] as double).compareTo(a['total_commission'] as double));
+      
+      final totalCommissions = commissions.fold(0.0, (sum, c) => sum + (c['total_commission'] as double));
+      final totalSales = commissions.fold(0.0, (sum, c) => sum + (c['total_sales'] as double));
+      
       setState(() {
         _commissions = commissions;
         _totalCommissions = totalCommissions;
         _totalSales = totalSales;
         _isLoading = false;
       });
-      print('💰 Total comisiones: ${SettingsService.formatCurrency(totalCommissions)}');
     } catch (e) {
-      print(' Error al cargar comisiones: $e');
+      print('❌ Error al cargar comisiones: $e');
       setState(() { _isLoading = false; });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al cargar: $e'), backgroundColor: Colors.red),
-        );
-      }
     }
   }
 
-Future<void> _selectDateRange() async {
-  final isDark = Theme.of(context).brightness == Brightness.dark;
-  
-  final picked = await showDateRangePicker(
-    context: context,
-    firstDate: DateTime(2020),
-    lastDate: DateTime.now(),
-    initialDateRange: DateTimeRange(start: _startDate, end: _endDate),
-    builder: (context, child) => MaterialApp(
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: isDark
-            ? const ColorScheme.dark(
-                primary: Color(0xFF6366F1),
-                onPrimary: Colors.white,
-                surface: Color(0xFF1E293B),
-                onSurface: Colors.white,
-                outline: Color(0xFF334155),
-                onSurfaceVariant: Colors.white,
-              )
-            : const ColorScheme.light(
-                primary: Color(0xFF6366F1),
-                onPrimary: Colors.white,
-                surface: Colors.white,
-                onSurface: Colors.black87,
-              ),
-        dialogBackgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
+  Future<void> _selectDateRange() async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: isDark
+              ? const ColorScheme.dark(
+                  primary: Color(0xFF6366F1),
+                  onPrimary: Colors.white,
+                  surface: Color(0xFF1E293B),
+                  onSurface: Colors.white,
+                  outline: Color(0xFF334155),
+                  onSurfaceVariant: Colors.white,
+                )
+              : const ColorScheme.light(
+                  primary: Color(0xFF6366F1),
+                  onPrimary: Colors.white,
+                  surface: Colors.white,
+                  onSurface: Colors.black87,
+                ),
+          dialogBackgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
+        ),
+        child: Localizations.override(
+          context: context,
+          child: child!,
+        ),
       ),
-      localizationsDelegates: [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      supportedLocales: const [
-        Locale('es', ''),
-        Locale('en', ''),
-      ],
-      locale: const Locale('es', ''),
-      home: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: child!,
-      ),
-    ),
-  );
-
-  if (picked != null) {
-    setState(() {
-      _startDate = picked.start;
-      _endDate = picked.end;
-    });
-    _loadCommissions(); // o _loadCommissions() en commissions_screen.dart
+    );
+    if (picked != null) {
+      setState(() {
+        _startDate = picked.start;
+        _endDate = picked.end;
+      });
+      _loadCommissions();
+    }
   }
-}
+
   void _setQuickFilter(String period) {
     final now = DateTime.now();
     DateTime start;
     switch (period) {
-      case 'today':
-        start = DateTime(now.year, now.month, now.day);
+      case 'today': start = DateTime(now.year, now.month, now.day); break;
+      case 'week': 
+        start = now.subtract(Duration(days: now.weekday - 1)); 
+        start = DateTime(start.year, start.month, start.day); 
         break;
-      case 'week':
-        start = now.subtract(Duration(days: now.weekday - 1));
-        start = DateTime(start.year, start.month, start.day);
+      case 'month': start = DateTime(now.year, now.month, 1); break;
+      case 'last_month': 
+        start = DateTime(now.year, now.month - 1, 1); 
+        _endDate = DateTime(now.year, now.month, 0); 
         break;
-      case 'month':
-        start = DateTime(now.year, now.month, 1);
-        break;
-      case 'last_month':
-        start = DateTime(now.year, now.month - 1, 1);
-        _endDate = DateTime(now.year, now.month, 0);
-        break;
-      default:
-        start = now.subtract(const Duration(days: 30));
+      default: start = now.subtract(const Duration(days: 30));
     }
     setState(() {
       _startDate = start;
@@ -178,30 +152,16 @@ Future<void> _selectDateRange() async {
   bool _isPeriodSelected(String period) {
     final now = DateTime.now();
     switch (period) {
-      case 'today':
-        return _startDate.year == now.year &&
-            _startDate.month == now.month &&
-            _startDate.day == now.day;
-      case 'week':
+      case 'today': return _startDate.year == now.year && _startDate.month == now.month && _startDate.day == now.day;
+      case 'week': 
         final weekStart = now.subtract(Duration(days: now.weekday - 1));
-        return _startDate.year == weekStart.year &&
-            _startDate.month == weekStart.month &&
-            _startDate.day == weekStart.day;
-      case 'month':
-        return _startDate.year == now.year &&
-            _startDate.month == now.month &&
-            _startDate.day == 1;
-      case 'last_month':
-        return _startDate.year == now.year &&
-            _startDate.month == now.month - 1 &&
-            _startDate.day == 1;
-      case 'last_30':
+        return _startDate.year == weekStart.year && _startDate.month == weekStart.month && _startDate.day == weekStart.day;
+      case 'month': return _startDate.year == now.year && _startDate.month == now.month && _startDate.day == 1;
+      case 'last_month': return _startDate.year == now.year && _startDate.month == now.month - 1 && _startDate.day == 1;
+      case 'last_30': 
         final thirtyDaysAgo = now.subtract(const Duration(days: 30));
-        return _startDate.year == thirtyDaysAgo.year &&
-            _startDate.month == thirtyDaysAgo.month &&
-            _startDate.day == thirtyDaysAgo.day;
-      default:
-        return false;
+        return _startDate.year == thirtyDaysAgo.year && _startDate.month == thirtyDaysAgo.month && _startDate.day == thirtyDaysAgo.day;
+      default: return false;
     }
   }
 
@@ -235,10 +195,7 @@ Future<void> _selectDateRange() async {
                 children: [
                   const Text('💵 Total Ventas', style: TextStyle(color: Colors.grey, fontSize: 12)),
                   const SizedBox(height: 4),
-                  Text(
-                    SettingsService.formatCurrency(_totalSales),
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.blue),
-                  ),
+                  Text(SettingsService.formatCurrency(_totalSales), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.blue)),
                 ],
               ),
             ),
@@ -256,10 +213,7 @@ Future<void> _selectDateRange() async {
                 children: [
                   const Text('💰 Total Comisiones', style: TextStyle(color: Colors.grey, fontSize: 12)),
                   const SizedBox(height: 4),
-                  Text(
-                    SettingsService.formatCurrency(_totalCommissions),
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.green),
-                  ),
+                  Text(SettingsService.formatCurrency(_totalCommissions), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.green)),
                 ],
               ),
             ),
@@ -277,6 +231,7 @@ Future<void> _selectDateRange() async {
     final commissionRate = totalSales > 0 ? (totalCommission / totalSales * 100) : 0.0;
     final medals = ['🥇', '🥈', '🥉'];
     final medal = position <= 3 ? medals[position - 1] : '$position';
+    
     return Card(
       elevation: 2,
       margin: const EdgeInsets.only(bottom: 12),
@@ -301,14 +256,8 @@ Future<void> _selectDateRange() async {
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.indigo[100],
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '${commissionRate.toStringAsFixed(1)}%',
-                    style: TextStyle(color: Colors.indigo[700], fontWeight: FontWeight.bold, fontSize: 12),
-                  ),
+                  decoration: BoxDecoration(color: Colors.indigo[100], borderRadius: BorderRadius.circular(12)),
+                  child: Text('${commissionRate.toStringAsFixed(1)}%', style: TextStyle(color: Colors.indigo[700], fontWeight: FontWeight.bold, fontSize: 12)),
                 ),
               ],
             ),
@@ -346,11 +295,7 @@ Future<void> _selectDateRange() async {
         backgroundColor: Colors.indigo[700],
         foregroundColor: Colors.white,
         actions: [
-          IconButton(
-            icon: const Text('🔄', style: TextStyle(fontSize: 20)),
-            tooltip: 'Actualizar',
-            onPressed: _loadCommissions,
-          ),
+          IconButton(icon: const Text('🔄', style: TextStyle(fontSize: 20)), tooltip: 'Actualizar', onPressed: _loadCommissions),
         ],
       ),
       body: Column(
