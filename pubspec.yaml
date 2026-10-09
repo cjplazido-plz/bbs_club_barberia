@@ -1,7 +1,6 @@
 name: barberflow
-description: "App de control para barbería"
+description: Sistema POS para Barbería BBS Club
 publish_to: 'none'
-
 version: 1.0.0+1
 
 environment:
@@ -10,46 +9,20 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  supabase_flutter: ^2.3.4   # ← AGREGA ESTA LÍNEA
-  cupertino_icons: ^1.0.2
-  path_provider: ^2.1.1
-  printing: ^5.12.0
-  pdf: ^3.10.7
-  connectivity_plus: ^5.0.2
-  intl: ^0.20.3
-  flutter_riverpod: ^3.4.3
-  shared_preferences: ^2.2.0
-  fl_chart: ^1.2.0
-  #isar: ^3.1.0+1
-  #isar_flutter_libs: ^3.1.0+1
-  http: ^1.1.0
-  url_launcher: ^6.3.3
-  excel: ^4.0.6
-  image: ^4.3.0
-  dependencies:
-  flutter:
-    sdk: flutter
   flutter_localizations:
     sdk: flutter
+  cupertino_icons: ^1.0.2
   supabase_flutter: ^2.0.0
   intl: ^0.18.0
-  # ... tus otras dependencias
-  
+  printing: ^5.11.0
+  pdf: ^3.10.0
+  http: ^1.1.0
+  shared_preferences: ^2.2.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
-  build_runner: ^2.4.7
-  dependencies:
-  flutter:
-    sdk: flutter
-  flutter_localizations:
-    sdk: flutter
-  supabase_flutter: ^2.0.0
-  intl: ^0.18.0
-  # ... tus otras dependencias
-  #isar_generator: ^3.1.0+1
-  
 
 flutter:
   uses-material-design: true
