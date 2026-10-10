@@ -27,7 +27,6 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
     try {
       final startStr = _startDate.toIso8601String();
       final endStr = _endDate.add(const Duration(days: 1)).toIso8601String();
-      
       final response = await Supabase.instance.client
           .from('transaction_items')
           .select('''
@@ -42,10 +41,8 @@ transactions!inner(created_at, status)
           .gte('transactions.created_at', startStr)
           .lt('transactions.created_at', endStr)
           .eq('transactions.status', 'completed');
-      
       final items = List<Map<String, dynamic>>.from(response);
       Map<String, Map<String, dynamic>> barberMap = {};
-      
       for (final item in items) {
         final barberId = item['barber_id'] ?? 'unknown';
         final barberName = item['barber_name'] ?? 'Desconocido';
@@ -53,7 +50,6 @@ transactions!inner(created_at, status)
         final quantity = (item['quantity'] as num?)?.toInt() ?? 1;
         final commission = (item['commission_earned'] as num?)?.toDouble() ?? 0.0;
         final totalItem = price * quantity;
-        
         if (!barberMap.containsKey(barberId)) {
           barberMap[barberId] = {
             'barber_id': barberId,
@@ -67,13 +63,10 @@ transactions!inner(created_at, status)
         barberMap[barberId]!['total_commission'] = (barberMap[barberId]!['total_commission'] as double) + commission;
         barberMap[barberId]!['services_count'] = (barberMap[barberId]!['services_count'] as int) + quantity;
       }
-      
       final commissions = barberMap.values.toList();
       commissions.sort((a, b) => (b['total_commission'] as double).compareTo(a['total_commission'] as double));
-      
       final totalCommissions = commissions.fold(0.0, (sum, c) => sum + (c['total_commission'] as double));
       final totalSales = commissions.fold(0.0, (sum, c) => sum + (c['total_sales'] as double));
-      
       setState(() {
         _commissions = commissions;
         _totalCommissions = totalCommissions;
@@ -131,15 +124,9 @@ transactions!inner(created_at, status)
     DateTime start;
     switch (period) {
       case 'today': start = DateTime(now.year, now.month, now.day); break;
-      case 'week': 
-        start = now.subtract(Duration(days: now.weekday - 1)); 
-        start = DateTime(start.year, start.month, start.day); 
-        break;
+      case 'week': start = now.subtract(Duration(days: now.weekday - 1)); start = DateTime(start.year, start.month, start.day); break;
       case 'month': start = DateTime(now.year, now.month, 1); break;
-      case 'last_month': 
-        start = DateTime(now.year, now.month - 1, 1); 
-        _endDate = DateTime(now.year, now.month, 0); 
-        break;
+      case 'last_month': start = DateTime(now.year, now.month - 1, 1); _endDate = DateTime(now.year, now.month, 0); break;
       default: start = now.subtract(const Duration(days: 30));
     }
     setState(() {
@@ -153,14 +140,10 @@ transactions!inner(created_at, status)
     final now = DateTime.now();
     switch (period) {
       case 'today': return _startDate.year == now.year && _startDate.month == now.month && _startDate.day == now.day;
-      case 'week': 
-        final weekStart = now.subtract(Duration(days: now.weekday - 1));
-        return _startDate.year == weekStart.year && _startDate.month == weekStart.month && _startDate.day == weekStart.day;
+      case 'week': final weekStart = now.subtract(Duration(days: now.weekday - 1)); return _startDate.year == weekStart.year && _startDate.month == weekStart.month && _startDate.day == weekStart.day;
       case 'month': return _startDate.year == now.year && _startDate.month == now.month && _startDate.day == 1;
       case 'last_month': return _startDate.year == now.year && _startDate.month == now.month - 1 && _startDate.day == 1;
-      case 'last_30': 
-        final thirtyDaysAgo = now.subtract(const Duration(days: 30));
-        return _startDate.year == thirtyDaysAgo.year && _startDate.month == thirtyDaysAgo.month && _startDate.day == thirtyDaysAgo.day;
+      case 'last_30': final thirtyDaysAgo = now.subtract(const Duration(days: 30)); return _startDate.year == thirtyDaysAgo.year && _startDate.month == thirtyDaysAgo.month && _startDate.day == thirtyDaysAgo.day;
       default: return false;
     }
   }
@@ -229,9 +212,8 @@ transactions!inner(created_at, status)
     final totalCommission = barber['total_commission'] as double;
     final servicesCount = barber['services_count'] as int;
     final commissionRate = totalSales > 0 ? (totalCommission / totalSales * 100) : 0.0;
-    final medals = ['🥇', '🥈', '🥉'];
+    final medals = ['', '🥈', '🥉'];
     final medal = position <= 3 ? medals[position - 1] : '$position';
-    
     return Card(
       elevation: 2,
       margin: const EdgeInsets.only(bottom: 12),
@@ -291,7 +273,7 @@ transactions!inner(created_at, status)
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('💰 Comisiones por Barbero'),
+        title: const Text(' Comisiones por Barbero'),
         backgroundColor: Colors.indigo[700],
         foregroundColor: Colors.white,
         actions: [

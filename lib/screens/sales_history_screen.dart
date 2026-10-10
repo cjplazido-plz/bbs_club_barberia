@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:http/http.dart' as http;
 import '../services/settings_service.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SalesHistoryScreen extends StatefulWidget {
   @override
@@ -41,7 +41,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
         _isLoading = false;
       });
     } catch (e) {
-      print(' Error al cargar ventas: $e');
+      print('❌ Error al cargar ventas: $e');
       setState(() { _isLoading = false; });
     }
   }
@@ -67,32 +67,23 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
           children: [
             Container(
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.indigo[700],
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-              ),
+              decoration: BoxDecoration(color: Colors.indigo[700], borderRadius: const BorderRadius.vertical(top: Radius.circular(20))),
               child: Row(
                 children: [
-                  const Text('🧾', style: TextStyle(fontSize: 24)),
+                  const Text('', style: TextStyle(fontSize: 24)),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text('Detalle de Venta', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
-                        Text(
-                          DateFormat('dd/MM/yyyy HH:mm').format(DateTime.parse(transaction['created_at'])),
-                          style: TextStyle(color: Colors.white70, fontSize: 12),
-                        ),
+                        Text(DateFormat('dd/MM/yyyy HH:mm').format(DateTime.parse(transaction['created_at'])), style: TextStyle(color: Colors.white70, fontSize: 12)),
                       ],
                     ),
                   ),
                   IconButton(
-                    icon: const Text('️', style: TextStyle(fontSize: 20)),
-                    onPressed: () {
-                      Navigator.pop(context);
-                      _printTicket(transaction, items);
-                    },
+                    icon: const Text('🖨️', style: TextStyle(fontSize: 20)),
+                    onPressed: () { Navigator.pop(context); _printTicket(transaction, items); },
                   ),
                 ],
               ),
@@ -109,18 +100,14 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _infoRow('ID', (transaction['id']?.toString() ?? 'N/A').length > 20
-                              ? '${transaction['id'].toString().substring(0, 20)}...'
-                              : transaction['id']?.toString() ?? 'N/A'),
+                          _infoRow('ID', (transaction['id']?.toString() ?? 'N/A').length > 20 ? '${transaction['id'].toString().substring(0, 20)}...' : transaction['id']?.toString() ?? 'N/A'),
                           const Divider(),
                           _infoRow('Cajero', transaction['cashier_name'] ?? 'N/A'),
-                          if (transaction['barber_name'] != null && transaction['barber_name'].toString().isNotEmpty)
-                            _infoRow('Barbero', transaction['barber_name']),
+                          if (transaction['barber_name'] != null && transaction['barber_name'].toString().isNotEmpty) _infoRow('Barbero', transaction['barber_name']),
                           _infoRow('Método de pago', _formatPaymentMethod(transaction['payment_method'])),
                           if (transaction['payment_method'] == 'cash') ...[
                             _infoRow('Recibido', SettingsService.formatCurrency((transaction['cash_received'] as num?)?.toDouble() ?? 0.0)),
-                            if (((transaction['change_amount'] as num?)?.toDouble() ?? 0.0) > 0)
-                              _infoRow('Vuelto', SettingsService.formatCurrency((transaction['change_amount'] as num?)?.toDouble() ?? 0.0)),
+                            if (((transaction['change_amount'] as num?)?.toDouble() ?? 0.0) > 0) _infoRow('Vuelto', SettingsService.formatCurrency((transaction['change_amount'] as num?)?.toDouble() ?? 0.0)),
                           ],
                         ],
                       ),
@@ -138,34 +125,18 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                         children: [
                           Row(
                             children: [
-                              Text(item['item_type'] == 'service' ? '✂️' : '', style: const TextStyle(fontSize: 20)),
+                              Text(item['item_type'] == 'service' ? '️' : '📦', style: const TextStyle(fontSize: 20)),
                               const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  item['service_name'] ?? item['product_name'] ?? 'Sin nombre',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                                ),
-                              ),
-                              Text(
-                                '${SettingsService.formatCurrency((item['price_at_moment'] as num?)?.toDouble() ?? 0.0)} x${item['quantity']}',
-                                style: const TextStyle(fontSize: 12, color: Colors.grey),
-                              ),
+                              Expanded(child: Text(item['service_name'] ?? item['product_name'] ?? 'Sin nombre', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14))),
+                              Text('${SettingsService.formatCurrency((item['price_at_moment'] as num?)?.toDouble() ?? 0.0)} x${item['quantity']}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
                             ],
                           ),
                           if (item['barber_name'] != null && item['barber_name'].toString().isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.only(left: 28, top: 4),
-                              child: Text('Barbero: ${item['barber_name']}', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-                            ),
+                            Padding(padding: const EdgeInsets.only(left: 28, top: 4), child: Text('Barbero: ${item['barber_name']}', style: TextStyle(fontSize: 12, color: Colors.grey[600]))),
                           const SizedBox(height: 8),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              Text(
-                                SettingsService.formatCurrency(((item['price_at_moment'] as num?)?.toDouble() ?? 0.0) * (item['quantity'] as num? ?? 1)),
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.indigo),
-                              ),
-                            ],
+                            children: [Text(SettingsService.formatCurrency(((item['price_at_moment'] as num?)?.toDouble() ?? 0.0) * (item['quantity'] as num? ?? 1)), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.indigo))],
                           ),
                         ],
                       ),
@@ -233,12 +204,8 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
     if (logoUrl.isNotEmpty) {
       try {
         final response = await http.get(Uri.parse(logoUrl));
-        if (response.statusCode == 200) {
-          logoImage = pw.MemoryImage(response.bodyBytes);
-        }
-      } catch (e) {
-        print('⚠️ Error al descargar logo: $e');
-      }
+        if (response.statusCode == 200) logoImage = pw.MemoryImage(response.bodyBytes);
+      } catch (e) { print('⚠️ Error al descargar logo: $e'); }
     }
     final pageFormat = PdfPageFormat(66 * PdfPageFormat.mm, 200 * PdfPageFormat.mm);
     pdf.addPage(
@@ -277,44 +244,25 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
                     pw.Text('$icon $name', style: pw.TextStyle(fontSize: 7)),
-                    pw.Container(
-                      alignment: pw.Alignment.centerRight,
-                      child: pw.Text('${SettingsService.formatCurrency(price)} x$qty = ${SettingsService.formatCurrency(total)}', style: pw.TextStyle(fontSize: 10)),
-                    ),
-                    if (item['barber_name'] != null && item['barber_name'].toString().isNotEmpty)
-                      pw.Text('Barbero: ${item['barber_name']}', style: pw.TextStyle(fontSize: 10)),
+                    pw.Container(alignment: pw.Alignment.centerRight, child: pw.Text('${SettingsService.formatCurrency(price)} x$qty = ${SettingsService.formatCurrency(total)}', style: pw.TextStyle(fontSize: 10))),
+                    if (item['barber_name'] != null && item['barber_name'].toString().isNotEmpty) pw.Text('Barbero: ${item['barber_name']}', style: pw.TextStyle(fontSize: 10)),
                     pw.SizedBox(height: 2),
                   ],
                 );
               }),
               pw.Divider(),
               pw.SizedBox(height: 2),
-              pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
-                pw.Text('Subtotal:', style: pw.TextStyle(fontSize: 10)),
-                pw.Text(SettingsService.formatCurrency((transaction['subtotal'] as num?)?.toDouble() ?? 0.0), style: pw.TextStyle(fontSize: 10)),
-              ]),
+              pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Subtotal:', style: pw.TextStyle(fontSize: 10)), pw.Text(SettingsService.formatCurrency((transaction['subtotal'] as num?)?.toDouble() ?? 0.0), style: pw.TextStyle(fontSize: 10))]),
               pw.SizedBox(height: 2),
-              pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
-                pw.Text('TOTAL:', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
-                pw.Text(SettingsService.formatCurrency((transaction['total'] as num?)?.toDouble() ?? 0.0), style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
-              ]),
+              pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('TOTAL:', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)), pw.Text(SettingsService.formatCurrency((transaction['total'] as num?)?.toDouble() ?? 0.0), style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold))]),
               pw.SizedBox(height: 2),
-              pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
-                pw.Text('Pago:', style: pw.TextStyle(fontSize: 7)),
-                pw.Text(_formatPaymentMethod(transaction['payment_method']), style: pw.TextStyle(fontSize: 7)),
-              ]),
+              pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Pago:', style: pw.TextStyle(fontSize: 7)), pw.Text(_formatPaymentMethod(transaction['payment_method']), style: pw.TextStyle(fontSize: 7))]),
               if (transaction['payment_method'] == 'cash') ...[
                 pw.SizedBox(height: 2),
-                pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
-                  pw.Text('Recibido:', style: pw.TextStyle(fontSize: 7)),
-                  pw.Text(SettingsService.formatCurrency((transaction['cash_received'] as num?)?.toDouble() ?? 0.0), style: pw.TextStyle(fontSize: 7)),
-                ]),
+                pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Recibido:', style: pw.TextStyle(fontSize: 7)), pw.Text(SettingsService.formatCurrency((transaction['cash_received'] as num?)?.toDouble() ?? 0.0), style: pw.TextStyle(fontSize: 7))]),
                 if (((transaction['change_amount'] as num?)?.toDouble() ?? 0.0) > 0) ...[
                   pw.SizedBox(height: 2),
-                  pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
-                    pw.Text('Vuelto:', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
-                    pw.Text(SettingsService.formatCurrency((transaction['change_amount'] as num?)?.toDouble() ?? 0.0), style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
-                  ]),
+                  pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Vuelto:', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)), pw.Text(SettingsService.formatCurrency((transaction['change_amount'] as num?)?.toDouble() ?? 0.0), style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold))]),
                 ],
               ],
               pw.SizedBox(height: 3),
@@ -329,46 +277,47 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
     await Printing.layoutPdf(onLayout: (PdfPageFormat format) async => pdf.save(), name: 'Ticket_${transaction['id']}.pdf');
   }
 
-Future<void> _selectDateRange() async {
-  final isDark = Theme.of(context).brightness == Brightness.dark;
-  final picked = await showDateRangePicker(
-    context: context,
-    firstDate: DateTime(2020),
-    lastDate: DateTime.now(),
-    initialDateRange: DateTimeRange(start: _startDate, end: _endDate),
-    builder: (context, child) => Theme(
-      data: Theme.of(context).copyWith(
-        colorScheme: isDark
-            ? const ColorScheme.dark(
-                primary: Color(0xFF6366F1),
-                onPrimary: Colors.white,
-                surface: Color(0xFF1E293B),
-                onSurface: Colors.white,
-                outline: Color(0xFF334155),
-                onSurfaceVariant: Colors.white,
-              )
-            : const ColorScheme.light(
-                primary: Color(0xFF6366F1),
-                onPrimary: Colors.white,
-                surface: Colors.white,
-                onSurface: Colors.black87,
-              ),
-        dialogBackgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
+  Future<void> _selectDateRange() async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      initialDateRange: DateTimeRange(start: _startDate, end: _endDate),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: isDark
+              ? const ColorScheme.dark(
+                  primary: Color(0xFF6366F1),
+                  onPrimary: Colors.white,
+                  surface: Color(0xFF1E293B),
+                  onSurface: Colors.white,
+                  outline: Color(0xFF334155),
+                  onSurfaceVariant: Colors.white,
+                )
+              : const ColorScheme.light(
+                  primary: Color(0xFF6366F1),
+                  onPrimary: Colors.white,
+                  surface: Colors.white,
+                  onSurface: Colors.black87,
+                ),
+          dialogBackgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
+        ),
+        child: Localizations.override(
+          context: context,
+          child: child!,
+        ),
       ),
-      child: Localizations.override(
-        context: context,
-        child: child!,
-      ),
-    ),
-  );
-  if (picked != null) {
-    setState(() {
-      _startDate = picked.start;
-      _endDate = picked.end;
-    });
-    _loadTransactions();
+    );
+    if (picked != null) {
+      setState(() {
+        _startDate = picked.start;
+        _endDate = picked.end;
+      });
+      _loadTransactions();
+    }
   }
-}
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -388,7 +337,7 @@ Future<void> _selectDateRange() async {
             color: Colors.indigo[50],
             child: Row(
               children: [
-                const Text('', style: TextStyle(fontSize: 18)),
+                const Text('📅', style: TextStyle(fontSize: 18)),
                 const SizedBox(width: 8),
                 Expanded(child: Text('${DateFormat('dd/MM/yyyy').format(_startDate)} - ${DateFormat('dd/MM/yyyy').format(_endDate)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
                 Text('${_transactions.length} ventas', style: TextStyle(color: Colors.grey[600], fontSize: 13)),
@@ -399,7 +348,7 @@ Future<void> _selectDateRange() async {
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _transactions.isEmpty
-                    ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [const Text('', style: TextStyle(fontSize: 64)), const SizedBox(height: 16), Text('No hay ventas en este período', style: TextStyle(color: Colors.grey[400], fontSize: 16))]))
+                    ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [const Text('📊', style: TextStyle(fontSize: 64)), const SizedBox(height: 16), Text('No hay ventas en este período', style: TextStyle(color: Colors.grey[400], fontSize: 16))]))
                     : ListView.builder(
                         padding: const EdgeInsets.all(16),
                         itemCount: _transactions.length,
@@ -418,7 +367,7 @@ Future<void> _selectDateRange() async {
                                 padding: const EdgeInsets.all(16),
                                 child: Row(
                                   children: [
-                                    Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.indigo[100], shape: BoxShape.circle), child: const Text('', style: TextStyle(fontSize: 24))),
+                                    Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.indigo[100], shape: BoxShape.circle), child: const Text('🧾', style: TextStyle(fontSize: 24))),
                                     const SizedBox(width: 12),
                                     Expanded(
                                       child: Column(
