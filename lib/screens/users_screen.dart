@@ -379,11 +379,8 @@ class _UsersScreenState extends State<UsersScreen> {
                     );
                   },
                 ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showUserDialog(),
-        backgroundColor: const Color(0xFF6366F1),
-        child: const Icon(Icons.person_add),
-      ),
-    );
-  }
-}
+floatingActionButton: FloatingActionButton(
+  onPressed: () => _showCreateUserDialog(),
+  backgroundColor: const Color(0xFF6366F1),
+  child: const Icon(Icons.person_add, color: Colors.white),
+),
