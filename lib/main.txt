@@ -1,0 +1,71 @@
+import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:intl/date_symbol_data_local.dart';
+import 'services/database_service.dart';
+import 'services/settings_service.dart';
+import 'services/theme_service.dart';
+import 'screens/login_screen.dart';
+import 'screens/public_booking_screen.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+
+String currentUserRole = 'admin';
+String currentUserName = '';
+String currentUserEmail = '';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // ✅ Inicializar locale español
+  await initializeDateFormatting('es', null);
+  
+  // Inicializar Isar
+  await DatabaseService.init();
+  
+  // Inicializar Supabase
+  await Supabase.initialize(
+    url: 'https://kshpmivwtconponuxevx.supabase.co',
+    anonKey: 'sb_publishable_Vg3CpOZkRDJbTD-Mw_F3nw_S2Wmajf3',
+  );
+  
+  // Cargar configuración de la barbería
+  await SettingsService.loadSettings();
+  
+  runApp(BarberFlowApp());
+}
+
+class BarberFlowApp extends StatefulWidget {
+  @override
+  State<BarberFlowApp> createState() => _BarberFlowAppState();
+}
+
+class _BarberFlowAppState extends State<BarberFlowApp> {
+  @override
+  Widget build(BuildContext context) {
+return MaterialApp(
+  title: SettingsService.shopName,
+  debugShowCheckedModeBanner: false,
+  
+  // ✅ AGREGAR ESTO para español en Android
+  localizationsDelegates: const [
+    GlobalMaterialLocalizations.delegate,
+    GlobalWidgetsLocalizations.delegate,
+    GlobalCupertinoLocalizations.delegate,
+  ],
+  supportedLocales: const [
+    Locale('es', ''),
+    Locale('en', ''),
+  ],
+  locale: const Locale('es', ''),
+  
+  theme: ThemeService.lightTheme,
+  darkTheme: ThemeService.darkTheme,
+  themeMode: ThemeService.themeMode,
+ 
+      initialRoute: '/',
+      routes: {
+        '/': (context) => LoginScreen(),
+        '/reservar': (context) => PublicBookingScreen(),
+      },
+    );
+  }
+}
