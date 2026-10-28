@@ -1,56 +1,12 @@
-{
+﻿{
   "version": 2,
-  "builds": [
+  "buildCommand": "flutter pub get && flutter build web --release",
+  "outputDirectory": "build/web",
+  "installCommand": "curl -sL https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.24.3-stable.tar.xz | tar -xJ && export PATH=\"\C:\projects\barberflow/flutter/bin:\\"",
+  "rewrites": [
     {
-      "src": "package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "build/web"
-      }
-    }
-  ],
-  "routes": [
-    {
-      "src": "/flutter_service_worker.js",
-      "headers": {
-        "Cache-Control": "public, max-age=0, must-revalidate"
-      },
-      "dest": "/flutter_service_worker.js"
-    },
-    {
-      "src": "/manifest.json",
-      "headers": {
-        "Content-Type": "application/manifest+json"
-      },
-      "dest": "/manifest.json"
-    },
-    {
-      "src": "/icons/(.*)",
-      "dest": "/icons/$1"
-    },
-    {
-      "src": "/assets/(.*)",
-      "dest": "/assets/$1"
-    },
-    {
-      "src": "/canvaskit/(.*)",
-      "dest": "/canvaskit/$1"
-    },
-    {
-      "src": "/main.dart.js",
-      "dest": "/main.dart.js"
-    },
-    {
-      "src": "/flutter.js",
-      "dest": "/flutter.js"
-    },
-    {
-      "src": "/flutter_bootstrap.js",
-      "dest": "/flutter_bootstrap.js"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }
