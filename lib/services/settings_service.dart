@@ -1,107 +1,100 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SettingsService {
-  // Valores por defecto
   static String shopName = 'BBS CLUB BARBERÍA';
   static String shopRif = '78.123.456-7';
   static String shopAddress = 'LOS BIGOTES 1313 - LOMAS TURBO';
   static String shopPhone = '+56 99 999 9999';
+  static String shopEmail = '';
   static String shopLogoUrl = '';
   static String ticketLogoUrl = '';
+  
+  // ✅ PÚBLICOS (sin guion bajo) para que pos_screen.dart pueda acceder
+  static String currencySymbol = '\$';
+  static String currencyCode = 'CLP';
+  
   static String ticketHeader = 'BBS CLUB';
   static String ticketFooter = '¡Gracias por su visita!';
-
-  static const String _currencySymbol = '\$';
-  static const String _currencyCode = 'CLP';
 
   static String formatCurrency(double amount) {
     final formatted = amount.toStringAsFixed(0).replaceAllMapped(
       RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
       (Match m) => '${m[1]}.',
     );
-    return '$_currencySymbol$formatted';
+    return '$currencySymbol$formatted';
   }
 
-  // ✅ CARGAR configuración desde Supabase
   static Future<void> loadSettings() async {
     try {
+      print('🔄 Cargando configuración desde Supabase...');
       final response = await Supabase.instance.client
           .from('settings')
-          .select('key, value');
+          .select('*')
+          .order('updated_at', ascending: false)
+          .limit(1)
+          .maybeSingle();
 
-      final settings = List<Map<String, dynamic>>.from(response);
-      for (final setting in settings) {
-        final key = setting['key'] as String;
-        final value = setting['value'] as String? ?? '';
-
-        switch (key) {
-          case 'shop_name':
-            shopName = value;
-            break;
-          case 'shop_rif':
-            shopRif = value;
-            break;
-          case 'shop_address':
-            shopAddress = value;
-            break;
-          case 'shop_phone':
-            shopPhone = value;
-            break;
-          case 'shop_logo_url':
-            shopLogoUrl = value;
-            break;
-          case 'ticket_logo_url':
-            ticketLogoUrl = value;
-            break;
-          case 'ticket_header':
-            ticketHeader = value;
-            break;
-          case 'ticket_footer':
-            ticketFooter = value;
-            break;
-        }
+      if (response != null) {
+        shopName = response['shop_name'] ?? shopName;
+        shopRif = response['shop_rif'] ?? shopRif;
+        shopAddress = response['shop_address'] ?? shopAddress;
+        shopPhone = response['shop_phone'] ?? shopPhone;
+        shopEmail = response['shop_email'] ?? shopEmail;
+        shopLogoUrl = response['shop_logo_url'] ?? shopLogoUrl;
+        ticketLogoUrl = response['ticket_logo_url'] ?? ticketLogoUrl;
+        currencySymbol = response['currency_symbol'] ?? currencySymbol;
+        currencyCode = response['currency_code'] ?? currencyCode;
+        ticketHeader = response['ticket_header'] ?? ticketHeader;
+        ticketFooter = response['ticket_footer'] ?? ticketFooter;
+        print('✅ Configuración cargada');
+      } else {
+        print('⚠️ No hay configuración en Supabase');
       }
-      print('✅ Configuración cargada desde Supabase');
     } catch (e) {
-      print('⚠️ Error al cargar configuración: $e');
+      print('❌ Error al cargar configuración: $e');
     }
   }
 
-  // ✅ GUARDAR configuración usando upsert (evita error de clave duplicada)
-static Future<void> saveSettingsToSupabase() async {
-  try {
-    // ✅ Función helper para actualizar o insertar
-    Future<void> saveSetting(String key, String value) async {
+  static Future<bool> updateMultiple(Map<String, String> values) async {
+    try {
+      print('🔄 Guardando configuración...');
       final existing = await Supabase.instance.client
           .from('settings')
-          .select()
-          .eq('key', key)
+          .select('id')
+          .limit(1)
           .maybeSingle();
 
       if (existing != null) {
         await Supabase.instance.client
             .from('settings')
-            .update({'value': value})
-            .eq('key', key);
+            .update(values)
+            .eq('id', existing['id']);
       } else {
         await Supabase.instance.client
             .from('settings')
-            .insert({'key': key, 'value': value});
+            .insert(values);
       }
+
+      values.forEach((key, value) {
+        switch (key) {
+          case 'shop_name': shopName = value; break;
+          case 'shop_rif': shopRif = value; break;
+          case 'shop_address': shopAddress = value; break;
+          case 'shop_phone': shopPhone = value; break;
+          case 'shop_email': shopEmail = value; break;
+          case 'shop_logo_url': shopLogoUrl = value; break;
+          case 'ticket_logo_url': ticketLogoUrl = value; break;
+          case 'currency_symbol': currencySymbol = value; break;
+          case 'currency_code': currencyCode = value; break;
+          case 'ticket_header': ticketHeader = value; break;
+          case 'ticket_footer': ticketFooter = value; break;
+        }
+      });
+      print('✅ Configuración guardada');
+      return true;
+    } catch (e) {
+      print('❌ Error al guardar: $e');
+      return false;
     }
-
-    await saveSetting('shop_name', shopName);
-    await saveSetting('shop_rif', shopRif);
-    await saveSetting('shop_address', shopAddress);
-    await saveSetting('shop_phone', shopPhone);
-    await saveSetting('shop_logo_url', shopLogoUrl);
-    await saveSetting('ticket_logo_url', ticketLogoUrl);
-    await saveSetting('ticket_header', ticketHeader);
-    await saveSetting('ticket_footer', ticketFooter);
-
-    print('✅ Configuración guardada en Supabase');
-  } catch (e) {
-    print('❌ Error al guardar configuración: $e');
-    rethrow;
   }
-}
+} // ✅ ESTA LLAVE DE CIERRE FALTABA
