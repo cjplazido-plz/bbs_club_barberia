@@ -1,12 +1,9 @@
 ﻿{
   "version": 2,
-  "buildCommand": "flutter pub get && flutter build web --release",
-  "outputDirectory": "build/web",
-  "installCommand": "curl -sL https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.24.3-stable.tar.xz | tar -xJ && export PATH=\"\C:\projects\barberflow/flutter/bin:\\"",
-  "rewrites": [
+  "builds": [
     {
-      "source": "/(.*)",
-      "destination": "/index.html"
+      "src": "pubspec.yaml",
+      "use": "@nandorojo/vercel-flutter"
     }
   ]
 }
