@@ -1,9 +1,6 @@
 ﻿{
   "version": 2,
-  "builds": [
-    {
-      "src": "pubspec.yaml",
-      "use": "@nandorojo/vercel-flutter"
-    }
-  ]
+  "buildCommand": "curl -sL https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.24.3-stable.tar.xz | tar -xJ && export PATH="$PWD/flutter/bin:$PATH" && flutter pub get && flutter build web --release",
+  "outputDirectory": "build/web",
+  "installCommand": ""
 }
