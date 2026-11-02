@@ -1,69 +1,63 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SettingsService {
-  static String shopName = 'BBS CLUB F.C';
-  static String shopRif = '77.123.456-7';
+  static String shopName = 'BBS CLUB BARBERÍA';
+  static String shopRif = '78.123.456-7';
   static String shopAddress = 'LOS BIGOTES 1313 - LOMAS TURBO';
-  static String shopPhone = '+56 99 9 9 9 9 9 9 9';
+  static String shopPhone = '+56 99 999 9999';
   static String shopEmail = '';
   static String shopLogoUrl = '';
   static String ticketLogoUrl = '';
   static String currencySymbol = '\$';
   static String currencyCode = 'CLP';
-  static String ticketHeader = 'BBS CLUB F.C';
+  static String ticketHeader = 'BBS CLUB';
   static String ticketFooter = '¡Gracias por su visita!';
 
   static String formatCurrency(double amount) {
-    final formatted = amount.toStringAsFixed(0);
-    final buffer = StringBuffer();
-    for (int i = 0; i < formatted.length; i++) {
-      if (i > 0 && (formatted.length - i) % 3 == 0) {
-        buffer.write('.');
-      }
-      buffer.write(formatted[i]);
-    }
-    return '$currencySymbol${buffer.toString()}';
+    final formatted = amount.toStringAsFixed(0).replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]}.',
+    );
+    return '$currencySymbol$formatted';
   }
 
   static Future<void> loadSettings() async {
-  try {
-    print('🔄 Cargando configuración desde Supabase...');
-    
-    // ✅ OBTENER LA FILA MÁS RECIENTE
-    final response = await Supabase.instance.client
-    .from('settings')
-    .select('*')
-    .order('updated_at', ascending: false)
-    .limit(1)
-    .maybeSingle();
+    try {
+      print('🔄 Cargando configuración desde Supabase...');
+      final response = await Supabase.instance.client
+          .from('settings')
+          .select('*')
+          .order('updated_at', ascending: false)
+          .limit(1)
+          .maybeSingle();
 
-    if (response != null) {
-      shopName = response['shop_name'] ?? shopName;
-      shopRif = response['shop_rif'] ?? shopRif;
-      shopAddress = response['shop_address'] ?? shopAddress;
-      shopPhone = response['shop_phone'] ?? shopPhone;
-      shopEmail = response['shop_email'] ?? shopEmail;
-      shopLogoUrl = response['shop_logo_url'] ?? shopLogoUrl;
-      ticketLogoUrl = response['ticket_logo_url'] ?? '';
-      currencySymbol = response['currency_symbol'] ?? currencySymbol;
-      currencyCode = response['currency_code'] ?? currencyCode;
-      ticketHeader = response['ticket_header'] ?? ticketHeader;
-      ticketFooter = response['ticket_footer'] ?? ticketFooter;
-      
-      print('✅ Configuración cargada');
-      print('🖼️ Logo URL: $shopLogoUrl');
-      print('🖨️ Ticket Logo URL: $ticketLogoUrl');
-    } else {
-      print('⚠️ No hay configuración en Supabase');
+      if (response != null) {
+        shopName = response['shop_name'] ?? shopName;
+        shopRif = response['shop_rif'] ?? shopRif;
+        shopAddress = response['shop_address'] ?? shopAddress;
+        shopPhone = response['shop_phone'] ?? shopPhone;
+        shopEmail = response['shop_email'] ?? shopEmail;
+        shopLogoUrl = response['shop_logo_url'] ?? shopLogoUrl;
+        ticketLogoUrl = response['ticket_logo_url'] ?? ticketLogoUrl;
+        currencySymbol = response['currency_symbol'] ?? currencySymbol;
+        currencyCode = response['currency_code'] ?? currencyCode;
+        ticketHeader = response['ticket_header'] ?? ticketHeader;
+        ticketFooter = response['ticket_footer'] ?? ticketFooter;
+        print('✅ Configuración cargada');
+      } else {
+        print('⚠️ No hay configuración en Supabase');
+      }
+    } catch (e) {
+      print('❌ Error al cargar configuración: $e');
     }
-  } catch (e) {
-    print('❌ Error al cargar configuración: $e');
   }
-}
 
+  // ✅ MÉTODO CORRECTO: Actualiza si existe, inserta si no existe
   static Future<bool> updateMultiple(Map<String, String> values) async {
     try {
       print('🔄 Guardando configuración...');
+      
+      // Buscar si ya existe una fila de configuración
       final existing = await Supabase.instance.client
           .from('settings')
           .select('id')
@@ -71,16 +65,21 @@ class SettingsService {
           .maybeSingle();
 
       if (existing != null) {
+        // ✅ ACTUALIZAR la fila existente
+        print('📝 Actualizando configuración existente (ID: ${existing['id']})');
         await Supabase.instance.client
             .from('settings')
             .update(values)
             .eq('id', existing['id']);
       } else {
+        // ✅ INSERTAR nueva fila
+        print('➕ Insertando nueva configuración');
         await Supabase.instance.client
             .from('settings')
             .insert(values);
       }
 
+      // Actualizar variables en memoria
       values.forEach((key, value) {
         switch (key) {
           case 'shop_name': shopName = value; break;
@@ -96,7 +95,7 @@ class SettingsService {
           case 'ticket_footer': ticketFooter = value; break;
         }
       });
-
+      
       print('✅ Configuración guardada');
       return true;
     } catch (e) {
