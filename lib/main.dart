@@ -14,22 +14,13 @@ String currentUserEmail = '';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // ✅ Inicializar locale español
   await initializeDateFormatting('es', null);
-  
-  // Inicializar Isar
   await DatabaseService.init();
-  
-  // Inicializar Supabase
   await Supabase.initialize(
     url: 'https://kshpmivwtconponuxevx.supabase.co',
     anonKey: 'sb_publishable_Vg3CpOZkRDJbTD-Mw_F3nw_S2Wmajf3',
   );
-  
-  // Cargar configuración de la barbería
   await SettingsService.loadSettings();
-  
   runApp(BarberFlowApp());
 }
 
@@ -44,7 +35,6 @@ class _BarberFlowAppState extends State<BarberFlowApp> {
     return MaterialApp(
       title: SettingsService.shopName,
       debugShowCheckedModeBanner: false,
-      // ✅ Soporte para tema claro, oscuro y automático
       theme: ThemeService.lightTheme,
       darkTheme: ThemeService.darkTheme,
       themeMode: ThemeService.themeMode,
