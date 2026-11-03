@@ -243,23 +243,30 @@ Future<void> _selectDate() async {
   Set<DateTime> daysWithAppointments = {};
   
   // Cargar días con citas del mes actual
-  try {
-    final startOfMonth = DateTime(viewMonth.year, viewMonth.month, 1);
-    final endOfMonth = DateTime(viewMonth.year, viewMonth.month + 1, 0, 23, 59, 59);
-    final appointments = await Supabase.instance.client
-        .from('appointments')
-        .select('appointment_date')
-        .gte('appointment_date', startOfMonth.toIso8601String())
-        .lte('appointment_date', endOfMonth.toIso8601String())
-        .neq('status', 'cancelled');
-    
-    for (final apt in List<Map<String, dynamic>>.from(appointments)) {
-      final date = DateTime.parse(apt['appointment_date']);
-      daysWithAppointments.add(DateTime(date.year, date.month, date.day));
-    }
-  } catch (e) {
-    print('⚠️ Error al cargar días con citas: $e');
+try {
+  final startOfMonth = DateTime(viewMonth.year, viewMonth.month, 1);
+  final endOfMonth = DateTime(viewMonth.year, viewMonth.month + 1, 0, 23, 59, 59);
+  final appointments = await Supabase.instance.client
+      .from('appointments')
+      .select('appointment_date')
+      .gte('appointment_date', startOfMonth.toIso8601String())
+      .lte('appointment_date', endOfMonth.toIso8601String())
+      .neq('status', 'cancelled');
+  
+  // ✅ AGREGAR ESTO PARA DEBUG
+  print('📅 Consultando citas del ${startOfMonth.toIso8601String()} al ${endOfMonth.toIso8601String()}');
+  print('📅 Citas encontradas: ${appointments.length}');
+  for (final apt in List<Map<String, dynamic>>.from(appointments)) {
+    print('  - ${apt['appointment_date']}');
   }
+  
+  for (final apt in List<Map<String, dynamic>>.from(appointments)) {
+    final date = DateTime.parse(apt['appointment_date']);
+    daysWithAppointments.add(DateTime(date.year, date.month, date.day));
+  }
+} catch (e) {
+  print('⚠️ Error al cargar días con citas: $e');
+}
 
   if (!mounted) return;
 
@@ -456,19 +463,27 @@ Future<void> _selectDate() async {
                   title: const Text('Fecha y hora'),
                   subtitle: Text('${selectedDateTime.toLocal()}'.split('.')[0]),
                   trailing: const Text('📅', style: TextStyle(fontSize: 20)),
-                  onTap: () async {
-                    final date = await showDatePicker(context: context, initialDate: selectedDateTime, firstDate: DateTime.now(), lastDate: DateTime.now().add(const Duration(days: 30)));
-                    if (date != null) {
-                      final time = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(selectedDateTime));
-                      if (time != null) {
-                        setDialogState(() {
-                          selectedDateTime = DateTime(date.year, date.month, date.day, time.hour, time.minute);
-                        });
-                      }
-                    }
-                  },
-                ),
-                if (appointment != null) ...[
+                      onTap: () async {
+                        final date = await showDatePicker(
+                          context: context,
+                          initialDate: selectedDateTime,
+                          firstDate: DateTime.now(),
+                          lastDate: DateTime.now().add(const Duration(days: 30)),
+                          locale: const Locale('es'),  // ✅ AGREGAR
+                        );
+                        if (date != null) {
+                          final time = await showTimePicker(
+                            context: context,
+                            initialTime: TimeOfDay.fromDateTime(selectedDateTime),
+                          );
+                          if (time != null) {
+                            setDialogState(() {
+                              selectedDateTime = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+                            });
+                          }
+                        }
+                      },  
+                     if (appointment != null) ...[
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
                     value: selectedStatus,
