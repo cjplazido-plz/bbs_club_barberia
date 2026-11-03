@@ -227,26 +227,37 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     }
   }
 
-  // ✅ CALENDARIO PERSONALIZADO CON MARCADORES DE CITAS
+  // ✅ CALENDARIO PERSONALIZADO CON DEBUG LOGS
   Future<void> _selectDate() async {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     DateTime viewMonth = DateTime(_selectedDate.year, _selectedDate.month);
     Set<DateTime> daysWithAppointments = {};
 
-    // Cargar días con citas del mes actual
+    // Cargar días con citas del mes actual CON DEBUG
     try {
       final startOfMonth = DateTime(viewMonth.year, viewMonth.month, 1);
       final endOfMonth = DateTime(viewMonth.year, viewMonth.month + 1, 0, 23, 59, 59);
+      
+      print('🔍 Buscando citas desde: ${startOfMonth.toIso8601String()}');
+      print('🔍 Hasta: ${endOfMonth.toIso8601String()}');
+      
       final appointments = await Supabase.instance.client
           .from('appointments')
-          .select('appointment_date')
+          .select('appointment_date, status')
           .gte('appointment_date', startOfMonth.toIso8601String())
-          .lte('appointment_date', endOfMonth.toIso8601String())
-          .neq('status', 'cancelled');
+          .lte('appointment_date', endOfMonth.toIso8601String());
 
+      print('📊 Total citas encontradas: ${appointments.length}');
+      
       for (final apt in List<Map<String, dynamic>>.from(appointments)) {
+        print('  - Cita: ${apt['appointment_date']} | Status: ${apt['status']}');
         final date = DateTime.parse(apt['appointment_date']);
         daysWithAppointments.add(DateTime(date.year, date.month, date.day));
+      }
+      
+      print('✅ Días con citas: ${daysWithAppointments.length}');
+      for (final day in daysWithAppointments) {
+        print('  📅 ${day.day}/${day.month}/${day.year}');
       }
     } catch (e) {
       print('⚠️ Error al cargar días con citas: $e');
@@ -272,10 +283,9 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
             try {
               final appointments = await Supabase.instance.client
                   .from('appointments')
-                  .select('appointment_date')
+                  .select('appointment_date, status')
                   .gte('appointment_date', startOfMonth.toIso8601String())
-                  .lte('appointment_date', endOfMonth.toIso8601String())
-                  .neq('status', 'cancelled');
+                  .lte('appointment_date', endOfMonth.toIso8601String());
 
               final newDays = <DateTime>{};
               for (final apt in List<Map<String, dynamic>>.from(appointments)) {
