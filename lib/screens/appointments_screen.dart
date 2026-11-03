@@ -305,6 +305,7 @@ Future<void> _selectDate() async {
                         final time = await showTimePicker(
                           context: context,
                           initialTime: TimeOfDay.fromDateTime(selectedDateTime),
+                          // ✅ NO agregar locale aquí, showTimePicker no lo acepta
                         );
                         if (time != null) {
                           setDialogState(() {

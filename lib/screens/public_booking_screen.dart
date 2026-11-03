@@ -384,48 +384,47 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
                   const SizedBox(height: 20),
 
                   // Paso 2: Fecha
-                  _buildSectionTitle('2️⃣ Selecciona la fecha'),
-                  const SizedBox(height: 10),
-                  InkWell(
-                    onTap: () async {
-                  final picked = await showDatePicker(
-                    context: context,
-                    initialDate: DateTime.now(),
-                    firstDate: DateTime.now(),
-                    lastDate: DateTime.now().add(const Duration(days: 30)),
-                    locale: const Locale('es'),  // ✅ AGREGAR
-                  );                     );
-
-                      if (picked != null) {
-                        setState(() {
-                          _selectedDate = picked;
-                          _selectedTime = null;
-                        });
-                        await _loadAppointmentsForDate(picked);
-                      }
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.indigo),
-                        borderRadius: BorderRadius.circular(8),
-                        color: Colors.indigo[50],
-                      ),
-                      child: Row(
-                        children: [
-                          const Text('', style: TextStyle(fontSize: 22)),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              DateFormat('EEEE, dd MMMM yyyy', 'es').format(_selectedDate),
-                              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-                            ),
-                          ),
-                          const Icon(Icons.calendar_today, color: Colors.indigo, size: 20),
-                        ],
+            _buildSectionTitle('2️⃣ Selecciona la fecha'),
+            const SizedBox(height: 10),
+            InkWell(
+              onTap: () async {
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: _selectedDate,
+                  firstDate: DateTime.now(),
+                  lastDate: DateTime.now().add(const Duration(days: 30)),
+                  locale: const Locale('es'),  // ✅ AGREGAR
+                );  // ✅ UN SOLO ); (el respaldo tenía dos)
+                if (picked != null) {
+                  setState(() {
+                    _selectedDate = picked;
+                    _selectedTime = null;
+                  });
+                  await _loadAppointmentsForDate(picked);
+                }
+              },
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.indigo),
+                  borderRadius: BorderRadius.circular(8),
+                  color: Colors.indigo[50],
+                ),
+                child: Row(
+                  children: [
+                    const Text('📅', style: TextStyle(fontSize: 22)),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        DateFormat('EEEE, dd MMMM yyyy', 'es').format(_selectedDate),
+                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                       ),
                     ),
-                  ),
+                    const Icon(Icons.calendar_today, color: Colors.indigo, size: 20),
+                  ],
+                ),
+              ),
+            ),
                   const SizedBox(height: 20),
 
                   // Paso 3: Horario

@@ -4,38 +4,51 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'services/database_service.dart';
 import 'services/settings_service.dart';
+import 'services/theme_service.dart';
 import 'screens/login_screen.dart';
 import 'screens/public_booking_screen.dart';
 
+String currentUserRole = 'admin';
+String currentUserName = '';
+String currentUserEmail = '';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // ✅ Inicializar localización en español
+  
+  // ✅ Inicializar locale español
   await initializeDateFormatting('es', null);
-
+  
+  // Inicializar Isar
+  await DatabaseService.init();
+  
+  // Inicializar Supabase
   await Supabase.initialize(
-    url: 'https://kshpmiwvtconponuxevx.supabase.co',
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtzaHBtaXd0Y29ucG9udXhldngiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTcyNDg3NjQwMCwiZXhwIjoyMDQwNDUyNDAwfQ.YOUR_KEY_HERE',
+    url: 'https://kshpmivwtconponuxevx.supabase.co',
+    anonKey: 'sb_publishable_Vg3CpOZkRDJbTD-Mw_F3nw_S2Wmajf3',
   );
-
+  
+  // Cargar configuración de la barbería
   await SettingsService.loadSettings();
-
-  runApp(const MyApp());
+  
+  runApp(BarberFlowApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
+class BarberFlowApp extends StatefulWidget {
+  @override
+  State<BarberFlowApp> createState() => _BarberFlowAppState();
+}
 
+class _BarberFlowAppState extends State<BarberFlowApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'BBS Club Barbería',
+      title: SettingsService.shopName,
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        primarySwatch: Colors.indigo,
-        useMaterial3: true,
-      ),
-      // ✅ CONFIGURACIÓN DE LOCALE ESPAÑOL
+      // ✅ Soporte para tema claro, oscuro y automático
+      theme: ThemeService.lightTheme,
+      darkTheme: ThemeService.darkTheme,
+      themeMode: ThemeService.themeMode,
+      // ✅ CONFIGURACIÓN DE LOCALE ESPAÑOL (ESTO FALTABA)
       locale: const Locale('es'),
       supportedLocales: const [
         Locale('es'),
@@ -46,7 +59,11 @@ class MyApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      home: const LoginScreen(),
+      initialRoute: '/',
+      routes: {
+        '/': (context) => LoginScreen(),
+        '/reservar': (context) => PublicBookingScreen(),
+      },
     );
   }
 }
