@@ -1,3 +1,7 @@
+import 'package:flutter/material.dart';  // ← AGREGAR ESTO
+import '../services/settings_service.dart';  // ← Y ESTO
+
+
 Widget _summaryCard(String label, String value, IconData icon, Color color) {
   final isDark = Theme.of(context).brightness == Brightness.dark;
   return Card(

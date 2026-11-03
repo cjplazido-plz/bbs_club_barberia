@@ -106,44 +106,50 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
   }
 
 Future<void> _selectDateRange() async {
-  final initialDateRange = DateTimeRange(start: _startDate, end: _endDate);
+  final initialDateRange = DateTimeRange(
+    start: _startDate,
+    end: _endDate,
+  );
+
   final picked = await showDateRangePicker(
     context: context,
     firstDate: DateTime.now().subtract(const Duration(days: 365)),
     lastDate: DateTime.now(),
-    initialDateRange: initialDateRange,  // ✅ DENTRO del showDateRangePicker
+    initialDateRange: initialDateRange,
     locale: const Locale('es'),
-    builder: (context, child) => Theme(  // ✅ DENTRO también
-      data: Theme.of(context).copyWith(
-        colorScheme: ColorScheme.light(
-          primary: Colors.indigo[700]!,
-          onPrimary: Colors.white,
-          onSurface: Colors.black,
+    builder: (context, child) {
+      return Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: ColorScheme.light(
+            primary: Colors.indigo[700]!,
+            onPrimary: Colors.white,
+            onSurface: Colors.black,
+          ),
         ),
-      ),
-      child: child!,
-    ),
-  );  // ← ); AHORA CIERRA CORRECTAMENTE
-  
-  if (picked != null) {
-    setState(() {
-      _startDate = picked.start;
-      _endDate = picked.end;
-    });
-    _loadCommissions();
-  }
+        child: child!,
+      );
+    },
+  );
+
+  if (!mounted || picked == null) return;
+
+  setState(() {
+    _startDate = picked.start;
+    _endDate = picked.end;
+  });
+
+  _loadCommissions();
 }
-    if (picked != null) {
+
       setState(() {
         _startDate = picked.start;
         _endDate = picked.end;
       });
       _loadCommissions();
     }
-  }
+  
 
   void _setQuickFilter(String period) {
-    final now = DateTime.now();
     DateTime start;
     
     switch (period) {
