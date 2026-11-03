@@ -10,15 +10,15 @@ class SettingsService {
   static String ticketLogoUrl = '';
   static String ticketHeader = 'BBS CLUB';
   static String ticketFooter = '¡Gracias por su visita!';
-  static const String _currencySymbol = '\$';
-  static const String _currencyCode = 'CLP';
+  static String currencySymbol = '\$';
+  static String currencyCode = 'CLP';
 
   static String formatCurrency(double amount) {
     final formatted = amount.toStringAsFixed(0).replaceAllMapped(
       RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
       (Match m) => '${m[1]}.',
     );
-    return '$_currencySymbol$formatted';
+    return '$currencySymbol$formatted';
   }
 
   // ✅ CARGAR configuración desde Supabase
@@ -40,6 +40,8 @@ class SettingsService {
           case 'ticket_logo_url': ticketLogoUrl = value; break;
           case 'ticket_header': ticketHeader = value; break;
           case 'ticket_footer': ticketFooter = value; break;
+          case 'currency_symbol': currencySymbol = value; break;
+          case 'currency_code': currencyCode = value; break;
         }
       }
       print('✅ Configuración cargada desde Supabase');
@@ -48,7 +50,7 @@ class SettingsService {
     }
   }
 
-  // ✅ GUARDAR configuración usando UPSERT (solución definitiva)
+  // ✅ GUARDAR configuración usando UPSERT con onConflict (SOLUCIÓN DEFINITIVA)
   static Future<void> saveSettingsToSupabase() async {
     try {
       // ✅ upsert con onConflict: 'key'
@@ -67,6 +69,8 @@ class SettingsService {
       await saveSetting('ticket_logo_url', ticketLogoUrl);
       await saveSetting('ticket_header', ticketHeader);
       await saveSetting('ticket_footer', ticketFooter);
+      await saveSetting('currency_symbol', currencySymbol);
+      await saveSetting('currency_code', currencyCode);
       print('✅ Configuración guardada en Supabase');
     } catch (e) {
       print('❌ Error al guardar configuración: $e');
