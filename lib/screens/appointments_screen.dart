@@ -245,7 +245,7 @@ Future<void> _selectDate() async {
   // Cargar días con citas del mes actual
   try {
     final startOfMonth = DateTime(viewMonth.year, viewMonth.month, 1);
-    final endOfMonth = DateTime(viewMonth.year, viewMonth.month + 1, 0);
+    final endOfMonth = DateTime(viewMonth.year, viewMonth.month + 1, 0, 23, 59, 59);
     final appointments = await Supabase.instance.client
         .from('appointments')
         .select('appointment_date')
@@ -276,7 +276,7 @@ Future<void> _selectDate() async {
         Future<void> changeMonth(int delta) async {
           final newMonth = DateTime(viewMonth.year, viewMonth.month + delta);
           final startOfMonth = DateTime(newMonth.year, newMonth.month, 1);
-          final endOfMonth = DateTime(newMonth.year, newMonth.month + 1, 0);
+          final endOfMonth = DateTime(newMonth.year, newMonth.month + 1, 0, 23, 59, 59);
           
           try {
             final appointments = await Supabase.instance.client
