@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';  // ✅ AGREGAR
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'services/database_service.dart';
@@ -38,7 +38,7 @@ class _BarberFlowAppState extends State<BarberFlowApp> {
       theme: ThemeService.lightTheme,
       darkTheme: ThemeService.darkTheme,
       themeMode: ThemeService.themeMode,
-      // ✅ CONFIGURACIÓN DE LOCALE ESPAÑOL (ESTO FALTABA)
+      // ✅ CONFIGURACIÓN DE LOCALE ESPAÑOL
       locale: const Locale('es'),
       supportedLocales: const [
         Locale('es'),
