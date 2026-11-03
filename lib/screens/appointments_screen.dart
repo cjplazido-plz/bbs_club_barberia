@@ -237,19 +237,14 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     }
   }
 
-Future<void> _selectDate() async {
-  final picked = await showDatePicker(
-    context: context,
-    initialDate: _selectedDate,
-    firstDate: DateTime(2020),
-    lastDate: DateTime(2030),
-    locale: const Locale('es'),  // ✅ AGREGAR
-  );
-  if (picked != null && picked != _selectedDate) {
-    setState(() { _selectedDate = picked; });
-    _loadData();
+  Future<void> _selectDate() async {
+    final picked = await showDatePicker(context: context, initialDate: _selectedDate, firstDate: DateTime(2020), lastDate: DateTime(2030));
+    if (picked != null && picked != _selectedDate) {
+      setState(() { _selectedDate = picked; });
+      _loadData();
+    }
   }
-}
+
   void _showAppointmentDialog({LocalAppointment? appointment}) {
     String? selectedBarberId = appointment?.barberId;
     String? selectedClientId = appointment?.clientId;
@@ -288,33 +283,23 @@ Future<void> _selectDate() async {
                   onChanged: (value) => setDialogState(() => selectedServiceId = value),
                 ),
                 const SizedBox(height: 8),
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Fecha y hora'),
-                    subtitle: Text('${selectedDateTime.toLocal()}'.split('.')[0]),
-                    trailing: const Text('📅', style: TextStyle(fontSize: 20)),
-                    onTap: () async {
-                      final date = await showDatePicker(
-                        context: context,
-                        initialDate: selectedDateTime,
-                        firstDate: DateTime.now(),
-                        lastDate: DateTime.now().add(const Duration(days: 30)),
-                        locale: const Locale('es'),  // ✅ AGREGAR
-                      );
-                      if (date != null) {
-                        final time = await showTimePicker(
-                          context: context,
-                          initialTime: TimeOfDay.fromDateTime(selectedDateTime),
-                          // ✅ NO agregar locale aquí, showTimePicker no lo acepta
-                        );
-                        if (time != null) {
-                          setDialogState(() {
-                            selectedDateTime = DateTime(date.year, date.month, date.day, time.hour, time.minute);
-                          });
-                        }
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Fecha y hora'),
+                  subtitle: Text('${selectedDateTime.toLocal()}'.split('.')[0]),
+                  trailing: const Text('📅', style: TextStyle(fontSize: 20)),
+                  onTap: () async {
+                    final date = await showDatePicker(context: context, initialDate: selectedDateTime, firstDate: DateTime.now(), lastDate: DateTime.now().add(const Duration(days: 30)));
+                    if (date != null) {
+                      final time = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(selectedDateTime));
+                      if (time != null) {
+                        setDialogState(() {
+                          selectedDateTime = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+                        });
                       }
-                    },
-                  ),
+                    }
+                  },
+                ),
                 if (appointment != null) ...[
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
