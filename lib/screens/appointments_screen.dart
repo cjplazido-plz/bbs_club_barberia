@@ -65,23 +65,25 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     });
   }
 
-  // ✅ NUEVO: Función para abrir WhatsApp con mensaje pre-llenado
+  // ✅ FUNCIÓN MEJORADA: Enviar WhatsApp (confirmar o cancelar)
   Future<void> _sendWhatsAppNotification(LocalAppointment appointment, {bool isCancellation = false}) async {
     if (appointment.clientPhone == null || appointment.clientPhone!.isEmpty) {
       print('⚠️ No hay número de teléfono para enviar WhatsApp');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('️ El cliente no tiene teléfono registrado'), backgroundColor: Colors.orange),
+        );
+      }
       return;
     }
 
-    // 1. Limpiar y formatear el número de teléfono
     String phone = appointment.clientPhone!.replaceAll(RegExp(r'[^0-9]'), '');
     if (phone.startsWith('0')) phone = phone.substring(1);
     if (!phone.startsWith('56') && phone.length == 9) phone = '56$phone';
 
-    // 2. Formatear fecha y hora
     final dateStr = DateFormat('dd/MM/yyyy').format(appointment.appointmentDate);
     final timeStr = DateFormat('HH:mm').format(appointment.appointmentDate);
 
-    // 3. Crear el mensaje según sea confirmación o cancelación
     final message = isCancellation 
         ? 'Hola ${appointment.clientName}, tu cita en BBS Club Barbería ha sido *CANCELADA*.%0A%0A'
           '📅 *Fecha:* $dateStr%0A'
@@ -95,7 +97,6 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
           '💈 *Barbero:* ${appointment.barberName}%0A%0A'
           '¡Te esperamos! 💈';
 
-    // 4. Construir y abrir la URL
     final url = 'https://api.whatsapp.com/send/?phone=$phone&text=$message';
     final uri = Uri.parse(url);
 
@@ -103,6 +104,13 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri, webOnlyWindowName: '_blank');
         print('✅ WhatsApp abierto para ${isCancellation ? 'cancelación' : 'confirmación'} a $phone');
+      } else {
+        print('❌ No se pudo abrir WhatsApp');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('⚠️ No se pudo abrir WhatsApp'), backgroundColor: Colors.orange),
+          );
+        }
       }
     } catch (e) {
       print('❌ Error al abrir WhatsApp: $e');
@@ -188,6 +196,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     }
   }
 
+  // ✅ ACTUALIZADA: Envía WhatsApp al confirmar O cancelar
   Future<void> _updateAppointmentStatus(LocalAppointment appointment, String newStatus) async {
     try {
       appointment.status = newStatus;
@@ -219,13 +228,13 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
       print('❌ Error al actualizar estado: $e');
     }
   }
-  
+
   Future<void> _deleteAppointment(LocalAppointment appointment) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Confirmar cancelación'),
-        content: Text('¿Cancelar la cita de ${appointment.clientName}?'),
+        content: Text('¿Cancelar la cita de ${appointment.clientName}? Se enviará un mensaje de WhatsApp.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('No')),
           ElevatedButton(onPressed: () => Navigator.pop(context, true), style: ElevatedButton.styleFrom(backgroundColor: Colors.red), child: const Text('Sí, cancelar')),
@@ -349,10 +358,9 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                     ..notes = notesController.text.isEmpty ? null : notesController.text;
 
                   await _appointmentRepo.createAppointment(newAppointment);
-                  
-                  // ✅ Enviar WhatsApp si se crea como confirmada
+                  // ✅ Enviar WhatsApp si se crea como confirmada                  
                   if (selectedStatus == 'confirmed') {
-                    await _sendWhatsAppNotification(newAppointment);
+                    await _sendWhatsAppNotification(newAppointment, isCancellation: false);
                   }
                 } else {
                   appointment.clientId = client.remoteId;
@@ -368,10 +376,9 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                   appointment.notes = notesController.text.isEmpty ? null : notesController.text;
                   
                   await _appointmentRepo.updateAppointment(appointment);
-                  
-                  // ✅ Enviar WhatsApp si se cambia a confirmada
+                  // ✅ Enviar WhatsApp si se cambia a confirmada                  
                   if (selectedStatus == 'confirmed') {
-                    await _sendWhatsAppNotification(appointment);
+                    await _sendWhatsAppNotification(appointment, isCancellation: false);
                   }
                 }
 
@@ -382,8 +389,8 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(appointment == null ? '✅ Cita creada' : '✅ Cita actualizada'),
-                      backgroundColor: Colors.green,
-                    ),
+                       backgroundColor: Colors.green,
+                       ),
                   );
                 }
               },
