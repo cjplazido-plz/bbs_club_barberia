@@ -237,13 +237,181 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     }
   }
 
-  Future<void> _selectDate() async {
-    final picked = await showDatePicker(context: context, initialDate: _selectedDate, firstDate: DateTime(2020), lastDate: DateTime(2030));
-    if (picked != null && picked != _selectedDate) {
-      setState(() { _selectedDate = picked; });
-      _loadData();
+Future<void> _selectDate() async {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+  DateTime viewMonth = DateTime(_selectedDate.year, _selectedDate.month);
+  Set<DateTime> daysWithAppointments = {};
+  
+  // Cargar días con citas del mes actual
+  try {
+    final startOfMonth = DateTime(viewMonth.year, viewMonth.month, 1);
+    final endOfMonth = DateTime(viewMonth.year, viewMonth.month + 1, 0);
+    final appointments = await Supabase.instance.client
+        .from('appointments')
+        .select('appointment_date')
+        .gte('appointment_date', startOfMonth.toIso8601String())
+        .lte('appointment_date', endOfMonth.toIso8601String())
+        .neq('status', 'cancelled');
+    
+    for (final apt in List<Map<String, dynamic>>.from(appointments)) {
+      final date = DateTime.parse(apt['appointment_date']);
+      daysWithAppointments.add(DateTime(date.year, date.month, date.day));
     }
+  } catch (e) {
+    print('⚠️ Error al cargar días con citas: $e');
   }
+
+  if (!mounted) return;
+
+  await showDialog(
+    context: context,
+    builder: (context) => StatefulBuilder(
+      builder: (context, setDialogState) {
+        final firstDay = DateTime(viewMonth.year, viewMonth.month, 1);
+        final daysInMonth = DateTime(viewMonth.year, viewMonth.month + 1, 0).day;
+        final leadingBlanks = (firstDay.weekday - 1) % 7;
+        final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+        final selected = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
+
+        Future<void> changeMonth(int delta) async {
+          final newMonth = DateTime(viewMonth.year, viewMonth.month + delta);
+          final startOfMonth = DateTime(newMonth.year, newMonth.month, 1);
+          final endOfMonth = DateTime(newMonth.year, newMonth.month + 1, 0);
+          
+          try {
+            final appointments = await Supabase.instance.client
+                .from('appointments')
+                .select('appointment_date')
+                .gte('appointment_date', startOfMonth.toIso8601String())
+                .lte('appointment_date', endOfMonth.toIso8601String())
+                .neq('status', 'cancelled');
+            
+            final newDays = <DateTime>{};
+            for (final apt in List<Map<String, dynamic>>.from(appointments)) {
+              final date = DateTime.parse(apt['appointment_date']);
+              newDays.add(DateTime(date.year, date.month, date.day));
+            }
+            
+            setDialogState(() {
+              viewMonth = newMonth;
+              daysWithAppointments = newDays;
+            });
+          } catch (e) {
+            print('⚠️ Error al cambiar mes: $e');
+          }
+        }
+
+        return AlertDialog(
+          backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+          title: Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.chevron_left, color: Color(0xFF6366F1)),
+                onPressed: () => changeMonth(-1),
+              ),
+              Expanded(
+                child: Text(
+                  DateFormat('MMMM yyyy', 'es').format(viewMonth),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.chevron_right, color: Color(0xFF6366F1)),
+                onPressed: () => changeMonth(1),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: 320,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: ['L', 'M', 'X', 'J', 'V', 'S', 'D']
+                      .map((d) => Expanded(
+                          child: Center(
+                            child: Text(
+                              d,
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? Colors.grey[400] : Colors.grey[600]),
+                            ),
+                          )))
+                      .toList(),
+                ),
+                const SizedBox(height: 4),
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 7),
+                  itemCount: leadingBlanks + daysInMonth,
+                  itemBuilder: (context, i) {
+                    if (i < leadingBlanks) return const SizedBox.shrink();
+                    final day = i - leadingBlanks + 1;
+                    final date = DateTime(viewMonth.year, viewMonth.month, day);
+                    final hasAppt = daysWithAppointments.contains(date);
+                    final isSelected = date == selected;
+                    final isToday = date == today;
+
+                    return InkWell(
+                      onTap: () {
+                        Navigator.pop(context);
+                        setState(() { _selectedDate = date; });
+                        _loadData();
+                      },
+                      child: Container(
+                        margin: const EdgeInsets.all(3),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? const Color(0xFF6366F1)
+                              : (isToday ? const Color(0xFF6366F1).withOpacity(0.15) : Colors.transparent),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              '$day',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: (hasAppt || isSelected) ? FontWeight.bold : FontWeight.normal,
+                                color: isSelected ? Colors.white : (isDark ? Colors.white : Colors.black87),
+                              ),
+                            ),
+                            Container(
+                              width: 6,
+                              height: 6,
+                              margin: const EdgeInsets.only(top: 2),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: hasAppt ? (isSelected ? Colors.white : Colors.orange) : Colors.transparent,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(width: 8, height: 8, decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.orange)),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Días con citas agendadas',
+                      style: TextStyle(fontSize: 11, color: isDark ? Colors.grey[400] : Colors.grey[600]),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    ),
+  );
+}
 
   void _showAppointmentDialog({LocalAppointment? appointment}) {
     String? selectedBarberId = appointment?.barberId;
