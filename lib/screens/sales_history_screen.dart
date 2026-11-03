@@ -359,12 +359,12 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
 
   Future<void> _selectDateRange() async {
     final initialDateRange = DateTimeRange(start: _startDate, end: _endDate);
-    final picked = await showDateRangePicker(
-      context: context,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
-      initialDateRange: initialDateRange,
-    );
+      final picked = await showDateRangePicker(
+        context: context,
+        firstDate: DateTime.now().subtract(const Duration(days: 365)),
+        lastDate: DateTime.now(),
+        locale: const Locale('es'),  // ✅ AGREGAR
+      );
     if (picked != null) {
       setState(() {
         _startDate = picked.start;

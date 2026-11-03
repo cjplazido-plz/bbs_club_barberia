@@ -388,12 +388,14 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
                   const SizedBox(height: 10),
                   InkWell(
                     onTap: () async {
-                      final picked = await showDatePicker(
-                        context: context,
-                        initialDate: _selectedDate,
-                        firstDate: DateTime.now(),
-                        lastDate: DateTime.now().add(const Duration(days: 30)),
-                      );
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: DateTime.now(),
+                    firstDate: DateTime.now(),
+                    lastDate: DateTime.now().add(const Duration(days: 30)),
+                    locale: const Locale('es'),  // ✅ AGREGAR
+                  );                     );
+
                       if (picked != null) {
                         setState(() {
                           _selectedDate = picked;

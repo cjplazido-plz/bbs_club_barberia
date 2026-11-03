@@ -107,10 +107,12 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
 
   Future<void> _selectDateRange() async {
     final initialDateRange = DateTimeRange(start: _startDate, end: _endDate);
-    final picked = await showDateRangePicker(
-      context: context,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
+      final picked = await showDateRangePicker(
+        context: context,
+        firstDate: DateTime.now().subtract(const Duration(days: 365)),
+        lastDate: DateTime.now(),
+        locale: const Locale('es'),  // ✅ AGREGAR
+      );
       initialDateRange: initialDateRange,
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(

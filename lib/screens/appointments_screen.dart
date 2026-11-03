@@ -526,14 +526,14 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                       initialDate: selectedDateTime,
                       firstDate: DateTime.now(),
                       lastDate: DateTime.now().add(const Duration(days: 30)),
-                      locale: const Locale('es'),
+                      locale: const Locale('es'),  // ✅ AGREGAR
                     );
                     if (date != null) {
                       // ✅ SELECTOR DE HORA EN ESPAÑOL
                       final time = await showTimePicker(
                         context: context,
                         initialTime: TimeOfDay.fromDateTime(selectedDateTime),
-                        locale: const Locale('es'),
+                        locale: const Locale('es'),  // ✅ AGREGAR
                       );
                       if (time != null) {
                         setDialogState(() {
