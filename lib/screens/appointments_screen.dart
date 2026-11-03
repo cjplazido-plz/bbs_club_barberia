@@ -65,24 +65,19 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     });
   }
 
-  // ✅ NUEVO: Función para abrir WhatsApp con mensaje pre-llenado
   Future<void> _sendWhatsAppNotification(LocalAppointment appointment, {bool isCancellation = false}) async {
     if (appointment.clientPhone == null || appointment.clientPhone!.isEmpty) {
       print('⚠️ No hay número de teléfono para enviar WhatsApp');
       return;
     }
-
-    // 1. Limpiar y formatear el número de teléfono
     String phone = appointment.clientPhone!.replaceAll(RegExp(r'[^0-9]'), '');
     if (phone.startsWith('0')) phone = phone.substring(1);
     if (!phone.startsWith('56') && phone.length == 9) phone = '56$phone';
 
-    // 2. Formatear fecha y hora
     final dateStr = DateFormat('dd/MM/yyyy').format(appointment.appointmentDate);
     final timeStr = DateFormat('HH:mm').format(appointment.appointmentDate);
 
-    // 3. Crear el mensaje según sea confirmación o cancelación
-    final message = isCancellation 
+    final message = isCancellation
         ? 'Hola ${appointment.clientName}, tu cita en BBS Club Barbería ha sido *CANCELADA*.%0A%0A'
           '📅 *Fecha:* $dateStr%0A'
           '⏰ *Hora:* $timeStr%0A'
@@ -95,10 +90,8 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
           '💈 *Barbero:* ${appointment.barberName}%0A%0A'
           '¡Te esperamos! 💈';
 
-    // 4. Construir y abrir la URL
     final url = 'https://api.whatsapp.com/send/?phone=$phone&text=$message';
     final uri = Uri.parse(url);
-
     try {
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri, webOnlyWindowName: '_blank');
@@ -193,23 +186,20 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
       appointment.status = newStatus;
       await _appointmentRepo.updateAppointment(appointment);
       await Supabase.instance.client.from('appointments').update({'status': newStatus}).eq('id', appointment.remoteId!);
-      
-      // ✅ Enviar WhatsApp si se confirma O si se cancela
+
       if (newStatus == 'confirmed') {
         await _sendWhatsAppNotification(appointment, isCancellation: false);
       } else if (newStatus == 'cancelled') {
         await _sendWhatsAppNotification(appointment, isCancellation: true);
       }
-      
+
       await _loadData();
-      
       final statusMessages = {
         'confirmed': '✅ Cita confirmada',
         'in_progress': '🟡 Cita en proceso',
         'completed': '🎉 Cita completada',
         'cancelled': '❌ Cita cancelada',
       };
-      
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(statusMessages[newStatus] ?? 'Estado actualizado'), backgroundColor: newStatus == 'cancelled' ? Colors.red : Colors.green),
@@ -219,7 +209,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
       print('❌ Error al actualizar estado: $e');
     }
   }
-  
+
   Future<void> _deleteAppointment(LocalAppointment appointment) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -237,188 +227,182 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     }
   }
 
-Future<void> _selectDate() async {
-  final isDark = Theme.of(context).brightness == Brightness.dark;
-  DateTime viewMonth = DateTime(_selectedDate.year, _selectedDate.month);
-  Set<DateTime> daysWithAppointments = {};
-  
-  // Cargar días con citas del mes actual
-try {
-  final startOfMonth = DateTime(viewMonth.year, viewMonth.month, 1);
-  final endOfMonth = DateTime(viewMonth.year, viewMonth.month + 1, 0, 23, 59, 59);
-  final appointments = await Supabase.instance.client
-      .from('appointments')
-      .select('appointment_date')
-      .gte('appointment_date', startOfMonth.toIso8601String())
-      .lte('appointment_date', endOfMonth.toIso8601String())
-      .neq('status', 'cancelled');
-  
-  // ✅ AGREGAR ESTO PARA DEBUG
-  print('📅 Consultando citas del ${startOfMonth.toIso8601String()} al ${endOfMonth.toIso8601String()}');
-  print('📅 Citas encontradas: ${appointments.length}');
-  for (final apt in List<Map<String, dynamic>>.from(appointments)) {
-    print('  - ${apt['appointment_date']}');
-  }
-  
-  for (final apt in List<Map<String, dynamic>>.from(appointments)) {
-    final date = DateTime.parse(apt['appointment_date']);
-    daysWithAppointments.add(DateTime(date.year, date.month, date.day));
-  }
-} catch (e) {
-  print('⚠️ Error al cargar días con citas: $e');
-}
+  // ✅ CALENDARIO PERSONALIZADO CON MARCADORES DE CITAS
+  Future<void> _selectDate() async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    DateTime viewMonth = DateTime(_selectedDate.year, _selectedDate.month);
+    Set<DateTime> daysWithAppointments = {};
 
-  if (!mounted) return;
+    // Cargar días con citas del mes actual
+    try {
+      final startOfMonth = DateTime(viewMonth.year, viewMonth.month, 1);
+      final endOfMonth = DateTime(viewMonth.year, viewMonth.month + 1, 0, 23, 59, 59);
+      final appointments = await Supabase.instance.client
+          .from('appointments')
+          .select('appointment_date')
+          .gte('appointment_date', startOfMonth.toIso8601String())
+          .lte('appointment_date', endOfMonth.toIso8601String())
+          .neq('status', 'cancelled');
 
-  await showDialog(
-    context: context,
-    builder: (context) => StatefulBuilder(
-      builder: (context, setDialogState) {
-        final firstDay = DateTime(viewMonth.year, viewMonth.month, 1);
-        final daysInMonth = DateTime(viewMonth.year, viewMonth.month + 1, 0).day;
-        final leadingBlanks = (firstDay.weekday - 1) % 7;
-        final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
-        final selected = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
+      for (final apt in List<Map<String, dynamic>>.from(appointments)) {
+        final date = DateTime.parse(apt['appointment_date']);
+        daysWithAppointments.add(DateTime(date.year, date.month, date.day));
+      }
+    } catch (e) {
+      print('⚠️ Error al cargar días con citas: $e');
+    }
 
-        Future<void> changeMonth(int delta) async {
-          final newMonth = DateTime(viewMonth.year, viewMonth.month + delta);
-          final startOfMonth = DateTime(newMonth.year, newMonth.month, 1);
-          final endOfMonth = DateTime(newMonth.year, newMonth.month + 1, 0, 23, 59, 59);
-          
-          try {
-            final appointments = await Supabase.instance.client
-                .from('appointments')
-                .select('appointment_date')
-                .gte('appointment_date', startOfMonth.toIso8601String())
-                .lte('appointment_date', endOfMonth.toIso8601String())
-                .neq('status', 'cancelled');
-            
-            final newDays = <DateTime>{};
-            for (final apt in List<Map<String, dynamic>>.from(appointments)) {
-              final date = DateTime.parse(apt['appointment_date']);
-              newDays.add(DateTime(date.year, date.month, date.day));
+    if (!mounted) return;
+
+    await showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final firstDay = DateTime(viewMonth.year, viewMonth.month, 1);
+          final daysInMonth = DateTime(viewMonth.year, viewMonth.month + 1, 0).day;
+          final leadingBlanks = (firstDay.weekday - 1) % 7;
+          final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+          final selected = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
+
+          Future<void> changeMonth(int delta) async {
+            final newMonth = DateTime(viewMonth.year, viewMonth.month + delta);
+            final startOfMonth = DateTime(newMonth.year, newMonth.month, 1);
+            final endOfMonth = DateTime(newMonth.year, newMonth.month + 1, 0, 23, 59, 59);
+
+            try {
+              final appointments = await Supabase.instance.client
+                  .from('appointments')
+                  .select('appointment_date')
+                  .gte('appointment_date', startOfMonth.toIso8601String())
+                  .lte('appointment_date', endOfMonth.toIso8601String())
+                  .neq('status', 'cancelled');
+
+              final newDays = <DateTime>{};
+              for (final apt in List<Map<String, dynamic>>.from(appointments)) {
+                final date = DateTime.parse(apt['appointment_date']);
+                newDays.add(DateTime(date.year, date.month, date.day));
+              }
+
+              setDialogState(() {
+                viewMonth = newMonth;
+                daysWithAppointments = newDays;
+              });
+            } catch (e) {
+              print('⚠️ Error al cambiar mes: $e');
             }
-            
-            setDialogState(() {
-              viewMonth = newMonth;
-              daysWithAppointments = newDays;
-            });
-          } catch (e) {
-            print('⚠️ Error al cambiar mes: $e');
           }
-        }
 
-        return AlertDialog(
-          backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
-          title: Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.chevron_left, color: Color(0xFF6366F1)),
-                onPressed: () => changeMonth(-1),
-              ),
-              Expanded(
-                child: Text(
-                  DateFormat('MMMM yyyy', 'es').format(viewMonth),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87),
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.chevron_right, color: Color(0xFF6366F1)),
-                onPressed: () => changeMonth(1),
-              ),
-            ],
-          ),
-          content: SizedBox(
-            width: 320,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+          return AlertDialog(
+            backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+            title: Row(
               children: [
-                Row(
-                  children: ['L', 'M', 'X', 'J', 'V', 'S', 'D']
-                      .map((d) => Expanded(
-                          child: Center(
-                            child: Text(
-                              d,
-                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? Colors.grey[400] : Colors.grey[600]),
-                            ),
-                          )))
-                      .toList(),
+                IconButton(
+                  icon: const Icon(Icons.chevron_left, color: Color(0xFF6366F1)),
+                  onPressed: () => changeMonth(-1),
                 ),
-                const SizedBox(height: 4),
-                GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 7),
-                  itemCount: leadingBlanks + daysInMonth,
-                  itemBuilder: (context, i) {
-                    if (i < leadingBlanks) return const SizedBox.shrink();
-                    final day = i - leadingBlanks + 1;
-                    final date = DateTime(viewMonth.year, viewMonth.month, day);
-                    final hasAppt = daysWithAppointments.contains(date);
-                    final isSelected = date == selected;
-                    final isToday = date == today;
-
-                    return InkWell(
-                      onTap: () {
-                        Navigator.pop(context);
-                        setState(() { _selectedDate = date; });
-                        _loadData();
-                      },
-                      child: Container(
-                        margin: const EdgeInsets.all(3),
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? const Color(0xFF6366F1)
-                              : (isToday ? const Color(0xFF6366F1).withOpacity(0.15) : Colors.transparent),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              '$day',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: (hasAppt || isSelected) ? FontWeight.bold : FontWeight.normal,
-                                color: isSelected ? Colors.white : (isDark ? Colors.white : Colors.black87),
-                              ),
-                            ),
-                            Container(
-                              width: 6,
-                              height: 6,
-                              margin: const EdgeInsets.only(top: 2),
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: hasAppt ? (isSelected ? Colors.white : Colors.orange) : Colors.transparent,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
+                Expanded(
+                  child: Text(
+                    DateFormat('MMMM yyyy', 'es').format(viewMonth),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87),
+                  ),
                 ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(width: 8, height: 8, decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.orange)),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Días con citas agendadas',
-                      style: TextStyle(fontSize: 11, color: isDark ? Colors.grey[400] : Colors.grey[600]),
-                    ),
-                  ],
+                IconButton(
+                  icon: const Icon(Icons.chevron_right, color: Color(0xFF6366F1)),
+                  onPressed: () => changeMonth(1),
                 ),
               ],
             ),
-          ),
-        );
-      },
-    ),
-  );
-}
+            content: SizedBox(
+              width: 320,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: ['L', 'M', 'X', 'J', 'V', 'S', 'D']
+                        .map((d) => Expanded(
+                            child: Center(
+                              child: Text(
+                                d,
+                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? Colors.grey[400] : Colors.grey[600]),
+                              ),
+                            )))
+                        .toList(),
+                  ),
+                  const SizedBox(height: 4),
+                  GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 7),
+                    itemCount: leadingBlanks + daysInMonth,
+                    itemBuilder: (context, i) {
+                      if (i < leadingBlanks) return const SizedBox.shrink();
+                      final day = i - leadingBlanks + 1;
+                      final date = DateTime(viewMonth.year, viewMonth.month, day);
+                      final hasAppt = daysWithAppointments.contains(date);
+                      final isSelected = date == selected;
+                      final isToday = date == today;
+
+                      return InkWell(
+                        onTap: () {
+                          Navigator.pop(context);
+                          setState(() { _selectedDate = date; });
+                          _loadData();
+                        },
+                        child: Container(
+                          margin: const EdgeInsets.all(3),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? const Color(0xFF6366F1)
+                                : (isToday ? const Color(0xFF6366F1).withOpacity(0.15) : Colors.transparent),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                '$day',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: (hasAppt || isSelected) ? FontWeight.bold : FontWeight.normal,
+                                  color: isSelected ? Colors.white : (isDark ? Colors.white : Colors.black87),
+                                ),
+                              ),
+                              Container(
+                                width: 6,
+                                height: 6,
+                                margin: const EdgeInsets.only(top: 2),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: hasAppt ? (isSelected ? Colors.white : Colors.orange) : Colors.transparent,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(width: 8, height: 8, decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.orange)),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Días con citas agendadas',
+                        style: TextStyle(fontSize: 11, color: isDark ? Colors.grey[400] : Colors.grey[600]),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
 
   void _showAppointmentDialog({LocalAppointment? appointment}) {
     String? selectedBarberId = appointment?.barberId;
@@ -463,27 +447,28 @@ try {
                   title: const Text('Fecha y hora'),
                   subtitle: Text('${selectedDateTime.toLocal()}'.split('.')[0]),
                   trailing: const Text('📅', style: TextStyle(fontSize: 20)),
-                      onTap: () async {
-                        final date = await showDatePicker(
-                          context: context,
-                          initialDate: selectedDateTime,
-                          firstDate: DateTime.now(),
-                          lastDate: DateTime.now().add(const Duration(days: 30)),
-                          locale: const Locale('es'),  // ✅ AGREGAR
-                        );
-                        if (date != null) {
-                          final time = await showTimePicker(
-                            context: context,
-                            initialTime: TimeOfDay.fromDateTime(selectedDateTime),
-                          );
-                          if (time != null) {
-                            setDialogState(() {
-                              selectedDateTime = DateTime(date.year, date.month, date.day, time.hour, time.minute);
-                            });
-                          }
-                        }
-                      },  
-                     if (appointment != null) ...[
+                  onTap: () async {
+                    final date = await showDatePicker(
+                      context: context,
+                      initialDate: selectedDateTime,
+                      firstDate: DateTime.now(),
+                      lastDate: DateTime.now().add(const Duration(days: 30)),
+                      locale: const Locale('es'),
+                    );
+                    if (date != null) {
+                      final time = await showTimePicker(
+                        context: context,
+                        initialTime: TimeOfDay.fromDateTime(selectedDateTime),
+                      );
+                      if (time != null) {
+                        setDialogState(() {
+                          selectedDateTime = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+                        });
+                      }
+                    }
+                  },
+                ),
+                if (appointment != null) ...[
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
                     value: selectedStatus,
@@ -511,11 +496,9 @@ try {
                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cliente, barbero y servicio son obligatorios')));
                   return;
                 }
-
                 final client = _clients.firstWhere((c) => c.remoteId == selectedClientId);
                 final barber = _barbers.firstWhere((b) => b.remoteId == selectedBarberId);
                 final service = _services.firstWhere((s) => s.remoteId == selectedServiceId);
-
                 if (appointment == null) {
                   final newAppointment = LocalAppointment()
                     ..remoteId = 'apt-${DateTime.now().millisecondsSinceEpoch}'
@@ -530,10 +513,7 @@ try {
                     ..appointmentDate = selectedDateTime
                     ..status = selectedStatus
                     ..notes = notesController.text.isEmpty ? null : notesController.text;
-
                   await _appointmentRepo.createAppointment(newAppointment);
-                  
-                  // ✅ Enviar WhatsApp si se crea como confirmada
                   if (selectedStatus == 'confirmed') {
                     await _sendWhatsAppNotification(newAppointment);
                   }
@@ -549,18 +529,13 @@ try {
                   appointment.appointmentDate = selectedDateTime;
                   appointment.status = selectedStatus;
                   appointment.notes = notesController.text.isEmpty ? null : notesController.text;
-                  
                   await _appointmentRepo.updateAppointment(appointment);
-                  
-                  // ✅ Enviar WhatsApp si se cambia a confirmada
                   if (selectedStatus == 'confirmed') {
                     await _sendWhatsAppNotification(appointment);
                   }
                 }
-
                 Navigator.pop(context);
                 _loadData();
-                
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
@@ -610,7 +585,7 @@ try {
         ),
         title: const Text('Agenda de Citas'),
         backgroundColor: Colors.indigo[700],
-        foregroundColor: Colors.white, // ✅ Agrega esta línea
+        foregroundColor: Colors.white,
         actions: [
           IconButton(
             icon: const Text('🔄', style: TextStyle(fontSize: 20)),
@@ -746,9 +721,7 @@ class _ActionButton extends StatelessWidget {
   final String label;
   final Color color;
   final VoidCallback onPressed;
-
   const _ActionButton({required this.icon, required this.label, required this.color, required this.onPressed});
-
   @override
   Widget build(BuildContext context) {
     return OutlinedButton.icon(
