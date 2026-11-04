@@ -102,6 +102,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     }
   }
 
+  // ✅ CORREGIDO: Sincronización sin errores de duplicate key
   Future<void> _syncAppointments() async {
     setState(() { _isLoading = true; });
     try {
@@ -112,15 +113,12 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
 
       int uploaded = 0;
       for (final localApt in localAppointments) {
-        final localDateStr = localApt.appointmentDate.toIso8601String();
-        final existsInCloud = cloudAppointments.any((cloud) {
-          final cloudDate = cloud['appointment_date']?.toString() ?? '';
-          final cloudDateNormalized = cloudDate.replaceAll('+00:00', '').replaceAll('Z', '');
-          final localDateNormalized = localDateStr.replaceAll('+00:00', '').replaceAll('Z', '');
-          return cloud['client_name'] == localApt.clientName && cloudDateNormalized == localDateNormalized;
-        });
-
-        if (!existsInCloud && localApt.remoteId != null) {
+        if (localApt.remoteId == null) continue;
+        
+        // ✅ Verificar si ya existe en la nube por ID
+        final existsInCloud = cloudAppointments.any((cloud) => cloud['id'] == localApt.remoteId);
+        
+        if (!existsInCloud) {
           try {
             await Supabase.instance.client.from('appointments').insert({
               'id': localApt.remoteId,
@@ -132,11 +130,12 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
               'service_id': localApt.serviceId ?? '',
               'service_name': localApt.serviceName ?? '',
               'service_price': localApt.servicePrice,
-              'appointment_date': localApt.appointmentDate.toIso8601String(),
+              'appointment_date': localApt.appointmentDate.toUtc().toIso8601String(),
               'status': localApt.status,
               'notes': localApt.notes,
             });
             uploaded++;
+            print('✅ Subida: ${localApt.clientName}');
           } catch (e) {
             print('⚠️ Error al subir ${localApt.clientName}: $e');
           }
@@ -227,47 +226,47 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     }
   }
 
-  // ✅ FUNCIÓN PARA OBTENER DÍAS CON CITAS (CON LOGS DE DEBUG)
-  Future<Set<DateTime>> _fetchDaysWithAppointments(DateTime month) async {
-    final start = DateTime(month.year, month.month, 1);
-    final end = DateTime(month.year, month.month + 1, 1);
+// ✅ NUEVO: días del mes que tienen citas (para marcarlos en el calendario)
+Future<Set<DateTime>> _fetchDaysWithAppointments(DateTime month) async {
+  final start = DateTime.utc(month.year, month.month, 1);
+  final end = DateTime.utc(month.year, month.month + 1, 1);
+  
+  print('🔍 Buscando citas desde ${start.toIso8601String()} hasta ${end.toIso8601String()}');
+  
+  try {
+    final res = await Supabase.instance.client
+        .from('appointments')
+        .select('appointment_date, status')
+        .gte('appointment_date', start.toIso8601String())
+        .lt('appointment_date', end.toIso8601String());
     
-    print('🔍 _fetchDaysWithAppointments: Buscando citas desde ${start.toIso8601String()} hasta ${end.toIso8601String()}');
+    print('📊 Total citas encontradas: ${res.length}');
     
-    try {
-      final res = await Supabase.instance.client
-          .from('appointments')
-          .select('appointment_date, status')
-          .gte('appointment_date', start.toIso8601String())
-          .lt('appointment_date', end.toIso8601String());
-      
-      print('📊 Total citas encontradas en Supabase: ${res.length}');
-      
-      final days = <DateTime>{};
-      for (final row in List<Map<String, dynamic>>.from(res)) {
-        print('  - Cita encontrada: ${row['appointment_date']} | Status: ${row['status']}');
-        final d = DateTime.parse(row['appointment_date'].toString());
-        days.add(DateTime(d.year, d.month, d.day));
-      }
-      
-      print('✅ Días únicos con citas: ${days.length}');
-      for (final day in days) {
-        print('  📅 ${day.day}/${day.month}/${day.year}');
-      }
-      
-      return days;
-    } catch (e) {
-      print('⚠️ Error al cargar días con citas: $e');
-      return {};
+    final days = <DateTime>{};
+    for (final row in List<Map<String, dynamic>>.from(res)) {
+      print('  - Cita: ${row['appointment_date']} | Status: ${row['status']}');
+      final d = DateTime.parse(row['appointment_date'].toString()).toLocal();
+      days.add(DateTime(d.year, d.month, d.day));
     }
+    
+    print('✅ Días únicos con citas: ${days.length}');
+    for (final day in days) {
+      print('  📅 ${day.day}/${day.month}/${day.year}');
+    }
+    
+    return days;
+  } catch (e) {
+    print('⚠️ Error al cargar días con citas: $e');
+    return {};
   }
+}
 
-  // ✅ CALENDARIO PERSONALIZADO CON MARCADORES
+  // ✅ Calendario personalizado con marcadores
   Future<void> _showCalendarDialog() async {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     DateTime viewMonth = DateTime(_selectedDate.year, _selectedDate.month);
     
-    print('📅 _showCalendarDialog: Mes actual = ${viewMonth.month}/${viewMonth.year}');
+    print('📅 Mostrando calendario para ${viewMonth.month}/${viewMonth.year}');
     
     Set<DateTime> days = await _fetchDaysWithAppointments(viewMonth);
     
@@ -285,7 +284,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
 
           Future<void> changeMonth(int delta) async {
             final newMonth = DateTime(viewMonth.year, viewMonth.month + delta);
-            print('🔄 Cambiando a mes: ${newMonth.month}/${newMonth.year}');
+            print('🔄 Cambiando a ${newMonth.month}/${newMonth.year}');
             final newDays = await _fetchDaysWithAppointments(newMonth);
             setDialogState(() {
               viewMonth = newMonth;
