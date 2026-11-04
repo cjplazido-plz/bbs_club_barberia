@@ -120,26 +120,38 @@ Future<void> _syncAppointments() async {
     print('🔄 Sincronizando citas...');
     final localAppointments = await _appointmentRepo.getAllAppointments();
     
-    // ✅ Obtener solo los IDs de la nube (más rápido)
-    final cloudResponse = await Supabase.instance.client.from('appointments').select('id');
-    final cloudIds = List<Map<String, dynamic>>.from(cloudResponse).map((c) => c['id'].toString()).toSet();
+    // ✅ FIX: Traer todos los IDs sin límite por defecto (Supabase limita a 1000 por defecto)
+    // Usamos limit alto y normalizamos a lowercase/trim para comparación segura
+    final cloudResponse = await Supabase.instance.client.from('appointments').select('id').limit(10000);
+    final cloudIds = List<Map<String, dynamic>>.from(cloudResponse)
+        .map((c) => c['id'].toString().trim().toLowerCase())
+        .toSet();
     
     print('📊 Citas en la nube: ${cloudIds.length}');
     print('📊 Citas locales: ${localAppointments.length}');
 
     int uploaded = 0;
+    int skipped = 0;
     for (final localApt in localAppointments) {
-      if (localApt.remoteId == null) continue;
+      if (localApt.remoteId == null || localApt.remoteId!.trim().isEmpty) {
+        print('⏭️ Saltando cita local sin remoteId: ${localApt.clientName}');
+        continue;
+      }
       
-      // ✅ Verificar por ID exacto (no por nombre y fecha)
-      if (cloudIds.contains(localApt.remoteId)) {
+      final normalizedRemoteId = localApt.remoteId!.trim().toLowerCase();
+
+      // ✅ FIX 1: Comparación normalizada
+      if (cloudIds.contains(normalizedRemoteId)) {
         print('⏭️ Saltando ${localApt.clientName} (ya existe en la nube)');
+        skipped++;
         continue;
       }
       
       try {
-        await Supabase.instance.client.from('appointments').insert({
-          'id': localApt.remoteId,
+        // ✅ FIX 2: USAR UPSERT en vez de INSERT para evitar 409
+        // Si por race condition el ID ya existe entre el select y el insert, hará update en vez de fallar
+        await Supabase.instance.client.from('appointments').upsert({
+          'id': localApt.remoteId!.trim(), // guardamos el original, no el lower
           'client_id': localApt.clientId ?? '',
           'client_name': localApt.clientName ?? '',
           'client_phone': localApt.clientPhone ?? '',
@@ -151,29 +163,51 @@ Future<void> _syncAppointments() async {
           'appointment_date': localApt.appointmentDate.toUtc().toIso8601String(),
           'status': localApt.status,
           'notes': localApt.notes,
-        });
+        }, onConflict: 'id');
         uploaded++;
+        // Agregamos a la lista local para no reintentarlo en este mismo ciclo
+        cloudIds.add(normalizedRemoteId);
         print('✅ Subida: ${localApt.clientName}');
       } catch (e) {
-        print('⚠️ Error al subir ${localApt.clientName}: $e');
+        // ✅ FIX 3: Si aún da 409 (código 23505), lo tratamos como skip, no como error fatal
+        final errorStr = e.toString().toLowerCase();
+        if (errorStr.contains('409') || errorStr.contains('23505') || errorStr.contains('duplicate')) {
+          print('⏭️ Ya existía (409 ignorado): ${localApt.clientName} - ${localApt.remoteId}');
+          skipped++;
+        } else {
+          print('⚠️ Error al subir ${localApt.clientName}: $e');
+        }
       }
     }
 
     int downloaded = 0;
-    final allCloudAppointments = await Supabase.instance.client.from('appointments').select('*');
+    // Trae todo de la nube para bajar lo que falta local
+    final allCloudAppointments = await Supabase.instance.client.from('appointments').select('*').limit(10000);
     for (final cloudApt in List<Map<String, dynamic>>.from(allCloudAppointments)) {
-      final remoteId = cloudApt['id'].toString();
+      final remoteId = cloudApt['id'].toString().trim();
+      final normalizedId = remoteId.toLowerCase();
+      // Evitar buscar si ya lo subimos en este ciclo
+      if (cloudIds.contains(normalizedId)) {
+         // Ya existe en nube, ahora chequear si existe local
+         // Si no existe local, lo creamos
+      }
       final existsLocally = await _appointmentRepo.findByRemoteId(remoteId);
-      if (existsLocally == null) {
+      // También buscar por versión lower por si tu repo guardó lower
+      final existsLocallyLower = existsLocally ?? await _appointmentRepo.findByRemoteId(normalizedId);
+      
+      if (existsLocallyLower == null) {
         try {
           final newApt = LocalAppointment()
             ..remoteId = remoteId
             ..clientName = cloudApt['client_name']
             ..clientPhone = cloudApt['client_phone']
+            ..clientId = cloudApt['client_id']
+            ..barberId = cloudApt['barber_id']
             ..barberName = cloudApt['barber_name']
+            ..serviceId = cloudApt['service_id']
             ..serviceName = cloudApt['service_name']
             ..servicePrice = (cloudApt['service_price'] as num?)?.toDouble() ?? 0.0
-            ..appointmentDate = DateTime.parse(cloudApt['appointment_date'])
+            ..appointmentDate = DateTime.parse(cloudApt['appointment_date']).toLocal()
             ..status = cloudApt['status'] ?? 'pending'
             ..notes = cloudApt['notes']
             ..lastSync = DateTime.now();
@@ -188,15 +222,21 @@ Future<void> _syncAppointments() async {
     await _loadData();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('✅ Sincronizado: $uploaded subidas, $downloaded descargadas'), backgroundColor: Colors.green),
+        SnackBar(content: Text('✅ Sincronizado: $uploaded subidas, $downloaded descargadas, $skipped ya existían'), backgroundColor: Colors.green),
       );
     }
   } catch (e) {
     print('❌ Error al sincronizar: $e');
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al sincronizar: $e'), backgroundColor: Colors.red),
+      );
+    }
   } finally {
     setState(() { _isLoading = false; });
   }
 }
+
   Future<void> _updateAppointmentStatus(LocalAppointment appointment, String newStatus) async {
     try {
       appointment.status = newStatus;
