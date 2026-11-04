@@ -116,9 +116,6 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
 
 
 Future<void> _syncAppointments() async {
-  // ✅ FIX: Ya no tiene sentido sincronizar si el repo ya es 100% nube
-  // Antes traías de la nube y tratabas de insertar en la nube de nuevo -> 409
-  // Ahora solo recarga
   if (_isLoading) return;
   setState(() { _isLoading = true; });
   try {
@@ -126,7 +123,7 @@ Future<void> _syncAppointments() async {
     await _loadData();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('✅ Citas actualizadas desde la nube'), backgroundColor: Colors.green),
+        const SnackBar(content: Text('✅ Citas actualizadas'), backgroundColor: Colors.green),
       );
     }
   } finally {
@@ -202,11 +199,10 @@ Future<void> _syncAppointments() async {
     }
   }
 
-  // ✅ NUEVO: calendario personalizado que DESTACA los días con citas
   Future<void> _showCalendarDialog() async {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     DateTime viewMonth = DateTime(_selectedDate.year, _selectedDate.month);
-    Set<DateTime> days = await _fetchDaysWithAppointments(viewMonth);
+    Map<DateTime, int> daysWithCounts = await _fetchDaysWithCounts(viewMonth);
     if (!mounted) return;
 
     await showDialog(
@@ -221,98 +217,89 @@ Future<void> _syncAppointments() async {
 
           Future<void> changeMonth(int delta) async {
             final newMonth = DateTime(viewMonth.year, viewMonth.month + delta);
-            final newDays = await _fetchDaysWithAppointments(newMonth);
+            setDialogState(() { daysWithCounts = {}; });
+            final newCounts = await _fetchDaysWithCounts(newMonth);
             setDialogState(() {
               viewMonth = newMonth;
-              days = newDays;
+              daysWithCounts = newCounts;
             });
           }
 
           return AlertDialog(
             backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: Row(
               children: [
                 IconButton(icon: const Icon(Icons.chevron_left, color: Color(0xFF6366F1)), onPressed: () => changeMonth(-1)),
-                Expanded(
-                  child: Text(
-                    DateFormat('MMMM yyyy', 'es').format(viewMonth),
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87),
-                  ),
-                ),
+                Expanded(child: Text(DateFormat('MMMM yyyy', 'es').format(viewMonth), textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: isDark ? Colors.white : Colors.black87))),
                 IconButton(icon: const Icon(Icons.chevron_right, color: Color(0xFF6366F1)), onPressed: () => changeMonth(1)),
               ],
             ),
             content: SizedBox(
-              width: 320,
+              width: 340,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Row(
-                    children: ['L', 'M', 'X', 'J', 'V', 'S', 'D']
-                        .map((d) => Expanded(child: Center(child: Text(d, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? Colors.grey[400] : Colors.grey[600])))))
-                        .toList(),
-                  ),
-                  const SizedBox(height: 4),
+                  Row(children: ['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((d) => Expanded(child: Center(child: Text(d, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? Colors.grey[400] : Colors.grey[600]))))).toList()),
+                  const SizedBox(height: 8),
                   GridView.builder(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 7),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 7, childAspectRatio: 0.85),
                     itemCount: leadingBlanks + daysInMonth,
                     itemBuilder: (context, i) {
                       if (i < leadingBlanks) return const SizedBox.shrink();
                       final day = i - leadingBlanks + 1;
                       final date = DateTime(viewMonth.year, viewMonth.month, day);
-                      final hasAppt = days.contains(date);
+                      final count = daysWithCounts[date] ?? 0;
+                      final hasAppt = count > 0;
                       final isSelected = date == selected;
                       final isToday = date == today;
                       return InkWell(
-                        onTap: () {
-                          Navigator.pop(context);
-                          setState(() { _selectedDate = date; });
-                          _loadData();
-                        },
+                        onTap: () { Navigator.pop(context); setState(() { _selectedDate = date; }); _loadData(); },
+                        borderRadius: BorderRadius.circular(12),
                         child: Container(
                           margin: const EdgeInsets.all(3),
                           decoration: BoxDecoration(
-                            color: isSelected ? const Color(0xFF6366F1) : (isToday ? const Color(0xFF6366F1).withOpacity(0.15) : Colors.transparent),
-                            shape: BoxShape.circle,
+                            color: isSelected ? const Color(0xFF6366F1) : isToday ? const Color(0xFF6366F1).withOpacity(0.15) : hasAppt ? Colors.orange.withOpacity(0.12) : Colors.transparent,
+                            borderRadius: BorderRadius.circular(12),
+                            border: isToday && !isSelected ? Border.all(color: const Color(0xFF6366F1).withOpacity(0.5)) : null,
                           ),
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Text(
-                                '$day',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: (hasAppt || isSelected) ? FontWeight.bold : FontWeight.normal,
-                                  color: isSelected ? Colors.white : (isDark ? Colors.white : Colors.black87),
-                                ),
-                              ),
-                              Container(
-                                width: 6,
-                                height: 6,
-                                margin: const EdgeInsets.only(top: 2),
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: hasAppt ? (isSelected ? Colors.white : Colors.orange) : Colors.transparent,
-                                ),
-                              ),
+                              Text('$day', style: TextStyle(fontSize: 15, fontWeight: hasAppt || isSelected || isToday ? FontWeight.bold : FontWeight.normal, color: isSelected ? Colors.white : (isDark ? Colors.white : Colors.black87))),
+                              const SizedBox(height: 2),
+                              if (hasAppt)
+                                Container(
+                                  padding: EdgeInsets.symmetric(horizontal: count > 9 ? 4 : 6, vertical: 1),
+                                  decoration: BoxDecoration(color: isSelected ? Colors.white : Colors.orange, borderRadius: BorderRadius.circular(10)),
+                                  child: count == 1
+                                      ? Container(width: 6, height: 6, decoration: BoxDecoration(shape: BoxShape.circle, color: isSelected ? const Color(0xFF6366F1) : Colors.white))
+                                      : Text('$count', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: isSelected ? const Color(0xFF6366F1) : Colors.white)),
+                                )
+                              else
+                                const SizedBox(height: 10),
                             ],
                           ),
                         ),
                       );
                     },
                   ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(width: 8, height: 8, decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.orange)),
-                      const SizedBox(width: 6),
-                      Text('Días con citas agendadas', style: TextStyle(fontSize: 11, color: isDark ? Colors.grey[400] : Colors.grey[600])),
-                    ],
-                  ),
+                  const SizedBox(height: 12),
+                  Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Container(width: 8, height: 8, decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.orange)),
+                    const SizedBox(width: 6),
+                    Text('Día con citas', style: TextStyle(fontSize: 11, color: isDark ? Colors.grey[400] : Colors.grey[600])),
+                    const SizedBox(width: 16),
+                    Container(width: 8, height: 8, decoration: BoxDecoration(shape: BoxShape.circle, color: const Color(0xFF6366F1).withOpacity(0.3), border: Border.all(color: const Color(0xFF6366F1)))),
+                    const SizedBox(width: 6),
+                    Text('Hoy', style: TextStyle(fontSize: 11, color: isDark ? Colors.grey[400] : Colors.grey[600])),
+                  ]),
+                  if (daysWithCounts.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text('${daysWithCounts.length} días con citas - Total: ${daysWithCounts.values.fold(0, (a, b) => a + b)} citas', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Color(0xFF6366F1))),
+                  ]
                 ],
               ),
             ),
@@ -321,6 +308,7 @@ Future<void> _syncAppointments() async {
       ),
     );
   }
+
 
   // ✅ DIÁLOGO CON SELECCIÓN MÚLTIPLE DE SERVICIOS
   void _showAppointmentDialog({LocalAppointment? appointment}) {
