@@ -114,81 +114,89 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     }
   }
 
-  Future<void> _syncAppointments() async {
-    setState(() { _isLoading = true; });
-    try {
-      print('🔄 Sincronizando citas...');
-      final localAppointments = await _appointmentRepo.getAllAppointments();
-      final cloudResponse = await Supabase.instance.client.from('appointments').select('*');
-      final cloudAppointments = List<Map<String, dynamic>>.from(cloudResponse);
-      int uploaded = 0;
-      for (final localApt in localAppointments) {
-        final localDateStr = localApt.appointmentDate.toIso8601String();
-        final existsInCloud = cloudAppointments.any((cloud) {
-          final cloudDate = cloud['appointment_date']?.toString() ?? '';
-          final cloudDateNormalized = cloudDate.replaceAll('+00:00', '').replaceAll('Z', '');
-          final localDateNormalized = localDateStr.replaceAll('+00:00', '').replaceAll('Z', '');
-          return cloud['client_name'] == localApt.clientName && cloudDateNormalized == localDateNormalized;
-        });
-        if (!existsInCloud && localApt.remoteId != null) {
-          try {
-            await Supabase.instance.client.from('appointments').insert({
-              'id': localApt.remoteId,
-              'client_id': localApt.clientId ?? '',
-              'client_name': localApt.clientName ?? '',
-              'client_phone': localApt.clientPhone ?? '',
-              'barber_id': localApt.barberId ?? '',
-              'barber_name': localApt.barberName ?? '',
-              'service_id': localApt.serviceId ?? '',
-              'service_name': localApt.serviceName ?? '',
-              'service_price': localApt.servicePrice,
-              'appointment_date': localApt.appointmentDate.toIso8601String(),
-              'status': localApt.status,
-              'notes': localApt.notes,
-            });
-            uploaded++;
-          } catch (e) {
-            print('⚠️ Error al subir ${localApt.clientName}: $e');
-          }
-        }
-      }
-      int downloaded = 0;
-      for (final cloudApt in cloudAppointments) {
-        final remoteId = cloudApt['id'].toString();
-        final existsLocally = await _appointmentRepo.findByRemoteId(remoteId);
-        if (existsLocally == null) {
-          try {
-            final newApt = LocalAppointment()
-              ..remoteId = remoteId
-              ..clientName = cloudApt['client_name']
-              ..clientPhone = cloudApt['client_phone']
-              ..barberName = cloudApt['barber_name']
-              ..serviceName = cloudApt['service_name']
-              ..servicePrice = (cloudApt['service_price'] as num?)?.toDouble() ?? 0.0
-              ..appointmentDate = DateTime.parse(cloudApt['appointment_date'])
-              ..status = cloudApt['status'] ?? 'pending'
-              ..notes = cloudApt['notes']
-              ..lastSync = DateTime.now();
-            await _appointmentRepo.createAppointment(newApt);
-            downloaded++;
-          } catch (e) {
-            print('❌ Error al descargar: $e');
-          }
-        }
-      }
-      await _loadData();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Sincronizado: $uploaded subidas, $downloaded descargadas'), backgroundColor: Colors.green),
-        );
-      }
-    } catch (e) {
-      print('❌ Error al sincronizar: $e');
-    } finally {
-      setState(() { _isLoading = false; });
-    }
-  }
+Future<void> _syncAppointments() async {
+  setState(() { _isLoading = true; });
+  try {
+    print('🔄 Sincronizando citas...');
+    final localAppointments = await _appointmentRepo.getAllAppointments();
+    
+    // ✅ Obtener solo los IDs de la nube (más rápido)
+    final cloudResponse = await Supabase.instance.client.from('appointments').select('id');
+    final cloudIds = List<Map<String, dynamic>>.from(cloudResponse).map((c) => c['id'].toString()).toSet();
+    
+    print('📊 Citas en la nube: ${cloudIds.length}');
+    print('📊 Citas locales: ${localAppointments.length}');
 
+    int uploaded = 0;
+    for (final localApt in localAppointments) {
+      if (localApt.remoteId == null) continue;
+      
+      // ✅ Verificar por ID exacto (no por nombre y fecha)
+      if (cloudIds.contains(localApt.remoteId)) {
+        print('⏭️ Saltando ${localApt.clientName} (ya existe en la nube)');
+        continue;
+      }
+      
+      try {
+        await Supabase.instance.client.from('appointments').insert({
+          'id': localApt.remoteId,
+          'client_id': localApt.clientId ?? '',
+          'client_name': localApt.clientName ?? '',
+          'client_phone': localApt.clientPhone ?? '',
+          'barber_id': localApt.barberId ?? '',
+          'barber_name': localApt.barberName ?? '',
+          'service_id': localApt.serviceId ?? '',
+          'service_name': localApt.serviceName ?? '',
+          'service_price': localApt.servicePrice,
+          'appointment_date': localApt.appointmentDate.toUtc().toIso8601String(),
+          'status': localApt.status,
+          'notes': localApt.notes,
+        });
+        uploaded++;
+        print('✅ Subida: ${localApt.clientName}');
+      } catch (e) {
+        print('⚠️ Error al subir ${localApt.clientName}: $e');
+      }
+    }
+
+    int downloaded = 0;
+    final allCloudAppointments = await Supabase.instance.client.from('appointments').select('*');
+    for (final cloudApt in List<Map<String, dynamic>>.from(allCloudAppointments)) {
+      final remoteId = cloudApt['id'].toString();
+      final existsLocally = await _appointmentRepo.findByRemoteId(remoteId);
+      if (existsLocally == null) {
+        try {
+          final newApt = LocalAppointment()
+            ..remoteId = remoteId
+            ..clientName = cloudApt['client_name']
+            ..clientPhone = cloudApt['client_phone']
+            ..barberName = cloudApt['barber_name']
+            ..serviceName = cloudApt['service_name']
+            ..servicePrice = (cloudApt['service_price'] as num?)?.toDouble() ?? 0.0
+            ..appointmentDate = DateTime.parse(cloudApt['appointment_date'])
+            ..status = cloudApt['status'] ?? 'pending'
+            ..notes = cloudApt['notes']
+            ..lastSync = DateTime.now();
+          await _appointmentRepo.createAppointment(newApt);
+          downloaded++;
+        } catch (e) {
+          print('❌ Error al descargar: $e');
+        }
+      }
+    }
+
+    await _loadData();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('✅ Sincronizado: $uploaded subidas, $downloaded descargadas'), backgroundColor: Colors.green),
+      );
+    }
+  } catch (e) {
+    print('❌ Error al sincronizar: $e');
+  } finally {
+    setState(() { _isLoading = false; });
+  }
+}
   Future<void> _updateAppointmentStatus(LocalAppointment appointment, String newStatus) async {
     try {
       appointment.status = newStatus;
