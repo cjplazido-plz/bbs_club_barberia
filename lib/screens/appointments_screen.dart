@@ -108,42 +108,47 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     try {
       print('🔄 Sincronizando citas...');
       final localAppointments = await _appointmentRepo.getAllAppointments();
-      final cloudResponse = await Supabase.instance.client.from('appointments').select('*');
-      final cloudAppointments = List<Map<String, dynamic>>.from(cloudResponse);
+      final cloudResponse = await Supabase.instance.client.from('appointments').select('id');
+      final cloudIds = List<Map<String, dynamic>>.from(cloudResponse).map((c) => c['id'].toString()).toSet();
+
+      print('📊 Citas en la nube: ${cloudIds.length}');
+      print('📊 Citas locales: ${localAppointments.length}');
 
       int uploaded = 0;
       for (final localApt in localAppointments) {
         if (localApt.remoteId == null) continue;
         
-        // ✅ Verificar si ya existe en la nube por ID
-        final existsInCloud = cloudAppointments.any((cloud) => cloud['id'] == localApt.remoteId);
+        // ✅ Verificar por ID exacto
+        if (cloudIds.contains(localApt.remoteId)) {
+          print('⏭️ Saltando ${localApt.clientName} (ya existe en la nube)');
+          continue;
+        }
         
-        if (!existsInCloud) {
-          try {
-            await Supabase.instance.client.from('appointments').insert({
-              'id': localApt.remoteId,
-              'client_id': localApt.clientId ?? '',
-              'client_name': localApt.clientName ?? '',
-              'client_phone': localApt.clientPhone ?? '',
-              'barber_id': localApt.barberId ?? '',
-              'barber_name': localApt.barberName ?? '',
-              'service_id': localApt.serviceId ?? '',
-              'service_name': localApt.serviceName ?? '',
-              'service_price': localApt.servicePrice,
-              'appointment_date': localApt.appointmentDate.toUtc().toIso8601String(),
-              'status': localApt.status,
-              'notes': localApt.notes,
-            });
-            uploaded++;
-            print('✅ Subida: ${localApt.clientName}');
-          } catch (e) {
-            print('⚠️ Error al subir ${localApt.clientName}: $e');
-          }
+        try {
+          await Supabase.instance.client.from('appointments').insert({
+            'id': localApt.remoteId,
+            'client_id': localApt.clientId ?? '',
+            'client_name': localApt.clientName ?? '',
+            'client_phone': localApt.clientPhone ?? '',
+            'barber_id': localApt.barberId ?? '',
+            'barber_name': localApt.barberName ?? '',
+            'service_id': localApt.serviceId ?? '',
+            'service_name': localApt.serviceName ?? '',
+            'service_price': localApt.servicePrice,
+            'appointment_date': localApt.appointmentDate.toUtc().toIso8601String(),
+            'status': localApt.status,
+            'notes': localApt.notes,
+          });
+          uploaded++;
+          print('✅ Subida: ${localApt.clientName}');
+        } catch (e) {
+          print('⚠️ Error al subir ${localApt.clientName}: $e');
         }
       }
 
       int downloaded = 0;
-      for (final cloudApt in cloudAppointments) {
+      final allCloudAppointments = await Supabase.instance.client.from('appointments').select('*');
+      for (final cloudApt in List<Map<String, dynamic>>.from(allCloudAppointments)) {
         final remoteId = cloudApt['id'].toString();
         final existsLocally = await _appointmentRepo.findByRemoteId(remoteId);
         if (existsLocally == null) {
@@ -226,42 +231,39 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     }
   }
 
-// ✅ NUEVO: días del mes que tienen citas (para marcarlos en el calendario)
-Future<Set<DateTime>> _fetchDaysWithAppointments(DateTime month) async {
-  final start = DateTime.utc(month.year, month.month, 1);
-  final end = DateTime.utc(month.year, month.month + 1, 1);
-  
-  print('🔍 Buscando citas desde ${start.toIso8601String()} hasta ${end.toIso8601String()}');
-  
-  try {
-    final res = await Supabase.instance.client
-        .from('appointments')
-        .select('appointment_date, status')
-        .gte('appointment_date', start.toIso8601String())
-        .lt('appointment_date', end.toIso8601String());
+  // ✅ OBTENER DÍAS CON CITAS (para marcadores en calendario)
+  Future<Set<DateTime>> _fetchDaysWithAppointments(DateTime month) async {
+    final start = DateTime.utc(month.year, month.month, 1);
+    final end = DateTime.utc(month.year, month.month + 1, 1);
     
-    print('📊 Total citas encontradas: ${res.length}');
+    print('🔍 Buscando citas desde ${start.toIso8601String()} hasta ${end.toIso8601String()}');
     
-    final days = <DateTime>{};
-    for (final row in List<Map<String, dynamic>>.from(res)) {
-      print('  - Cita: ${row['appointment_date']} | Status: ${row['status']}');
-      final d = DateTime.parse(row['appointment_date'].toString()).toLocal();
-      days.add(DateTime(d.year, d.month, d.day));
+    try {
+      final res = await Supabase.instance.client
+          .from('appointments')
+          .select('appointment_date, status')
+          .gte('appointment_date', start.toIso8601String())
+          .lt('appointment_date', end.toIso8601String());
+      
+      print('📊 Total citas encontradas: ${res.length}');
+      
+      final days = <DateTime>{};
+      for (final row in List<Map<String, dynamic>>.from(res)) {
+        final dateStr = row['appointment_date'].toString();
+        final d = DateTime.parse(dateStr).toLocal();
+        print('  - Cita: ${d.day}/${d.month}/${d.year} | Status: ${row['status']}');
+        days.add(DateTime(d.year, d.month, d.day));
+      }
+      
+      print('✅ Días únicos con citas: ${days.length}');
+      return days;
+    } catch (e) {
+      print('⚠️ Error al cargar días con citas: $e');
+      return {};
     }
-    
-    print('✅ Días únicos con citas: ${days.length}');
-    for (final day in days) {
-      print('  📅 ${day.day}/${day.month}/${day.year}');
-    }
-    
-    return days;
-  } catch (e) {
-    print('⚠️ Error al cargar días con citas: $e');
-    return {};
   }
-}
 
-  // ✅ Calendario personalizado con marcadores
+  // ✅ CALENDARIO PERSONALIZADO CON MARCADORES (REEMPLAZA _selectDate)
   Future<void> _showCalendarDialog() async {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     DateTime viewMonth = DateTime(_selectedDate.year, _selectedDate.month);
@@ -595,7 +597,7 @@ Future<Set<DateTime>> _fetchDaysWithAppointments(DateTime month) async {
           IconButton(
             icon: const Text('📅', style: TextStyle(fontSize: 20)),
             tooltip: 'Seleccionar fecha',
-            onPressed: _showCalendarDialog,
+            onPressed: _showCalendarDialog,  // ✅ CAMBIADO: ahora usa el calendario personalizado
           ),
         ],
       ),
