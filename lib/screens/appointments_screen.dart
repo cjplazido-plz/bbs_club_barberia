@@ -37,10 +37,22 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
 
   Future<void> _loadData() async {
     setState(() { _isLoading = true; });
-    final appointments = await _appointmentRepo.getAppointmentsByDate(_selectedDate);
+    var appointments = await _appointmentRepo.getAppointmentsByDate(_selectedDate);
     final barbers = await _barberRepo.getAllBarbers();
     final clients = await _clientRepo.getAllClients();
     final services = await _serviceRepo.getAllServices();
+    
+    // ✅ Deduplicar también citas por remoteId (esto evitaba que vieras 0 citas el 4/11)
+    final uniqueApts = <String, LocalAppointment>{};
+    for (final a in appointments) {
+      if (a.remoteId != null) {
+        uniqueApts[a.remoteId!.toLowerCase().trim()] = a;
+      } else {
+        uniqueApts['local_${a.hashCode}'] = a;
+      }
+    }
+    appointments = uniqueApts.values.toList();
+    
     final uniqueBarbers = <String, LocalBarber>{};
     for (final b in barbers) {
       if (b.remoteId != null) uniqueBarbers[b.remoteId!] = b;
@@ -270,27 +282,51 @@ Future<void> _syncAppointments() async {
     }
   }
 
-  // ✅ NUEVO: días del mes que tienen citas (para marcarlos en el calendario)
+  // ✅ FIX DEFINITIVO: días con citas desde LOCAL primero (offline) + nube
   Future<Set<DateTime>> _fetchDaysWithAppointments(DateTime month) async {
     final start = DateTime(month.year, month.month, 1);
     final end = DateTime(month.year, month.month + 1, 1);
+    final days = <DateTime>{};
+
+    // 1. SIEMPRE leer de local (esto es lo que ves en 7/11/2026 con placido)
+    try {
+      final localAll = await _appointmentRepo.getAllAppointments();
+      for (final apt in localAll) {
+        if (apt.status == 'cancelled') continue;
+        final d = apt.appointmentDate;
+        // normalizamos a solo fecha local
+        if (!d.isBefore(start) && d.isBefore(end)) {
+          days.add(DateTime(d.year, d.month, d.day));
+        }
+      }
+      print('📅 Días con citas (local): $days');
+    } catch (e) {
+      print('⚠️ Error leyendo local para calendario: $e');
+    }
+
+    // 2. Intentar complementar con nube (si falla el 409 no rompe el calendario)
     try {
       final res = await Supabase.instance.client
           .from('appointments')
           .select('appointment_date')
-          .gte('appointment_date', start.toIso8601String())
-          .lt('appointment_date', end.toIso8601String())
-          .neq('status', 'cancelled');
-      final days = <DateTime>{};
+          .gte('appointment_date', start.toUtc().toIso8601String())
+          .lt('appointment_date', end.toUtc().toIso8601String())
+          .neq('status', 'cancelled')
+          .limit(10000);
       for (final row in List<Map<String, dynamic>>.from(res)) {
-        final d = DateTime.parse(row['appointment_date'].toString());
-        days.add(DateTime(d.year, d.month, d.day));
+        try {
+          final d = DateTime.parse(row['appointment_date'].toString()).toLocal();
+          if (!d.isBefore(start) && d.isBefore(end)) {
+            days.add(DateTime(d.year, d.month, d.day));
+          }
+        } catch (_) {}
       }
-      return days;
+      print('📅 Días con citas (nube merge): $days');
     } catch (e) {
-      print('⚠️ Error al cargar días con citas: $e');
-      return {};
+      print('⚠️ Nube no disponible para calendario, usando solo local: $e');
     }
+
+    return days;
   }
 
   // ✅ NUEVO: calendario personalizado que DESTACA los días con citas
