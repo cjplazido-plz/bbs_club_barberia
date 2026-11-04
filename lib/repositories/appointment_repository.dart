@@ -5,7 +5,7 @@ class AppointmentRepository {
   final _client = Supabase.instance.client;
 
   Future<List<LocalAppointment>> getAllAppointments() async {
-    final response = await _client.from('appointments').select();
+    final response = await _client.from('appointments').select().limit(10000);
     return List<Map<String, dynamic>>.from(response).map((data) {
       return LocalAppointment()
         ..remoteId = data['id']
@@ -30,7 +30,8 @@ class AppointmentRepository {
         .from('appointments')
         .select()
         .gte('appointment_date', start.toIso8601String())
-        .lt('appointment_date', end.toIso8601String());
+        .lt('appointment_date', end.toIso8601String())
+        .limit(10000);
     return List<Map<String, dynamic>>.from(response).map((data) {
       return LocalAppointment()
         ..remoteId = data['id']
@@ -70,10 +71,11 @@ class AppointmentRepository {
       ..notes = response['notes'];
   }
 
+  // ✅ FIX: upsert en vez de insert - nunca da 409
   Future<void> createAppointment(LocalAppointment appointment) async {
     final id = appointment.remoteId ?? 'apt-${DateTime.now().millisecondsSinceEpoch}';
     appointment.remoteId = id;
-    await _client.from('appointments').insert({
+    await _client.from('appointments').upsert({
       'id': id,
       'client_id': appointment.clientId ?? '',
       'client_name': appointment.clientName ?? '',
@@ -86,13 +88,14 @@ class AppointmentRepository {
       'appointment_date': appointment.appointmentDate.toIso8601String(),
       'status': appointment.status,
       'notes': appointment.notes,
-    });
-    print('✅ Cita creada: ${appointment.clientName}');
+    }, onConflict: 'id');
+    print('✅ Cita creada/actualizada: ${appointment.clientName}');
   }
 
   Future<void> updateAppointment(LocalAppointment appointment) async {
     await _client.from('appointments')
-        .update({
+        .upsert({
+          'id': appointment.remoteId!,
           'client_id': appointment.clientId ?? '',
           'client_name': appointment.clientName ?? '',
           'client_phone': appointment.clientPhone ?? '',
@@ -104,8 +107,7 @@ class AppointmentRepository {
           'appointment_date': appointment.appointmentDate.toIso8601String(),
           'status': appointment.status,
           'notes': appointment.notes,
-        })
-        .eq('id', appointment.remoteId!);
+        }, onConflict: 'id');
     print('✅ Cita actualizada: ${appointment.clientName}');
   }
 

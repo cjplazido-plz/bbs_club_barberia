@@ -37,22 +37,10 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
 
   Future<void> _loadData() async {
     setState(() { _isLoading = true; });
-    var appointments = await _appointmentRepo.getAppointmentsByDate(_selectedDate);
+    final appointments = await _appointmentRepo.getAppointmentsByDate(_selectedDate);
     final barbers = await _barberRepo.getAllBarbers();
     final clients = await _clientRepo.getAllClients();
     final services = await _serviceRepo.getAllServices();
-    
-    // ✅ Deduplicar también citas por remoteId (esto evitaba que vieras 0 citas el 4/11)
-    final uniqueApts = <String, LocalAppointment>{};
-    for (final a in appointments) {
-      if (a.remoteId != null) {
-        uniqueApts[a.remoteId!.toLowerCase().trim()] = a;
-      } else {
-        uniqueApts['local_${a.hashCode}'] = a;
-      }
-    }
-    appointments = uniqueApts.values.toList();
-    
     final uniqueBarbers = <String, LocalBarber>{};
     for (final b in barbers) {
       if (b.remoteId != null) uniqueBarbers[b.remoteId!] = b;
@@ -128,110 +116,19 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
 
 
 Future<void> _syncAppointments() async {
-  if (_isLoading) return; // Evita doble llamada simultánea que genera 409
+  // ✅ FIX: Ya no tiene sentido sincronizar si el repo ya es 100% nube
+  // Antes traías de la nube y tratabas de insertar en la nube de nuevo -> 409
+  // Ahora solo recarga
+  if (_isLoading) return;
   setState(() { _isLoading = true; });
   try {
-    print('🔄 Sincronizando citas...');
-    final localAppointments = await _appointmentRepo.getAllAppointments();
-
-    // --- PASO 1: SUBIDA A PRUEBA DE 409 ---
-    // Ya no confiamos solo en el select previo. Usamos UPSERT que nunca da 409.
-    // Si el ID ya existe, lo actualiza en vez de fallar.
-    int uploaded = 0;
-    int skipped = 0;
-
-    // Deduplicar locales por remoteId antes de subir (evita intentar subir 2 veces el mismo ID local)
-    final Map<String, LocalAppointment> uniqueById = {};
-    for (var apt in localAppointments) {
-      if (apt.remoteId == null) continue;
-      final key = apt.remoteId!.trim();
-      if (key.isEmpty) continue;
-      // Si hay duplicado local, nos quedamos con el último
-      uniqueById[key.toLowerCase()] = apt;
-    }
-
-    for (final entry in uniqueById.entries) {
-      final localApt = entry.value;
-      final id = localApt.remoteId!.trim();
-
-      try {
-        // UPSERT ES LA CLAVE: nunca lanza duplicate key
-        await Supabase.instance.client.from('appointments').upsert({
-          'id': id,
-          'client_id': localApt.clientId ?? '',
-          'client_name': localApt.clientName ?? '',
-          'client_phone': localApt.clientPhone ?? '',
-          'barber_id': localApt.barberId ?? '',
-          'barber_name': localApt.barberName ?? '',
-          'service_id': localApt.serviceId ?? '',
-          'service_name': localApt.serviceName ?? '',
-          'service_price': localApt.servicePrice,
-          'appointment_date': localApt.appointmentDate.toUtc().toIso8601String(),
-          'status': localApt.status,
-          'notes': localApt.notes,
-        }, onConflict: 'id');
-
-        uploaded++;
-        print('✅ Upsert: ${localApt.clientName} - $id');
-      } catch (e) {
-        // Última barrera: si aún así llega un 409 (por RLS o trigger), lo ignoramos
-        final msg = e.toString().toLowerCase();
-        if (msg.contains('409') || msg.contains('23505') || msg.contains('duplicate') || msg.contains('already exists')) {
-          skipped++;
-          print('⏭️ Ignorado (ya existe): $id');
-        } else {
-          print('⚠️ Error al subir ${localApt.clientName} ($id): $e');
-        }
-      }
-    }
-
-    // --- PASO 2: BAJADA ---
-    int downloaded = 0;
-    try {
-      final allCloud = await Supabase.instance.client.from('appointments').select('*').limit(10000);
-      for (final cloudApt in List<Map<String, dynamic>>.from(allCloud)) {
-        final remoteId = cloudApt['id'].toString().trim();
-        if (remoteId.isEmpty) continue;
-        final exists = await _appointmentRepo.findByRemoteId(remoteId);
-        if (exists == null) {
-          try {
-            final newApt = LocalAppointment()
-              ..remoteId = remoteId
-              ..clientId = cloudApt['client_id']?.toString()
-              ..clientName = cloudApt['client_name']
-              ..clientPhone = cloudApt['client_phone']
-              ..barberId = cloudApt['barber_id']?.toString()
-              ..barberName = cloudApt['barber_name']
-              ..serviceId = cloudApt['service_id']?.toString()
-              ..serviceName = cloudApt['service_name']
-              ..servicePrice = (cloudApt['service_price'] as num?)?.toDouble() ?? 0.0
-              ..appointmentDate = DateTime.parse(cloudApt['appointment_date'].toString()).toLocal()
-              ..status = cloudApt['status'] ?? 'pending'
-              ..notes = cloudApt['notes']
-              ..lastSync = DateTime.now();
-            await _appointmentRepo.createAppointment(newApt);
-            downloaded++;
-          } catch (e) {
-            print('❌ Error al descargar $remoteId: $e');
-          }
-        }
-      }
-    } catch (e) {
-      print('⚠️ Error en bajada: $e');
-    }
-
+    print('🔄 Recargando citas desde Supabase...');
     await _loadData();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('✅ Sync: $uploaded actualizadas, $downloaded nuevas, $skipped ignoradas'),
-          backgroundColor: Colors.green,
-        ),
+        const SnackBar(content: Text('✅ Citas actualizadas desde la nube'), backgroundColor: Colors.green),
       );
     }
-  } catch (e, stack) {
-    print('❌ Error fatal sync: $e');
-    print(stack);
   } finally {
     if (mounted) setState(() { _isLoading = false; });
   }
@@ -282,51 +179,27 @@ Future<void> _syncAppointments() async {
     }
   }
 
-  // ✅ FIX DEFINITIVO: días con citas desde LOCAL primero (offline) + nube
+  // ✅ NUEVO: días del mes que tienen citas (para marcarlos en el calendario)
   Future<Set<DateTime>> _fetchDaysWithAppointments(DateTime month) async {
     final start = DateTime(month.year, month.month, 1);
     final end = DateTime(month.year, month.month + 1, 1);
-    final days = <DateTime>{};
-
-    // 1. SIEMPRE leer de local (esto es lo que ves en 7/11/2026 con placido)
-    try {
-      final localAll = await _appointmentRepo.getAllAppointments();
-      for (final apt in localAll) {
-        if (apt.status == 'cancelled') continue;
-        final d = apt.appointmentDate;
-        // normalizamos a solo fecha local
-        if (!d.isBefore(start) && d.isBefore(end)) {
-          days.add(DateTime(d.year, d.month, d.day));
-        }
-      }
-      print('📅 Días con citas (local): $days');
-    } catch (e) {
-      print('⚠️ Error leyendo local para calendario: $e');
-    }
-
-    // 2. Intentar complementar con nube (si falla el 409 no rompe el calendario)
     try {
       final res = await Supabase.instance.client
           .from('appointments')
           .select('appointment_date')
-          .gte('appointment_date', start.toUtc().toIso8601String())
-          .lt('appointment_date', end.toUtc().toIso8601String())
-          .neq('status', 'cancelled')
-          .limit(10000);
+          .gte('appointment_date', start.toIso8601String())
+          .lt('appointment_date', end.toIso8601String())
+          .neq('status', 'cancelled');
+      final days = <DateTime>{};
       for (final row in List<Map<String, dynamic>>.from(res)) {
-        try {
-          final d = DateTime.parse(row['appointment_date'].toString()).toLocal();
-          if (!d.isBefore(start) && d.isBefore(end)) {
-            days.add(DateTime(d.year, d.month, d.day));
-          }
-        } catch (_) {}
+        final d = DateTime.parse(row['appointment_date'].toString());
+        days.add(DateTime(d.year, d.month, d.day));
       }
-      print('📅 Días con citas (nube merge): $days');
+      return days;
     } catch (e) {
-      print('⚠️ Nube no disponible para calendario, usando solo local: $e');
+      print('⚠️ Error al cargar días con citas: $e');
+      return {};
     }
-
-    return days;
   }
 
   // ✅ NUEVO: calendario personalizado que DESTACA los días con citas
