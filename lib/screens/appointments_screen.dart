@@ -227,42 +227,50 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     }
   }
 
-  // ✅ CALENDARIO PERSONALIZADO CON DEBUG LOGS
-  Future<void> _selectDate() async {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    DateTime viewMonth = DateTime(_selectedDate.year, _selectedDate.month);
-    Set<DateTime> daysWithAppointments = {};
-
-    // Cargar días con citas del mes actual CON DEBUG
+  // ✅ FUNCIÓN PARA OBTENER DÍAS CON CITAS (CON LOGS DE DEBUG)
+  Future<Set<DateTime>> _fetchDaysWithAppointments(DateTime month) async {
+    final start = DateTime(month.year, month.month, 1);
+    final end = DateTime(month.year, month.month + 1, 1);
+    
+    print('🔍 _fetchDaysWithAppointments: Buscando citas desde ${start.toIso8601String()} hasta ${end.toIso8601String()}');
+    
     try {
-      final startOfMonth = DateTime(viewMonth.year, viewMonth.month, 1);
-      final endOfMonth = DateTime(viewMonth.year, viewMonth.month + 1, 0, 23, 59, 59);
-      
-      print('🔍 Buscando citas desde: ${startOfMonth.toIso8601String()}');
-      print('🔍 Hasta: ${endOfMonth.toIso8601String()}');
-      
-      final appointments = await Supabase.instance.client
+      final res = await Supabase.instance.client
           .from('appointments')
           .select('appointment_date, status')
-          .gte('appointment_date', startOfMonth.toIso8601String())
-          .lte('appointment_date', endOfMonth.toIso8601String());
-
-      print('📊 Total citas encontradas: ${appointments.length}');
+          .gte('appointment_date', start.toIso8601String())
+          .lt('appointment_date', end.toIso8601String());
       
-      for (final apt in List<Map<String, dynamic>>.from(appointments)) {
-        print('  - Cita: ${apt['appointment_date']} | Status: ${apt['status']}');
-        final date = DateTime.parse(apt['appointment_date']);
-        daysWithAppointments.add(DateTime(date.year, date.month, date.day));
+      print('📊 Total citas encontradas en Supabase: ${res.length}');
+      
+      final days = <DateTime>{};
+      for (final row in List<Map<String, dynamic>>.from(res)) {
+        print('  - Cita encontrada: ${row['appointment_date']} | Status: ${row['status']}');
+        final d = DateTime.parse(row['appointment_date'].toString());
+        days.add(DateTime(d.year, d.month, d.day));
       }
       
-      print('✅ Días con citas: ${daysWithAppointments.length}');
-      for (final day in daysWithAppointments) {
+      print('✅ Días únicos con citas: ${days.length}');
+      for (final day in days) {
         print('  📅 ${day.day}/${day.month}/${day.year}');
       }
+      
+      return days;
     } catch (e) {
       print('⚠️ Error al cargar días con citas: $e');
+      return {};
     }
+  }
 
+  // ✅ CALENDARIO PERSONALIZADO CON MARCADORES
+  Future<void> _showCalendarDialog() async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    DateTime viewMonth = DateTime(_selectedDate.year, _selectedDate.month);
+    
+    print('📅 _showCalendarDialog: Mes actual = ${viewMonth.month}/${viewMonth.year}');
+    
+    Set<DateTime> days = await _fetchDaysWithAppointments(viewMonth);
+    
     if (!mounted) return;
 
     await showDialog(
@@ -277,29 +285,12 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
 
           Future<void> changeMonth(int delta) async {
             final newMonth = DateTime(viewMonth.year, viewMonth.month + delta);
-            final startOfMonth = DateTime(newMonth.year, newMonth.month, 1);
-            final endOfMonth = DateTime(newMonth.year, newMonth.month + 1, 0, 23, 59, 59);
-
-            try {
-              final appointments = await Supabase.instance.client
-                  .from('appointments')
-                  .select('appointment_date, status')
-                  .gte('appointment_date', startOfMonth.toIso8601String())
-                  .lte('appointment_date', endOfMonth.toIso8601String());
-
-              final newDays = <DateTime>{};
-              for (final apt in List<Map<String, dynamic>>.from(appointments)) {
-                final date = DateTime.parse(apt['appointment_date']);
-                newDays.add(DateTime(date.year, date.month, date.day));
-              }
-
-              setDialogState(() {
-                viewMonth = newMonth;
-                daysWithAppointments = newDays;
-              });
-            } catch (e) {
-              print('⚠️ Error al cambiar mes: $e');
-            }
+            print('🔄 Cambiando a mes: ${newMonth.month}/${newMonth.year}');
+            final newDays = await _fetchDaysWithAppointments(newMonth);
+            setDialogState(() {
+              viewMonth = newMonth;
+              days = newDays;
+            });
           }
 
           return AlertDialog(
@@ -349,7 +340,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                       if (i < leadingBlanks) return const SizedBox.shrink();
                       final day = i - leadingBlanks + 1;
                       final date = DateTime(viewMonth.year, viewMonth.month, day);
-                      final hasAppt = daysWithAppointments.contains(date);
+                      final hasAppt = days.contains(date);
                       final isSelected = date == selected;
                       final isToday = date == today;
 
@@ -605,7 +596,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
           IconButton(
             icon: const Text('📅', style: TextStyle(fontSize: 20)),
             tooltip: 'Seleccionar fecha',
-            onPressed: _selectDate,
+            onPressed: _showCalendarDialog,
           ),
         ],
       ),
