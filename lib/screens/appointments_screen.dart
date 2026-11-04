@@ -114,44 +114,38 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     }
   }
 
+
 Future<void> _syncAppointments() async {
+  if (_isLoading) return; // Evita doble llamada simultánea que genera 409
   setState(() { _isLoading = true; });
   try {
     print('🔄 Sincronizando citas...');
     final localAppointments = await _appointmentRepo.getAllAppointments();
-    
-    // ✅ FIX: Traer todos los IDs sin límite por defecto (Supabase limita a 1000 por defecto)
-    // Usamos limit alto y normalizamos a lowercase/trim para comparación segura
-    final cloudResponse = await Supabase.instance.client.from('appointments').select('id').limit(10000);
-    final cloudIds = List<Map<String, dynamic>>.from(cloudResponse)
-        .map((c) => c['id'].toString().trim().toLowerCase())
-        .toSet();
-    
-    print('📊 Citas en la nube: ${cloudIds.length}');
-    print('📊 Citas locales: ${localAppointments.length}');
 
+    // --- PASO 1: SUBIDA A PRUEBA DE 409 ---
+    // Ya no confiamos solo en el select previo. Usamos UPSERT que nunca da 409.
+    // Si el ID ya existe, lo actualiza en vez de fallar.
     int uploaded = 0;
     int skipped = 0;
-    for (final localApt in localAppointments) {
-      if (localApt.remoteId == null || localApt.remoteId!.trim().isEmpty) {
-        print('⏭️ Saltando cita local sin remoteId: ${localApt.clientName}');
-        continue;
-      }
-      
-      final normalizedRemoteId = localApt.remoteId!.trim().toLowerCase();
 
-      // ✅ FIX 1: Comparación normalizada
-      if (cloudIds.contains(normalizedRemoteId)) {
-        print('⏭️ Saltando ${localApt.clientName} (ya existe en la nube)');
-        skipped++;
-        continue;
-      }
-      
+    // Deduplicar locales por remoteId antes de subir (evita intentar subir 2 veces el mismo ID local)
+    final Map<String, LocalAppointment> uniqueById = {};
+    for (var apt in localAppointments) {
+      if (apt.remoteId == null) continue;
+      final key = apt.remoteId!.trim();
+      if (key.isEmpty) continue;
+      // Si hay duplicado local, nos quedamos con el último
+      uniqueById[key.toLowerCase()] = apt;
+    }
+
+    for (final entry in uniqueById.entries) {
+      final localApt = entry.value;
+      final id = localApt.remoteId!.trim();
+
       try {
-        // ✅ FIX 2: USAR UPSERT en vez de INSERT para evitar 409
-        // Si por race condition el ID ya existe entre el select y el insert, hará update en vez de fallar
+        // UPSERT ES LA CLAVE: nunca lanza duplicate key
         await Supabase.instance.client.from('appointments').upsert({
-          'id': localApt.remoteId!.trim(), // guardamos el original, no el lower
+          'id': id,
           'client_id': localApt.clientId ?? '',
           'client_name': localApt.clientName ?? '',
           'client_phone': localApt.clientPhone ?? '',
@@ -164,78 +158,73 @@ Future<void> _syncAppointments() async {
           'status': localApt.status,
           'notes': localApt.notes,
         }, onConflict: 'id');
+
         uploaded++;
-        // Agregamos a la lista local para no reintentarlo en este mismo ciclo
-        cloudIds.add(normalizedRemoteId);
-        print('✅ Subida: ${localApt.clientName}');
+        print('✅ Upsert: ${localApt.clientName} - $id');
       } catch (e) {
-        // ✅ FIX 3: Si aún da 409 (código 23505), lo tratamos como skip, no como error fatal
-        final errorStr = e.toString().toLowerCase();
-        if (errorStr.contains('409') || errorStr.contains('23505') || errorStr.contains('duplicate')) {
-          print('⏭️ Ya existía (409 ignorado): ${localApt.clientName} - ${localApt.remoteId}');
+        // Última barrera: si aún así llega un 409 (por RLS o trigger), lo ignoramos
+        final msg = e.toString().toLowerCase();
+        if (msg.contains('409') || msg.contains('23505') || msg.contains('duplicate') || msg.contains('already exists')) {
           skipped++;
+          print('⏭️ Ignorado (ya existe): $id');
         } else {
-          print('⚠️ Error al subir ${localApt.clientName}: $e');
+          print('⚠️ Error al subir ${localApt.clientName} ($id): $e');
         }
       }
     }
 
+    // --- PASO 2: BAJADA ---
     int downloaded = 0;
-    // Trae todo de la nube para bajar lo que falta local
-    final allCloudAppointments = await Supabase.instance.client.from('appointments').select('*').limit(10000);
-    for (final cloudApt in List<Map<String, dynamic>>.from(allCloudAppointments)) {
-      final remoteId = cloudApt['id'].toString().trim();
-      final normalizedId = remoteId.toLowerCase();
-      // Evitar buscar si ya lo subimos en este ciclo
-      if (cloudIds.contains(normalizedId)) {
-         // Ya existe en nube, ahora chequear si existe local
-         // Si no existe local, lo creamos
-      }
-      final existsLocally = await _appointmentRepo.findByRemoteId(remoteId);
-      // También buscar por versión lower por si tu repo guardó lower
-      final existsLocallyLower = existsLocally ?? await _appointmentRepo.findByRemoteId(normalizedId);
-      
-      if (existsLocallyLower == null) {
-        try {
-          final newApt = LocalAppointment()
-            ..remoteId = remoteId
-            ..clientName = cloudApt['client_name']
-            ..clientPhone = cloudApt['client_phone']
-            ..clientId = cloudApt['client_id']
-            ..barberId = cloudApt['barber_id']
-            ..barberName = cloudApt['barber_name']
-            ..serviceId = cloudApt['service_id']
-            ..serviceName = cloudApt['service_name']
-            ..servicePrice = (cloudApt['service_price'] as num?)?.toDouble() ?? 0.0
-            ..appointmentDate = DateTime.parse(cloudApt['appointment_date']).toLocal()
-            ..status = cloudApt['status'] ?? 'pending'
-            ..notes = cloudApt['notes']
-            ..lastSync = DateTime.now();
-          await _appointmentRepo.createAppointment(newApt);
-          downloaded++;
-        } catch (e) {
-          print('❌ Error al descargar: $e');
+    try {
+      final allCloud = await Supabase.instance.client.from('appointments').select('*').limit(10000);
+      for (final cloudApt in List<Map<String, dynamic>>.from(allCloud)) {
+        final remoteId = cloudApt['id'].toString().trim();
+        if (remoteId.isEmpty) continue;
+        final exists = await _appointmentRepo.findByRemoteId(remoteId);
+        if (exists == null) {
+          try {
+            final newApt = LocalAppointment()
+              ..remoteId = remoteId
+              ..clientId = cloudApt['client_id']?.toString()
+              ..clientName = cloudApt['client_name']
+              ..clientPhone = cloudApt['client_phone']
+              ..barberId = cloudApt['barber_id']?.toString()
+              ..barberName = cloudApt['barber_name']
+              ..serviceId = cloudApt['service_id']?.toString()
+              ..serviceName = cloudApt['service_name']
+              ..servicePrice = (cloudApt['service_price'] as num?)?.toDouble() ?? 0.0
+              ..appointmentDate = DateTime.parse(cloudApt['appointment_date'].toString()).toLocal()
+              ..status = cloudApt['status'] ?? 'pending'
+              ..notes = cloudApt['notes']
+              ..lastSync = DateTime.now();
+            await _appointmentRepo.createAppointment(newApt);
+            downloaded++;
+          } catch (e) {
+            print('❌ Error al descargar $remoteId: $e');
+          }
         }
       }
+    } catch (e) {
+      print('⚠️ Error en bajada: $e');
     }
 
     await _loadData();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('✅ Sincronizado: $uploaded subidas, $downloaded descargadas, $skipped ya existían'), backgroundColor: Colors.green),
+        SnackBar(
+          content: Text('✅ Sync: $uploaded actualizadas, $downloaded nuevas, $skipped ignoradas'),
+          backgroundColor: Colors.green,
+        ),
       );
     }
-  } catch (e) {
-    print('❌ Error al sincronizar: $e');
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al sincronizar: $e'), backgroundColor: Colors.red),
-      );
-    }
+  } catch (e, stack) {
+    print('❌ Error fatal sync: $e');
+    print(stack);
   } finally {
-    setState(() { _isLoading = false; });
+    if (mounted) setState(() { _isLoading = false; });
   }
 }
+
 
   Future<void> _updateAppointmentStatus(LocalAppointment appointment, String newStatus) async {
     try {
