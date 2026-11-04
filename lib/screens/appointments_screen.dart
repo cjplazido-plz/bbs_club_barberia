@@ -174,27 +174,36 @@ Future<void> _syncAppointments() async {
     }
   }
 
-  // ✅ NUEVO: días del mes que tienen citas (para marcarlos en el calendario)
-  Future<Set<DateTime>> _fetchDaysWithAppointments(DateTime month) async {
+  // ✅ NUEVO: días del mes que tienen citas (para marcarlos en el calendario) - CON CONTEO
+  Future<Map<DateTime, int>> _fetchDaysWithCounts(DateTime month) async {
     final start = DateTime(month.year, month.month, 1);
     final end = DateTime(month.year, month.month + 1, 1);
     try {
       final res = await Supabase.instance.client
           .from('appointments')
           .select('appointment_date')
-          .gte('appointment_date', start.toIso8601String())
-          .lt('appointment_date', end.toIso8601String())
-          .neq('status', 'cancelled');
-      final days = <DateTime>{};
+          .gte('appointment_date', start.toUtc().toIso8601String())
+          .lt('appointment_date', end.toUtc().toIso8601String())
+          .neq('status', 'cancelled')
+          .limit(10000);
+      final Map<DateTime, int> counts = {};
       for (final row in List<Map<String, dynamic>>.from(res)) {
-        final d = DateTime.parse(row['appointment_date'].toString());
-        days.add(DateTime(d.year, d.month, d.day));
+        final raw = row['appointment_date'].toString();
+        if (raw.isEmpty) continue;
+        final d = DateTime.parse(raw).toLocal();
+        final key = DateTime(d.year, d.month, d.day);
+        counts[key] = (counts[key] ?? 0) + 1;
       }
-      return days;
+      return counts;
     } catch (e) {
-      print('⚠️ Error al cargar días con citas: $e');
+      print('⚠️ Error al cargar días: $e');
       return {};
     }
+  }
+
+  Future<Set<DateTime>> _fetchDaysWithAppointments(DateTime month) async {
+    final counts = await _fetchDaysWithCounts(month);
+    return counts.keys.toSet();
   }
 
 
