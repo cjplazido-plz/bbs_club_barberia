@@ -9,15 +9,15 @@ class AppointmentRepository {
     return List<Map<String, dynamic>>.from(response).map((data) {
       return LocalAppointment()
         ..remoteId = data['id']
-        ..clientId = data['client_id']?.toString()
+        ..clientId = data['client_id']
         ..clientName = data['client_name']
         ..clientPhone = data['client_phone']
-        ..barberId = data['barber_id']?.toString()
+        ..barberId = data['barber_id']
         ..barberName = data['barber_name']
-        ..serviceId = data['service_id']?.toString()
+        ..serviceId = data['service_id']
         ..serviceName = data['service_name']
         ..servicePrice = (data['service_price'] as num?)?.toDouble() ?? 0.0
-        ..appointmentDate = DateTime.parse(data['appointment_date'].toString())
+        ..appointmentDate = DateTime.parse(data['appointment_date'])
         ..status = data['status'] ?? 'pending'
         ..notes = data['notes'];
     }).toList();
@@ -29,21 +29,21 @@ class AppointmentRepository {
     final response = await _client
         .from('appointments')
         .select()
-        .gte('appointment_date', start.toUtc().toIso8601String())
-        .lt('appointment_date', end.toUtc().toIso8601String())
+        .gte('appointment_date', start.toIso8601String())
+        .lt('appointment_date', end.toIso8601String())
         .limit(10000);
     return List<Map<String, dynamic>>.from(response).map((data) {
       return LocalAppointment()
         ..remoteId = data['id']
-        ..clientId = data['client_id']?.toString()
+        ..clientId = data['client_id']
         ..clientName = data['client_name']
         ..clientPhone = data['client_phone']
-        ..barberId = data['barber_id']?.toString()
+        ..barberId = data['barber_id']
         ..barberName = data['barber_name']
-        ..serviceId = data['service_id']?.toString()
+        ..serviceId = data['service_id']
         ..serviceName = data['service_name']
         ..servicePrice = (data['service_price'] as num?)?.toDouble() ?? 0.0
-        ..appointmentDate = DateTime.parse(data['appointment_date'].toString())
+        ..appointmentDate = DateTime.parse(data['appointment_date'])
         ..status = data['status'] ?? 'pending'
         ..notes = data['notes'];
     }).toList();
@@ -58,19 +58,20 @@ class AppointmentRepository {
     if (response == null) return null;
     return LocalAppointment()
       ..remoteId = response['id']
-      ..clientId = response['client_id']?.toString()
+      ..clientId = response['client_id']
       ..clientName = response['client_name']
       ..clientPhone = response['client_phone']
-      ..barberId = response['barber_id']?.toString()
+      ..barberId = response['barber_id']
       ..barberName = response['barber_name']
-      ..serviceId = response['service_id']?.toString()
+      ..serviceId = response['service_id']
       ..serviceName = response['service_name']
       ..servicePrice = (response['service_price'] as num?)?.toDouble() ?? 0.0
-      ..appointmentDate = DateTime.parse(response['appointment_date'].toString())
+      ..appointmentDate = DateTime.parse(response['appointment_date'])
       ..status = response['status'] ?? 'pending'
       ..notes = response['notes'];
   }
 
+  // ✅ FIX: upsert en vez de insert - nunca da 409
   Future<void> createAppointment(LocalAppointment appointment) async {
     final id = appointment.remoteId ?? 'apt-${DateTime.now().millisecondsSinceEpoch}';
     appointment.remoteId = id;
@@ -88,26 +89,30 @@ class AppointmentRepository {
       'status': appointment.status,
       'notes': appointment.notes,
     }, onConflict: 'id');
+    print('✅ Cita creada/actualizada: ${appointment.clientName}');
   }
 
   Future<void> updateAppointment(LocalAppointment appointment) async {
-    await _client.from('appointments').upsert({
-      'id': appointment.remoteId!,
-      'client_id': appointment.clientId ?? '',
-      'client_name': appointment.clientName ?? '',
-      'client_phone': appointment.clientPhone ?? '',
-      'barber_id': appointment.barberId ?? '',
-      'barber_name': appointment.barberName ?? '',
-      'service_id': appointment.serviceId ?? '',
-      'service_name': appointment.serviceName ?? '',
-      'service_price': appointment.servicePrice,
-      'appointment_date': appointment.appointmentDate.toIso8601String(),
-      'status': appointment.status,
-      'notes': appointment.notes,
-    }, onConflict: 'id');
+    await _client.from('appointments')
+        .upsert({
+          'id': appointment.remoteId!,
+          'client_id': appointment.clientId ?? '',
+          'client_name': appointment.clientName ?? '',
+          'client_phone': appointment.clientPhone ?? '',
+          'barber_id': appointment.barberId ?? '',
+          'barber_name': appointment.barberName ?? '',
+          'service_id': appointment.serviceId ?? '',
+          'service_name': appointment.serviceName ?? '',
+          'service_price': appointment.servicePrice,
+          'appointment_date': appointment.appointmentDate.toIso8601String(),
+          'status': appointment.status,
+          'notes': appointment.notes,
+        }, onConflict: 'id');
+    print('✅ Cita actualizada: ${appointment.clientName}');
   }
 
   Future<void> deleteAppointment(String remoteId) async {
     await _client.from('appointments').delete().eq('id', remoteId);
+    print('✅ Cita eliminada: $remoteId');
   }
 }
