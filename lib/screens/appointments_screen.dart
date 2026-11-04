@@ -22,7 +22,6 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
   final _barberRepo = BarberRepository();
   final _clientRepo = ClientRepository();
   final _serviceRepo = ServiceRepository();
-
   List<LocalAppointment> _appointments = [];
   List<LocalBarber> _barbers = [];
   List<LocalClient> _clients = [];
@@ -42,7 +41,6 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     final barbers = await _barberRepo.getAllBarbers();
     final clients = await _clientRepo.getAllClients();
     final services = await _serviceRepo.getAllServices();
-
     final uniqueBarbers = <String, LocalBarber>{};
     for (final b in barbers) {
       if (b.remoteId != null) uniqueBarbers[b.remoteId!] = b;
@@ -55,7 +53,6 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     for (final s in services) {
       if (s.remoteId != null) uniqueServices[s.remoteId!] = s;
     }
-
     setState(() {
       _appointments = appointments;
       _barbers = uniqueBarbers.values.toList();
@@ -65,9 +62,15 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     });
   }
 
-  Future<void> _sendWhatsAppNotification(LocalAppointment appointment, {bool isCancellation = false}) async {
+  // ✅ WHATSAPP: 3 tipos de mensaje (booking / confirmed / cancelled) con codificación correcta
+  Future<void> _sendWhatsAppNotification(LocalAppointment appointment, {String type = 'confirmed'}) async {
     if (appointment.clientPhone == null || appointment.clientPhone!.isEmpty) {
       print('⚠️ No hay número de teléfono para enviar WhatsApp');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('El cliente no tiene teléfono registrado'), backgroundColor: Colors.orange),
+        );
+      }
       return;
     }
     String phone = appointment.clientPhone!.replaceAll(RegExp(r'[^0-9]'), '');
@@ -77,78 +80,80 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     final dateStr = DateFormat('dd/MM/yyyy').format(appointment.appointmentDate);
     final timeStr = DateFormat('HH:mm').format(appointment.appointmentDate);
 
-    final message = isCancellation
-        ? 'Hola ${appointment.clientName}, tu cita en BBS Club Barbería ha sido *CANCELADA*.%0A%0A'
-          '📅 *Fecha:* $dateStr%0A'
-          '⏰ *Hora:* $timeStr%0A'
-          '✂️ *Servicio:* ${appointment.serviceName}%0A%0A'
-          'Si deseas reagendar, estamos a tu disposición. ¡Gracias!'
-        : 'Hola ${appointment.clientName}, tu cita en BBS Club Barbería ha sido *CONFIRMADA*.%0A%0A'
-          '📅 *Fecha:* $dateStr%0A'
-          '⏰ *Hora:* $timeStr%0A'
-          '✂️ *Servicio:* ${appointment.serviceName}%0A'
-          '💈 *Barbero:* ${appointment.barberName}%0A%0A'
-          '¡Te esperamos! 💈';
+    String message;
+    if (type == 'cancelled') {
+      message = 'Hola ${appointment.clientName}, tu cita en BBS Club Barbería ha sido *CANCELADA*.\n\n'
+          '📅 *Fecha:* $dateStr\n⏰ *Hora:* $timeStr\n✂️ *Servicio:* ${appointment.serviceName}\n\n'
+          'Si deseas reagendar, estamos a tu disposición. ¡Gracias!';
+    } else if (type == 'booking') {
+      message = 'Hola ${appointment.clientName}, tu cita en BBS Club Barbería ha sido *REGISTRADA*.\n\n'
+          '📅 *Fecha:* $dateStr\n⏰ *Hora:* $timeStr\n✂️ *Servicios:* ${appointment.serviceName}\n'
+          '💈 *Barbero:* ${appointment.barberName}\n\n'
+          'Te contactaremos pronto para confirmar. ¡Gracias! 💈';
+    } else {
+      message = 'Hola ${appointment.clientName}, tu cita en BBS Club Barbería ha sido *CONFIRMADA*.\n\n'
+          '📅 *Fecha:* $dateStr\n⏰ *Hora:* $timeStr\n✂️ *Servicios:* ${appointment.serviceName}\n'
+          '💈 *Barbero:* ${appointment.barberName}\n\n¡Te esperamos! 💈';
+    }
 
-    final url = 'https://api.whatsapp.com/send/?phone=$phone&text=$message';
+    final url = 'https://wa.me/$phone?text=${Uri.encodeComponent(message)}';
     final uri = Uri.parse(url);
     try {
       if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, webOnlyWindowName: '_blank');
-        print('✅ WhatsApp abierto para ${isCancellation ? 'cancelación' : 'confirmación'} a $phone');
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+        print('✅ WhatsApp abierto ($type) a $phone');
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No se pudo abrir WhatsApp'), backgroundColor: Colors.orange),
+          );
+        }
       }
     } catch (e) {
       print('❌ Error al abrir WhatsApp: $e');
     }
   }
 
-  // ✅ CORREGIDO: Sincronización sin errores de duplicate key
   Future<void> _syncAppointments() async {
     setState(() { _isLoading = true; });
     try {
       print('🔄 Sincronizando citas...');
       final localAppointments = await _appointmentRepo.getAllAppointments();
-      final cloudResponse = await Supabase.instance.client.from('appointments').select('id');
-      final cloudIds = List<Map<String, dynamic>>.from(cloudResponse).map((c) => c['id'].toString()).toSet();
-
-      print('📊 Citas en la nube: ${cloudIds.length}');
-      print('📊 Citas locales: ${localAppointments.length}');
-
+      final cloudResponse = await Supabase.instance.client.from('appointments').select('*');
+      final cloudAppointments = List<Map<String, dynamic>>.from(cloudResponse);
       int uploaded = 0;
       for (final localApt in localAppointments) {
-        if (localApt.remoteId == null) continue;
-        
-        // ✅ Verificar por ID exacto
-        if (cloudIds.contains(localApt.remoteId)) {
-          print('⏭️ Saltando ${localApt.clientName} (ya existe en la nube)');
-          continue;
-        }
-        
-        try {
-          await Supabase.instance.client.from('appointments').insert({
-            'id': localApt.remoteId,
-            'client_id': localApt.clientId ?? '',
-            'client_name': localApt.clientName ?? '',
-            'client_phone': localApt.clientPhone ?? '',
-            'barber_id': localApt.barberId ?? '',
-            'barber_name': localApt.barberName ?? '',
-            'service_id': localApt.serviceId ?? '',
-            'service_name': localApt.serviceName ?? '',
-            'service_price': localApt.servicePrice,
-            'appointment_date': localApt.appointmentDate.toUtc().toIso8601String(),
-            'status': localApt.status,
-            'notes': localApt.notes,
-          });
-          uploaded++;
-          print('✅ Subida: ${localApt.clientName}');
-        } catch (e) {
-          print('⚠️ Error al subir ${localApt.clientName}: $e');
+        final localDateStr = localApt.appointmentDate.toIso8601String();
+        final existsInCloud = cloudAppointments.any((cloud) {
+          final cloudDate = cloud['appointment_date']?.toString() ?? '';
+          final cloudDateNormalized = cloudDate.replaceAll('+00:00', '').replaceAll('Z', '');
+          final localDateNormalized = localDateStr.replaceAll('+00:00', '').replaceAll('Z', '');
+          return cloud['client_name'] == localApt.clientName && cloudDateNormalized == localDateNormalized;
+        });
+        if (!existsInCloud && localApt.remoteId != null) {
+          try {
+            await Supabase.instance.client.from('appointments').insert({
+              'id': localApt.remoteId,
+              'client_id': localApt.clientId ?? '',
+              'client_name': localApt.clientName ?? '',
+              'client_phone': localApt.clientPhone ?? '',
+              'barber_id': localApt.barberId ?? '',
+              'barber_name': localApt.barberName ?? '',
+              'service_id': localApt.serviceId ?? '',
+              'service_name': localApt.serviceName ?? '',
+              'service_price': localApt.servicePrice,
+              'appointment_date': localApt.appointmentDate.toIso8601String(),
+              'status': localApt.status,
+              'notes': localApt.notes,
+            });
+            uploaded++;
+          } catch (e) {
+            print('⚠️ Error al subir ${localApt.clientName}: $e');
+          }
         }
       }
-
       int downloaded = 0;
-      final allCloudAppointments = await Supabase.instance.client.from('appointments').select('*');
-      for (final cloudApt in List<Map<String, dynamic>>.from(allCloudAppointments)) {
+      for (final cloudApt in cloudAppointments) {
         final remoteId = cloudApt['id'].toString();
         final existsLocally = await _appointmentRepo.findByRemoteId(remoteId);
         if (existsLocally == null) {
@@ -171,11 +176,10 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
           }
         }
       }
-
       await _loadData();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('✅ Sincronizado: $uploaded subidas, $downloaded descargadas'), backgroundColor: Colors.green),
+          SnackBar(content: Text('Sincronizado: $uploaded subidas, $downloaded descargadas'), backgroundColor: Colors.green),
         );
       }
     } catch (e) {
@@ -190,13 +194,11 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
       appointment.status = newStatus;
       await _appointmentRepo.updateAppointment(appointment);
       await Supabase.instance.client.from('appointments').update({'status': newStatus}).eq('id', appointment.remoteId!);
-
       if (newStatus == 'confirmed') {
-        await _sendWhatsAppNotification(appointment, isCancellation: false);
+        await _sendWhatsAppNotification(appointment, type: 'confirmed');
       } else if (newStatus == 'cancelled') {
-        await _sendWhatsAppNotification(appointment, isCancellation: true);
+        await _sendWhatsAppNotification(appointment, type: 'cancelled');
       }
-
       await _loadData();
       final statusMessages = {
         'confirmed': '✅ Cita confirmada',
@@ -219,7 +221,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Confirmar cancelación'),
-        content: Text('¿Cancelar la cita de ${appointment.clientName}?'),
+        content: Text('¿Cancelar la cita de ${appointment.clientName}? Se enviará un mensaje de WhatsApp.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('No')),
           ElevatedButton(onPressed: () => Navigator.pop(context, true), style: ElevatedButton.styleFrom(backgroundColor: Colors.red), child: const Text('Sí, cancelar')),
@@ -231,31 +233,22 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     }
   }
 
-  // ✅ OBTENER DÍAS CON CITAS (para marcadores en calendario)
+  // ✅ NUEVO: días del mes que tienen citas (para marcarlos en el calendario)
   Future<Set<DateTime>> _fetchDaysWithAppointments(DateTime month) async {
-    final start = DateTime.utc(month.year, month.month, 1);
-    final end = DateTime.utc(month.year, month.month + 1, 1);
-    
-    print('🔍 Buscando citas desde ${start.toIso8601String()} hasta ${end.toIso8601String()}');
-    
+    final start = DateTime(month.year, month.month, 1);
+    final end = DateTime(month.year, month.month + 1, 1);
     try {
       final res = await Supabase.instance.client
           .from('appointments')
-          .select('appointment_date, status')
+          .select('appointment_date')
           .gte('appointment_date', start.toIso8601String())
-          .lt('appointment_date', end.toIso8601String());
-      
-      print('📊 Total citas encontradas: ${res.length}');
-      
+          .lt('appointment_date', end.toIso8601String())
+          .neq('status', 'cancelled');
       final days = <DateTime>{};
       for (final row in List<Map<String, dynamic>>.from(res)) {
-        final dateStr = row['appointment_date'].toString();
-        final d = DateTime.parse(dateStr).toLocal();
-        print('  - Cita: ${d.day}/${d.month}/${d.year} | Status: ${row['status']}');
+        final d = DateTime.parse(row['appointment_date'].toString());
         days.add(DateTime(d.year, d.month, d.day));
       }
-      
-      print('✅ Días únicos con citas: ${days.length}');
       return days;
     } catch (e) {
       print('⚠️ Error al cargar días con citas: $e');
@@ -263,15 +256,11 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     }
   }
 
-  // ✅ CALENDARIO PERSONALIZADO CON MARCADORES (REEMPLAZA _selectDate)
+  // ✅ NUEVO: calendario personalizado que DESTACA los días con citas
   Future<void> _showCalendarDialog() async {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     DateTime viewMonth = DateTime(_selectedDate.year, _selectedDate.month);
-    
-    print('📅 Mostrando calendario para ${viewMonth.month}/${viewMonth.year}');
-    
     Set<DateTime> days = await _fetchDaysWithAppointments(viewMonth);
-    
     if (!mounted) return;
 
     await showDialog(
@@ -286,7 +275,6 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
 
           Future<void> changeMonth(int delta) async {
             final newMonth = DateTime(viewMonth.year, viewMonth.month + delta);
-            print('🔄 Cambiando a ${newMonth.month}/${newMonth.year}');
             final newDays = await _fetchDaysWithAppointments(newMonth);
             setDialogState(() {
               viewMonth = newMonth;
@@ -298,10 +286,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
             backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
             title: Row(
               children: [
-                IconButton(
-                  icon: const Icon(Icons.chevron_left, color: Color(0xFF6366F1)),
-                  onPressed: () => changeMonth(-1),
-                ),
+                IconButton(icon: const Icon(Icons.chevron_left, color: Color(0xFF6366F1)), onPressed: () => changeMonth(-1)),
                 Expanded(
                   child: Text(
                     DateFormat('MMMM yyyy', 'es').format(viewMonth),
@@ -309,10 +294,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                     style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87),
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.chevron_right, color: Color(0xFF6366F1)),
-                  onPressed: () => changeMonth(1),
-                ),
+                IconButton(icon: const Icon(Icons.chevron_right, color: Color(0xFF6366F1)), onPressed: () => changeMonth(1)),
               ],
             ),
             content: SizedBox(
@@ -322,13 +304,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                 children: [
                   Row(
                     children: ['L', 'M', 'X', 'J', 'V', 'S', 'D']
-                        .map((d) => Expanded(
-                            child: Center(
-                              child: Text(
-                                d,
-                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? Colors.grey[400] : Colors.grey[600]),
-                              ),
-                            )))
+                        .map((d) => Expanded(child: Center(child: Text(d, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? Colors.grey[400] : Colors.grey[600])))))
                         .toList(),
                   ),
                   const SizedBox(height: 4),
@@ -344,7 +320,6 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                       final hasAppt = days.contains(date);
                       final isSelected = date == selected;
                       final isToday = date == today;
-
                       return InkWell(
                         onTap: () {
                           Navigator.pop(context);
@@ -354,9 +329,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                         child: Container(
                           margin: const EdgeInsets.all(3),
                           decoration: BoxDecoration(
-                            color: isSelected
-                                ? const Color(0xFF6366F1)
-                                : (isToday ? const Color(0xFF6366F1).withOpacity(0.15) : Colors.transparent),
+                            color: isSelected ? const Color(0xFF6366F1) : (isToday ? const Color(0xFF6366F1).withOpacity(0.15) : Colors.transparent),
                             shape: BoxShape.circle,
                           ),
                           child: Column(
@@ -391,10 +364,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                     children: [
                       Container(width: 8, height: 8, decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.orange)),
                       const SizedBox(width: 6),
-                      Text(
-                        'Días con citas agendadas',
-                        style: TextStyle(fontSize: 11, color: isDark ? Colors.grey[400] : Colors.grey[600]),
-                      ),
+                      Text('Días con citas agendadas', style: TextStyle(fontSize: 11, color: isDark ? Colors.grey[400] : Colors.grey[600])),
                     ],
                   ),
                 ],
@@ -406,13 +376,23 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     );
   }
 
+  // ✅ DIÁLOGO CON SELECCIÓN MÚLTIPLE DE SERVICIOS
   void _showAppointmentDialog({LocalAppointment? appointment}) {
     String? selectedBarberId = appointment?.barberId;
     String? selectedClientId = appointment?.clientId;
-    String? selectedServiceId = appointment?.serviceId;
+    final Set<String> selectedServiceIds = {};
+    if (appointment?.serviceId != null) selectedServiceIds.add(appointment!.serviceId!);
     DateTime selectedDateTime = appointment?.appointmentDate ?? DateTime.now();
     String selectedStatus = appointment?.status ?? 'pending';
     final notesController = TextEditingController(text: appointment?.notes ?? '');
+
+    double selectedTotal() {
+      double t = 0;
+      for (final s in _services) {
+        if (selectedServiceIds.contains(s.remoteId)) t += s.price;
+      }
+      return t;
+    }
 
     showDialog(
       context: context,
@@ -436,32 +416,59 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                   items: _barbers.map((barber) => DropdownMenuItem(value: barber.remoteId, child: Text(barber.name))).toList(),
                   onChanged: (value) => setDialogState(() => selectedBarberId = value),
                 ),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  value: selectedServiceId,
-                  decoration: const InputDecoration(labelText: 'Servicio *'),
-                  items: _services.map((service) => DropdownMenuItem(value: service.remoteId, child: Text('${service.name} - ${SettingsService.formatCurrency(service.price)}'))).toList(),
-                  onChanged: (value) => setDialogState(() => selectedServiceId = value),
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text('Servicios * (puedes marcar varios)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey[600])),
                 ),
+                const SizedBox(height: 4),
+                Container(
+                  constraints: const BoxConstraints(maxHeight: 180),
+                  decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade400), borderRadius: BorderRadius.circular(8)),
+                  child: _services.isEmpty
+                      ? const Padding(padding: EdgeInsets.all(12), child: Text('No hay servicios cargados', style: TextStyle(fontSize: 12)))
+                      : ListView(
+                          shrinkWrap: true,
+                          children: _services.map((service) {
+                            final checked = selectedServiceIds.contains(service.remoteId);
+                            return CheckboxListTile(
+                              dense: true,
+                              value: checked,
+                              activeColor: const Color(0xFF6366F1),
+                              title: Text(service.name, style: const TextStyle(fontSize: 14)),
+                              subtitle: Text(SettingsService.formatCurrency(service.price), style: const TextStyle(fontSize: 12)),
+                              onChanged: (v) => setDialogState(() {
+                                if (v == true) {
+                                  selectedServiceIds.add(service.remoteId!);
+                                } else {
+                                  selectedServiceIds.remove(service.remoteId);
+                                }
+                              }),
+                            );
+                          }).toList(),
+                        ),
+                ),
+                if (selectedServiceIds.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('${selectedServiceIds.length} servicio(s) marcado(s)', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                        Text('Total: ${SettingsService.formatCurrency(selectedTotal())}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF6366F1))),
+                      ],
+                    ),
+                  ),
                 const SizedBox(height: 8),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Fecha y hora'),
                   subtitle: Text('${selectedDateTime.toLocal()}'.split('.')[0]),
-                  trailing: const Text('📅', style: TextStyle(fontSize: 20)),
+                  trailing: const Icon(Icons.calendar_month, size: 20),
                   onTap: () async {
-                    final date = await showDatePicker(
-                      context: context,
-                      initialDate: selectedDateTime,
-                      firstDate: DateTime.now(),
-                      lastDate: DateTime.now().add(const Duration(days: 30)),
-                      locale: const Locale('es'),
-                    );
+                    final date = await showDatePicker(context: context, initialDate: selectedDateTime, firstDate: DateTime.now(), lastDate: DateTime.now().add(const Duration(days: 30)));
                     if (date != null) {
-                      final time = await showTimePicker(
-                        context: context,
-                        initialTime: TimeOfDay.fromDateTime(selectedDateTime),
-                      );
+                      final time = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(selectedDateTime));
                       if (time != null) {
                         setDialogState(() {
                           selectedDateTime = DateTime(date.year, date.month, date.day, time.hour, time.minute);
@@ -494,13 +501,16 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
             TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
             ElevatedButton(
               onPressed: () async {
-                if (selectedClientId == null || selectedBarberId == null || selectedServiceId == null) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cliente, barbero y servicio son obligatorios')));
+                if (selectedClientId == null || selectedBarberId == null || selectedServiceIds.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cliente, barbero y al menos un servicio son obligatorios')));
                   return;
                 }
                 final client = _clients.firstWhere((c) => c.remoteId == selectedClientId);
                 final barber = _barbers.firstWhere((b) => b.remoteId == selectedBarberId);
-                final service = _services.firstWhere((s) => s.remoteId == selectedServiceId);
+                final selectedServices = _services.where((s) => selectedServiceIds.contains(s.remoteId)).toList();
+                final serviceNames = selectedServices.map((s) => s.name).join(', ');
+                final totalPrice = selectedServices.fold(0.0, (sum, s) => sum + s.price);
+
                 if (appointment == null) {
                   final newAppointment = LocalAppointment()
                     ..remoteId = 'apt-${DateTime.now().millisecondsSinceEpoch}'
@@ -509,41 +519,36 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                     ..clientPhone = client.phone
                     ..barberId = barber.remoteId
                     ..barberName = barber.name
-                    ..serviceId = service.remoteId
-                    ..serviceName = service.name
-                    ..servicePrice = service.price
+                    ..serviceId = selectedServices.first.remoteId
+                    ..serviceName = serviceNames
+                    ..servicePrice = totalPrice
                     ..appointmentDate = selectedDateTime
                     ..status = selectedStatus
                     ..notes = notesController.text.isEmpty ? null : notesController.text;
                   await _appointmentRepo.createAppointment(newAppointment);
-                  if (selectedStatus == 'confirmed') {
-                    await _sendWhatsAppNotification(newAppointment);
-                  }
+                  await _sendWhatsAppNotification(newAppointment, type: 'booking');
                 } else {
                   appointment.clientId = client.remoteId;
                   appointment.clientName = client.name;
                   appointment.clientPhone = client.phone;
                   appointment.barberId = barber.remoteId;
                   appointment.barberName = barber.name;
-                  appointment.serviceId = service.remoteId;
-                  appointment.serviceName = service.name;
-                  appointment.servicePrice = service.price;
+                  appointment.serviceId = selectedServices.first.remoteId;
+                  appointment.serviceName = serviceNames;
+                  appointment.servicePrice = totalPrice;
                   appointment.appointmentDate = selectedDateTime;
                   appointment.status = selectedStatus;
                   appointment.notes = notesController.text.isEmpty ? null : notesController.text;
                   await _appointmentRepo.updateAppointment(appointment);
                   if (selectedStatus == 'confirmed') {
-                    await _sendWhatsAppNotification(appointment);
+                    await _sendWhatsAppNotification(appointment, type: 'confirmed');
                   }
                 }
                 Navigator.pop(context);
                 _loadData();
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(appointment == null ? '✅ Cita creada' : '✅ Cita actualizada'),
-                      backgroundColor: Colors.green,
-                    ),
+                    SnackBar(content: Text(appointment == null ? '✅ Cita creada con ${selectedServiceIds.length} servicio(s)' : '✅ Cita actualizada'), backgroundColor: Colors.green),
                   );
                 }
               },
@@ -579,40 +584,32 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Text('←', style: TextStyle(fontSize: 24, color: Colors.white)),
-          onPressed: () => Navigator.pop(context),
-        ),
         title: const Text('Agenda de Citas'),
-        backgroundColor: Colors.indigo[700],
+        backgroundColor: const Color(0xFF1E293B),
         foregroundColor: Colors.white,
         actions: [
-          IconButton(
-            icon: const Text('🔄', style: TextStyle(fontSize: 20)),
-            tooltip: 'Sincronizar con la nube',
-            onPressed: _syncAppointments,
-          ),
-          IconButton(
-            icon: const Text('📅', style: TextStyle(fontSize: 20)),
-            tooltip: 'Seleccionar fecha',
-            onPressed: _showCalendarDialog,  // ✅ CAMBIADO: ahora usa el calendario personalizado
-          ),
+          IconButton(icon: const Icon(Icons.sync), tooltip: 'Sincronizar con la nube', onPressed: _syncAppointments),
+          IconButton(icon: const Icon(Icons.calendar_month), tooltip: 'Seleccionar fecha', onPressed: _showCalendarDialog),
         ],
       ),
       body: Column(
         children: [
           Container(
             padding: const EdgeInsets.all(16),
-            color: Colors.indigo[50],
+            color: isDark ? const Color(0xFF1E293B) : Colors.indigo[50],
             child: Row(
               children: [
-                const Text('📆', style: TextStyle(fontSize: 20)),
+                Icon(Icons.today, size: 20, color: isDark ? const Color(0xFF818CF8) : Colors.indigo[700]),
                 const SizedBox(width: 8),
-                Text('${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.indigo)),
+                Text(
+                  '${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.indigo[700]),
+                ),
                 const Spacer(),
-                Text('${_appointments.length} citas', style: TextStyle(color: Colors.grey[600])),
+                Text('${_appointments.length} citas', style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600])),
               ],
             ),
           ),
@@ -624,9 +621,9 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Text('📅', style: TextStyle(fontSize: 64)),
+                            Icon(Icons.event_busy, size: 64, color: isDark ? Colors.grey[600] : Colors.grey[400]),
                             const SizedBox(height: 16),
-                            Text('No hay citas para este día', style: TextStyle(color: Colors.grey[400], fontSize: 16)),
+                            Text('No hay citas para este día', style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[400], fontSize: 16)),
                           ],
                         ),
                       )
@@ -638,6 +635,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                           return Card(
                             elevation: 2,
                             margin: const EdgeInsets.only(bottom: 12),
+                            color: isDark ? const Color(0xFF1E293B) : Colors.white,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             child: Padding(
                               padding: const EdgeInsets.all(16),
@@ -649,20 +647,25 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                                       Container(
                                         padding: const EdgeInsets.all(12),
                                         decoration: BoxDecoration(color: _getStatusColor(appointment.status).withOpacity(0.2), shape: BoxShape.circle),
-                                        child: Text('📅', style: TextStyle(fontSize: 24, color: _getStatusColor(appointment.status))),
+                                        child: Icon(Icons.event, size: 24, color: _getStatusColor(appointment.status)),
                                       ),
                                       const SizedBox(width: 12),
                                       Expanded(
                                         child: Column(
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
-                                            Text(appointment.clientName ?? 'Sin cliente', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                            Text(appointment.clientName ?? 'Sin cliente', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? Colors.white : Colors.black87)),
                                             const SizedBox(height: 4),
-                                            Text('✂️ ${appointment.serviceName ?? 'Sin servicio'} - ${appointment.barberName ?? 'Sin barbero'}'),
+                                            Text(
+                                              '${appointment.serviceName ?? 'Sin servicio'} · ${appointment.barberName ?? 'Sin barbero'}',
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(fontSize: 13, color: isDark ? Colors.grey[300] : Colors.black87),
+                                            ),
                                             const SizedBox(height: 4),
                                             Row(
                                               children: [
-                                                const Text('⏰', style: TextStyle(fontSize: 16)),
+                                                Icon(Icons.schedule, size: 16, color: Colors.grey[600]),
                                                 const SizedBox(width: 4),
                                                 Text('${appointment.appointmentDate.hour.toString().padLeft(2, '0')}:${appointment.appointmentDate.minute.toString().padLeft(2, '0')}', style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.w600)),
                                                 const SizedBox(width: 16),
@@ -675,7 +678,13 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                                             ),
                                             if (appointment.notes != null) ...[
                                               const SizedBox(height: 4),
-                                              Text('📝 ${appointment.notes}', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                                              Row(
+                                                children: [
+                                                  Icon(Icons.notes, size: 14, color: Colors.grey[600]),
+                                                  const SizedBox(width: 4),
+                                                  Expanded(child: Text(appointment.notes!, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.grey[600], fontSize: 12))),
+                                                ],
+                                              ),
                                             ],
                                           ],
                                         ),
@@ -687,17 +696,15 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                                     spacing: 8,
                                     runSpacing: 8,
                                     children: [
-                                      if (appointment.status == 'pending') ...[
-                                        _ActionButton(icon: '✅', label: 'Confirmar', color: Colors.blue, onPressed: () => _updateAppointmentStatus(appointment, 'confirmed')),
-                                      ],
-                                      if (appointment.status == 'confirmed' || appointment.status == 'pending') ...[
-                                        _ActionButton(icon: '🟡', label: 'En proceso', color: Colors.purple, onPressed: () => _updateAppointmentStatus(appointment, 'in_progress')),
-                                      ],
+                                      if (appointment.status == 'pending')
+                                        _ActionButton(icon: Icons.check_circle, label: 'Confirmar', color: Colors.blue, onPressed: () => _updateAppointmentStatus(appointment, 'confirmed')),
+                                      if (appointment.status == 'confirmed' || appointment.status == 'pending')
+                                        _ActionButton(icon: Icons.play_circle, label: 'En proceso', color: Colors.purple, onPressed: () => _updateAppointmentStatus(appointment, 'in_progress')),
                                       if (appointment.status != 'completed' && appointment.status != 'cancelled') ...[
-                                        _ActionButton(icon: '✔️', label: 'Completar', color: Colors.green, onPressed: () => _updateAppointmentStatus(appointment, 'completed')),
-                                        _ActionButton(icon: '❌', label: 'Cancelar', color: Colors.red, onPressed: () => _deleteAppointment(appointment)),
+                                        _ActionButton(icon: Icons.task_alt, label: 'Completar', color: Colors.green, onPressed: () => _updateAppointmentStatus(appointment, 'completed')),
+                                        _ActionButton(icon: Icons.cancel, label: 'Cancelar', color: Colors.red, onPressed: () => _deleteAppointment(appointment)),
                                       ],
-                                      _ActionButton(icon: '✏️', label: 'Editar', color: Colors.grey, onPressed: () => _showAppointmentDialog(appointment: appointment)),
+                                      _ActionButton(icon: Icons.edit, label: 'Editar', color: Colors.grey, onPressed: () => _showAppointmentDialog(appointment: appointment)),
                                     ],
                                   ),
                                 ],
@@ -711,15 +718,15 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAppointmentDialog(),
-        backgroundColor: Colors.indigo[700],
-        child: const Text('➕', style: TextStyle(fontSize: 24)),
+        backgroundColor: const Color(0xFF6366F1),
+        child: const Icon(Icons.add),
       ),
     );
   }
 }
 
 class _ActionButton extends StatelessWidget {
-  final String icon;
+  final IconData icon;
   final String label;
   final Color color;
   final VoidCallback onPressed;
@@ -728,7 +735,7 @@ class _ActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return OutlinedButton.icon(
       onPressed: onPressed,
-      icon: Text(icon, style: TextStyle(fontSize: 18)),
+      icon: Icon(icon, size: 18),
       label: Text(label, style: TextStyle(color: color, fontSize: 12)),
       style: OutlinedButton.styleFrom(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
