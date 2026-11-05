@@ -29,9 +29,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _loadSettings() async {
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() { _isLoading = true; });
     await SettingsService.loadSettings();
     setState(() {
       _shopNameController.text = SettingsService.shopName;
@@ -51,19 +49,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _saveSettings() async {
     if (!_formKey.currentState!.validate()) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('❌ Por favor completa todos los campos obligatorios'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('❌ Completa campos obligatorios'), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating));
       return;
     }
-    setState(() {
-      _isSaving = true;
-    });
+    setState(() { _isSaving = true; });
     try {
-      print('🔄 Guardando configuración...');
       final success = await SettingsService.updateMultiple({
         'shop_name': _shopNameController.text.trim(),
         'shop_rif': _shopRifController.text.trim(),
@@ -78,483 +68,141 @@ class _SettingsScreenState extends State<SettingsScreen> {
         'ticket_footer': _ticketFooterController.text.trim(),
       });
       if (mounted) {
-        if (success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('✅ Configuración guardada correctamente'),
-              backgroundColor: Colors.green,
-              duration: Duration(seconds: 3),
-            ),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('⚠️ Algunos valores no se pudieron guardar'),
-              backgroundColor: Colors.orange,
-              duration: Duration(seconds: 3),
-            ),
-          );
-        }
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(success ? '✅ Guardado correctamente' : '⚠️ Algunos valores no se guardaron'), backgroundColor: success ? Colors.green : Colors.orange, behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))));
       }
     } catch (e) {
-      print('❌ Error al guardar: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('❌ Error: $e'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 5),
-          ),
-        );
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ $e'), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating));
     } finally {
-      if (mounted) {
-        setState(() {
-          _isSaving = false;
-        });
-      }
+      if (mounted) setState(() { _isSaving = false; });
     }
   }
 
   @override
   void dispose() {
-    _shopNameController.dispose();
-    _shopRifController.dispose();
-    _shopAddressController.dispose();
-    _shopPhoneController.dispose();
-    _shopEmailController.dispose();
-    _shopLogoUrlController.dispose();
-    _ticketLogoUrlController.dispose();
-    _currencySymbolController.dispose();
-    _currencyCodeController.dispose();
-    _ticketHeaderController.dispose();
-    _ticketFooterController.dispose();
+    _shopNameController.dispose(); _shopRifController.dispose(); _shopAddressController.dispose(); _shopPhoneController.dispose(); _shopEmailController.dispose(); _shopLogoUrlController.dispose(); _ticketLogoUrlController.dispose(); _currencySymbolController.dispose(); _currencyCodeController.dispose(); _ticketHeaderController.dispose(); _ticketFooterController.dispose();
     super.dispose();
+  }
+
+  Widget _premiumField(TextEditingController c, String label, String icon, {int maxLines = 1, String? hint}) {
+    return TextFormField(
+      controller: c,
+      maxLines: maxLines,
+      style: const TextStyle(color: Colors.white, fontSize: 14),
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        prefixText: '$icon  ',
+        labelStyle: const TextStyle(color: Colors.white54, fontSize: 12),
+        hintStyle: const TextStyle(color: Colors.white24, fontSize: 12),
+        filled: true,
+        fillColor: const Color(0xFF0F172A),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Colors.white10)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Colors.white10)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFF6366F1), width: 2)),
+      ),
+      validator: (v) => label.contains('*') && (v == null || v.trim().isEmpty) ? 'Requerido' : null,
+    );
+  }
+
+  Widget _section({required String title, required String icon, required Widget child}) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.white.withOpacity(0.05)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 8))]),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.15), borderRadius: BorderRadius.circular(10)), child: Text(icon, style: const TextStyle(fontSize: 16))), const SizedBox(width: 10), Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14))]),
+        const SizedBox(height: 16),
+        child,
+      ]),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFF0F172A),
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Text('←', style: TextStyle(fontSize: 24, color: Colors.white)),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text('Configuración de la Barbería'),
-        backgroundColor: Colors.indigo[700],
+        leading: IconButton(icon: const Icon(Icons.arrow_back_rounded, color: Colors.white), onPressed: () => Navigator.pop(context)),
+        title: const Text('Configuración Premium', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: const Color(0xFF1E293B),
         foregroundColor: Colors.white,
+        elevation: 0,
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFF6366F1)))
           : SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.all(20),
               child: Form(
                 key: _formKey,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.indigo[100],
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Text('🏪', style: TextStyle(fontSize: 32)),
-                        ),
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF1E293B), Color(0xFF312E81)]), borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: const Color(0xFF6366F1).withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 8))]),
+                      child: Row(children: [
+                        Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), borderRadius: BorderRadius.circular(14)), child: const Text('🏪', style: TextStyle(fontSize: 28))),
                         const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Información de la Barbería',
-                                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'Configura los datos que aparecerán en tickets y reportes',
-                                style: TextStyle(color: Colors.grey[600], fontSize: 14),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                        const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('BBS CLUB BARBERÍA', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 0.5)), SizedBox(height: 4), Text('Configura tu negocio como un pro', style: TextStyle(color: Colors.white60, fontSize: 12))])),
+                      ]),
                     ),
-                    const SizedBox(height: 32),
-                    _buildSection(
-                      title: 'Nombre de la barbería',
-                      icon: '',
-                      child: TextFormField(
-                        controller: _shopNameController,
-                        decoration: const InputDecoration(
-                          labelText: 'Nombre *',
-                          hintText: 'Ej: Barbería El Clásico',
-                          border: OutlineInputBorder(),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) return 'El nombre es obligatorio';
-                          return null;
-                        },
-                      ),
-                    ),
+                    const SizedBox(height: 20),
+                    _section(title: 'Información del Negocio', icon: '🏪', child: Column(children: [
+                      _premiumField(_shopNameController, 'Nombre *', '🏷️'),
+                      const SizedBox(height: 12),
+                      _premiumField(_shopRifController, 'RUT / RIF', '🆔'),
+                      const SizedBox(height: 12),
+                      _premiumField(_shopAddressController, 'Dirección', '📍', maxLines: 2),
+                      const SizedBox(height: 12),
+                      Row(children: [Expanded(child: _premiumField(_shopPhoneController, 'Teléfono', '📱')), const SizedBox(width: 12), Expanded(child: _premiumField(_shopEmailController, 'Email', '📧'))]),
+                    ])),
                     const SizedBox(height: 16),
-                    _buildSection(
-                      title: 'RUT',
-                      icon: '🆔',
-                      child: TextFormField(
-                        controller: _shopRifController,
-                        decoration: const InputDecoration(
-                          labelText: 'RUT',
-                          hintText: 'Ej: J-12345678-9',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                    ),
+                    _section(title: 'Moneda & Logos', icon: '💰', child: Column(children: [
+                      Row(children: [Expanded(child: _premiumField(_currencySymbolController, 'Símbolo *', '💲')), const SizedBox(width: 12), Expanded(child: _premiumField(_currencyCodeController, 'Código', '🏦'))]),
+                      const SizedBox(height: 12),
+                      _premiumField(_shopLogoUrlController, 'Logo URL (App)', '🖼️', hint: 'https://...'),
+                      const SizedBox(height: 12),
+                      _premiumField(_ticketLogoUrlController, 'Logo URL (Ticket)', '🧾', hint: 'https://...'),
+                    ])),
                     const SizedBox(height: 16),
-                    _buildSection(
-                      title: 'Dirección',
-                      icon: '📍',
-                      child: TextFormField(
-                        controller: _shopAddressController,
-                        decoration: const InputDecoration(
-                          labelText: 'Dirección',
-                          hintText: 'Ej: Av. Principal, Local 5',
-                          border: OutlineInputBorder(),
-                        ),
-                        maxLines: 2,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildSection(
-                            title: 'Teléfono',
-                            icon: '📞',
-                            child: TextFormField(
-                              controller: _shopPhoneController,
-                              decoration: const InputDecoration(
-                                labelText: 'Teléfono',
-                                hintText: '+56 9 1234 5678',
-                                border: OutlineInputBorder(),
-                              ),
-                              keyboardType: TextInputType.phone,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: _buildSection(
-                            title: 'Email',
-                            icon: '📧',
-                            child: TextFormField(
-                              controller: _shopEmailController,
-                              decoration: const InputDecoration(
-                                labelText: 'Email',
-                                hintText: 'contacto@barberia.com',
-                                border: OutlineInputBorder(),
-                              ),
-                              keyboardType: TextInputType.emailAddress,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    _buildSection(
-                      title: 'Logo Principal (App)',
-                      icon: '🖼️',
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          TextFormField(
-                            controller: _shopLogoUrlController,
-                            decoration: const InputDecoration(
-                              labelText: 'URL del logo',
-                              hintText: 'https://ejemplo.com/logo.png',
-                              border: OutlineInputBorder(),
-                              helperText: 'Pega aquí la URL de tu logo',
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          if (_shopLogoUrlController.text.isNotEmpty)
-                            Container(
-                              height: 80,
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.grey[300]!),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(8),
-                                child: Image.network(
-                                  _shopLogoUrlController.text,
-                                  fit: BoxFit.contain,
-                                  errorBuilder: (context, error, stackTrace) =>
-                                      const Center(child: Text('', style: TextStyle(fontSize: 40))),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    _buildSection(
-                      title: 'Logo para Ticket',
-                      icon: '️',
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          TextFormField(
-                            controller: _ticketLogoUrlController,
-                            decoration: const InputDecoration(
-                              labelText: 'URL del logo para ticket',
-                              hintText: 'https://ejemplo.com/logo-ticket.jpg',
-                              border: OutlineInputBorder(),
-                              helperText: 'Usa un logo con fondo blanco para impresoras térmicas',
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          if (_ticketLogoUrlController.text.isNotEmpty)
-                            Container(
-                              height: 80,
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.grey[300]!),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(8),
-                                child: Image.network(
-                                  _ticketLogoUrlController.text,
-                                  fit: BoxFit.contain,
-                                  errorBuilder: (context, error, stackTrace) =>
-                                      const Center(child: Text('❌', style: TextStyle(fontSize: 40))),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                    const Text(
-                      'Moneda',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildSection(
-                            title: 'Símbolo',
-                            icon: '💲',
-                            child: TextFormField(
-                              controller: _currencySymbolController,
-                              decoration: const InputDecoration(
-                                labelText: 'Símbolo',
-                                hintText: '\$',
-                                border: OutlineInputBorder(),
-                              ),
-                              validator: (value) {
-                                if (value == null || value.trim().isEmpty) return 'El símbolo es obligatorio';
-                                return null;
-                              },
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: _buildSection(
-                            title: 'Código',
-                            icon: '',
-                            child: TextFormField(
-                              controller: _currencyCodeController,
-                              decoration: const InputDecoration(
-                                labelText: 'Código',
-                                hintText: 'CLP',
-                                border: OutlineInputBorder(),
-                              ),
-                              validator: (value) {
-                                if (value == null || value.trim().isEmpty) return 'El código es obligatorio';
-                                return null;
-                              },
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 32),
-                    const Text(
-                      'Ticket',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 16),
-                    _buildSection(
-                      title: 'Encabezado del ticket',
-                      icon: '📝',
-                      child: TextFormField(
-                        controller: _ticketHeaderController,
-                        decoration: const InputDecoration(
-                          labelText: 'Encabezado',
-                          hintText: 'BARBERFLOW POS',
-                          border: OutlineInputBorder(),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) return 'El encabezado es obligatorio';
-                          return null;
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    _buildSection(
-                      title: 'Pie del ticket',
-                      icon: '',
-                      child: TextFormField(
-                        controller: _ticketFooterController,
-                        decoration: const InputDecoration(
-                          labelText: 'Pie',
-                          hintText: '¡Gracias por su visita!',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 32),
+                    _section(title: 'Ticket', icon: '🧾', child: Column(children: [
+                      _premiumField(_ticketHeaderController, 'Encabezado', '📝', hint: 'BARBER_SHOP POS'),
+                      const SizedBox(height: 12),
+                      _premiumField(_ticketFooterController, 'Pie', '🙏', hint: '¡Gracias por su visita!', maxLines: 2),
+                    ])),
+                    const SizedBox(height: 24),
                     SizedBox(
                       width: double.infinity,
                       height: 56,
-                      child: ElevatedButton(
-                        onPressed: _isSaving ? null : _saveSettings,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.indigo[700],
-                          disabledBackgroundColor: Colors.grey[300],
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
+                      child: Container(
+                        decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF818CF8)]), borderRadius: BorderRadius.circular(14), boxShadow: [BoxShadow(color: const Color(0xFF6366F1).withOpacity(0.4), blurRadius: 12, offset: const Offset(0, 6))]),
+                        child: ElevatedButton(
+                          onPressed: _isSaving ? null : _saveSettings,
+                          style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, shadowColor: Colors.transparent, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+                          child: _isSaving ? const Row(mainAxisAlignment: MainAxisAlignment.center, children: [SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)), SizedBox(width: 12), Text('Guardando...', style: TextStyle(fontWeight: FontWeight.bold))]) : const Text('GUARDAR CONFIGURACIÓN', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 0.5)),
                         ),
-                        child: _isSaving
-                            ? const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      color: Colors.white,
-                                      strokeWidth: 2,
-                                    ),
-                                  ),
-                                  SizedBox(width: 12),
-                                  Text(
-                                    'Guardando...',
-                                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                                  ),
-                                ],
-                              )
-                            : const Text(
-                                'GUARDAR CONFIGURACIÓN',
-                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                              ),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 20),
                     Container(
                       padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[100],
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey[300]!),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Vista previa del ticket:',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                          ),
-                          const SizedBox(height: 12),
-                          if (_ticketLogoUrlController.text.isNotEmpty)
-                            Center(
-                              child: Container(
-                                height: 60,
-                                margin: const EdgeInsets.only(bottom: 8),
-                                child: Image.network(
-                                  _ticketLogoUrlController.text,
-                                  fit: BoxFit.contain,
-                                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-                                ),
-                              ),
-                            ),
-                          Center(
-                            child: Text(
-                              _ticketHeaderController.text.isNotEmpty
-                                  ? _ticketHeaderController.text
-                                  : 'BARBER_PLZ POS',
-                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                          if (_shopRifController.text.isNotEmpty)
-                            Center(
-                              child: Text(
-                                'RUT: ${_shopRifController.text}',
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                            ),
-                          if (_shopAddressController.text.isNotEmpty)
-                            Center(
-                              child: Text(
-                                _shopAddressController.text,
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                            ),
-                          if (_shopPhoneController.text.isNotEmpty)
-                            Center(
-                              child: Text(
-                                'Tel: ${_shopPhoneController.text}',
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                            ),
-                          const SizedBox(height: 12),
-                          const Divider(),
-                          const SizedBox(height: 12),
-                          Center(
-                            child: Text(
-                              _ticketFooterController.text.isNotEmpty
-                                  ? _ticketFooterController.text
-                                  : '¡Gracias por su visita!',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontStyle: FontStyle.italic,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                      decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withOpacity(0.05))),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        const Text('Vista previa del ticket:', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                        const SizedBox(height: 12),
+                        if (_ticketLogoUrlController.text.isNotEmpty) Center(child: Container(height: 50, margin: const EdgeInsets.only(bottom: 8), child: Image.network(_ticketLogoUrlController.text, fit: BoxFit.contain, errorBuilder: (_, __, ___) => const SizedBox.shrink()))),
+                        Center(child: Text(_ticketHeaderController.text.isNotEmpty ? _ticketHeaderController.text : 'BBS CLUB POS', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+                        if (_shopRifController.text.isNotEmpty) Center(child: Text('RUT: ${_shopRifController.text}', style: const TextStyle(color: Colors.white54, fontSize: 11))),
+                        if (_shopAddressController.text.isNotEmpty) Center(child: Text(_shopAddressController.text, style: const TextStyle(color: Colors.white54, fontSize: 11))),
+                        if (_shopPhoneController.text.isNotEmpty) Center(child: Text('Tel: ${_shopPhoneController.text}', style: const TextStyle(color: Colors.white54, fontSize: 11))),
+                        const Divider(color: Colors.white10, height: 24),
+                        Center(child: Text(_ticketFooterController.text.isNotEmpty ? _ticketFooterController.text : '¡Gracias por su visita!', style: const TextStyle(color: Colors.white38, fontSize: 11, fontStyle: FontStyle.italic))),
+                      ]),
                     ),
+                    const SizedBox(height: 40),
                   ],
                 ),
               ),
             ),
-    );
-  }
-
-  Widget _buildSection({required String title, required String icon, required Widget child}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Text(icon, style: const TextStyle(fontSize: 20)),
-            const SizedBox(width: 8),
-            Text(
-              title,
-              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        child,
-      ],
     );
   }
 }

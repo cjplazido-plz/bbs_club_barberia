@@ -219,7 +219,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
             const Text('📅 Citas de Hoy', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
             const SizedBox(height: 16),
             if (_todayAppointments.isEmpty) const Text('No hay citas pendientes', style: TextStyle(color: Colors.white54)),
-            ..._todayAppointments.map((a) => ListTile(title: Text(a.clientName, style: const TextStyle(color: Colors.white)), subtitle: Text(a.time ?? '', style: const TextStyle(color: Colors.white54)), onTap: () { setState(() { _selectedAppointment = a; _selectedClient = _clients.firstWhere((c) => c.name == a.clientName, orElse: () => _clients.first); }); Navigator.pop(context); })),
+            ..._todayAppointments.map((a) => ListTile(title: Text(a.clientName ?? 'Cliente', style: const TextStyle(color: Colors.white)), subtitle: Text('${a.appointmentDate.hour.toString().padLeft(2, '0')}:${a.appointmentDate.minute.toString().padLeft(2, '0')} - ${a.serviceName ?? ''}', style: const TextStyle(color: Colors.white54, fontSize: 12)), onTap: () { setState(() { _selectedAppointment = a; if (_clients.isNotEmpty) { _selectedClient = _clients.firstWhere((c) => c.name == a.clientName, orElse: () => _clients.first); } }); Navigator.pop(context); })),
           ],
         ),
       ),
@@ -260,8 +260,8 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
         await supabase.from('transaction_items').insert({
           'transaction_id': transId,
           'type': item.type,
-          'service_id': item.serviceId.isEmpty ? null : item.serviceId,
-          'product_id': item.productId.isEmpty ? null : item.productId,
+          'service_id': (item.serviceId == null || item.serviceId!.isEmpty) ? null : item.serviceId,
+          'product_id': (item.productId == null || item.productId!.isEmpty) ? null : item.productId,
           'service_name': item.serviceName,
           'product_name': item.productName,
           'barber_id': item.barberId,
@@ -409,7 +409,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
                           children: [
                             Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: isService ? const Color(0xFF6366F1).withOpacity(0.15) : const Color(0xFFF59E0B).withOpacity(0.15), borderRadius: BorderRadius.circular(10)), child: Text(isService ? '✂️' : '📦', style: const TextStyle(fontSize: 14))),
                             const SizedBox(width: 10),
-                            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(item.serviceName.isNotEmpty ? item.serviceName : item.productName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis), Text('${SettingsService.formatCurrency(item.priceAtMoment)} x ${item.quantity}', style: const TextStyle(color: Colors.white54, fontSize: 11)), if (item.barberName.isNotEmpty) Text('✂️ ${item.barberName}', style: const TextStyle(color: Colors.white38, fontSize: 10))])),
+                            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text((item.serviceName?.isNotEmpty == true ? item.serviceName : item.productName) ?? 'Item', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis), Text('${SettingsService.formatCurrency(item.priceAtMoment)} x ${item.quantity}', style: const TextStyle(color: Colors.white54, fontSize: 11)), if (item.barberName?.isNotEmpty == true) Text('✂️ ${item.barberName}', style: const TextStyle(color: Colors.white38, fontSize: 10))])),
                             Row(children: [
                               InkWell(onTap: () => _updateQuantity(index, item.quantity - 1), child: Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.remove_rounded, size: 14, color: Colors.white))),
                               Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: Text('${item.quantity}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
