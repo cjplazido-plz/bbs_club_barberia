@@ -315,7 +315,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
     );
   }
 
-  Widget _buildPremiumDrawer() {
+Widget _buildPremiumDrawer() {
     return Drawer(
       backgroundColor: const Color(0xFF1E293B),
       child: ListView(padding: EdgeInsets.zero, children: [
@@ -327,7 +327,14 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
         _drawerItem('💈', 'Servicios', () => Navigator.push(context, MaterialPageRoute(builder: (_) => ServicesScreen()))),
         _drawerItem('📦', 'Productos', () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProductsScreen()))),
         _drawerItem('🧾', 'Historial', () => Navigator.push(context, MaterialPageRoute(builder: (_) => SalesHistoryScreen()))),
+        const Divider(color: Colors.white10, height: 1),
+        _drawerItem('💰', 'Comisiones', () => Navigator.push(context, MaterialPageRoute(builder: (_) => CommissionsScreen()))),
+        _drawerItem('📈', 'Reportes', () => Navigator.push(context, MaterialPageRoute(builder: (_) => ReportsScreen()))),
+        _drawerItem('📊', 'Reportes Avanzados', () => Navigator.push(context, MaterialPageRoute(builder: (_) => AdvancedReportsScreen()))),
+        _drawerItem('👑', 'Usuarios', () => Navigator.push(context, MaterialPageRoute(builder: (_) => UsersScreen()))),
         _drawerItem('⚙️', 'Ajustes', () => Navigator.push(context, MaterialPageRoute(builder: (_) => SettingsScreen()))),
+        const Divider(color: Colors.white10, height: 1),
+        _drawerItem('🚪', 'Salir', () async { await Supabase.instance.client.auth.signOut(); if (mounted) Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => LoginScreen()), (route) => false); }),
       ]),
     );
   }

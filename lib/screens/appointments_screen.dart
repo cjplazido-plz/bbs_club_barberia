@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -27,6 +28,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with TickerProv
   List<LocalService> _services = [];
   bool _isLoading = true;
   DateTime _selectedDate = DateTime.now();
+  Map<DateTime, int> _daysWithCounts = {};
   late AnimationController _mainController;
 
   @override
@@ -34,12 +36,34 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with TickerProv
     super.initState();
     _mainController = AnimationController(vsync: this, duration: const Duration(milliseconds: 800));
     _loadData();
+    _fetchDaysWithCounts();
   }
 
   @override
   void dispose() {
     _mainController.dispose();
     super.dispose();
+  }
+
+  Future<Map<DateTime, int>> _fetchDaysWithCounts() async {
+    try {
+      final supabase = Supabase.instance.client;
+      final firstDay = DateTime(_selectedDate.year, _selectedDate.month, 1);
+      final lastDay = DateTime(_selectedDate.year, _selectedDate.month + 1, 0);
+      final res = await supabase.from('appointments').select('appointment_date').gte('appointment_date', firstDay.toIso8601String()).lte('appointment_date', lastDay.toIso8601String());
+      final Map<DateTime, int> counts = {};
+      for (var row in res) {
+        try {
+          final dt = DateTime.parse(row['appointment_date']);
+          final key = DateTime(dt.year, dt.month, dt.day);
+          counts[key] = (counts[key] ?? 0) + 1;
+        } catch (_) {}
+      }
+      setState(() => _daysWithCounts = counts);
+      return counts;
+    } catch (e) {
+      return {};
+    }
   }
 
   Future<void> _loadData() async {
@@ -64,32 +88,96 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with TickerProv
     _mainController.forward(from: 0);
   }
 
-  Future<void> _sendWhatsAppNotification(LocalAppointment appointment, {String type = 'confirmed'}) async {
-    if (appointment.clientPhone == null || appointment.clientPhone!.isEmpty) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('El cliente no tiene teléfono'), backgroundColor: Colors.orange, behavior: SnackBarBehavior.floating));
-      return;
+  Future<void> _showCalendarDialog() async {
+    await _fetchDaysWithCounts();
+    if (!mounted) return;
+    final selected = await showDialog<DateTime>(
+      context: context,
+      builder: (context) {
+        DateTime displayMonth = DateTime(_selectedDate.year, _selectedDate.month, 1);
+        return StatefulBuilder(builder: (context, setS) {
+          final daysInMonth = DateTime(displayMonth.year, displayMonth.month + 1, 0).day;
+          final firstWeekday = DateTime(displayMonth.year, displayMonth.month, 1).weekday;
+          final today = DateTime.now();
+          final totalDays = _daysWithCounts.values.fold(0, (a, b) => a + b);
+          return AlertDialog(
+            backgroundColor: const Color(0xFF1E293B),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: Row(children: [
+              Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.2), borderRadius: BorderRadius.circular(10)), child: const Text('📅', style: TextStyle(fontSize: 16))),
+              const SizedBox(width: 10),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(DateFormat('MMMM yyyy', 'es').format(displayMonth), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                Text('$_daysWithCounts.length días con citas - Total: $totalDays', style: const TextStyle(color: Colors.white54, fontSize: 11)),
+              ])),
+              IconButton(icon: const Icon(Icons.chevron_left_rounded, color: Colors.white), onPressed: () => setS(() => displayMonth = DateTime(displayMonth.year, displayMonth.month - 1, 1))),
+              IconButton(icon: const Icon(Icons.chevron_right_rounded, color: Colors.white), onPressed: () => setS(() => displayMonth = DateTime(displayMonth.year, displayMonth.month + 1, 1))),
+            ]),
+            content: SizedBox(
+              width: 340,
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: ['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((d) => SizedBox(width: 30, child: Center(child: Text(d, style: const TextStyle(color: Colors.white38, fontSize: 12, fontWeight: FontWeight.bold))))).toList()),
+                const SizedBox(height: 8),
+                GridView.builder(
+                  shrinkWrap: true,
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 7, childAspectRatio: 0.85),
+                  itemCount: firstWeekday - 1 + daysInMonth,
+                  itemBuilder: (c, i) {
+                    if (i < firstWeekday - 1) return const SizedBox();
+                    final day = i - (firstWeekday - 2);
+                    final date = DateTime(displayMonth.year, displayMonth.month, day);
+                    final isToday = date.year == today.year && date.month == today.month && date.day == today.day;
+                    final isSelected = date.year == _selectedDate.year && date.month == _selectedDate.month && date.day == _selectedDate.day;
+                    final count = _daysWithCounts[DateTime(date.year, date.month, date.day)] ?? 0;
+                    final hasAppointments = count > 0;
+                    return InkWell(
+                      onTap: () => Navigator.pop(context, date),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        margin: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: isSelected ? const Color(0xFF6366F1) : isToday ? const Color(0xFF3B82F6).withOpacity(0.3) : hasAppointments ? const Color(0xFFF59E0B).withOpacity(0.15) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(12),
+                          border: hasAppointments ? Border.all(color: const Color(0xFFF59E0B).withOpacity(0.4)) : null,
+                        ),
+                        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                          Text('$day', style: TextStyle(color: isSelected ? Colors.white : isToday ? const Color(0xFF60A5FA) : Colors.white, fontWeight: isToday || isSelected || hasAppointments ? FontWeight.bold : FontWeight.normal, fontSize: 13)),
+                          if (hasAppointments) ...[
+                            const SizedBox(height: 2),
+                            Container(padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1), decoration: BoxDecoration(color: const Color(0xFFF59E0B), borderRadius: BorderRadius.circular(8)), child: Text('$count', style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold))),
+                          ] else ...[
+                            const SizedBox(height: 8),
+                          ],
+                          if (hasAppointments) Container(margin: const EdgeInsets.only(top: 2), width: 5, height: 5, decoration: const BoxDecoration(color: Color(0xFFF59E0B), shape: BoxShape.circle)),
+                        ]),
+                      ),
+                    );
+                  },
+                ),
+              ]),
+            ),
+            actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar', style: TextStyle(color: Colors.grey))), Container(decoration: BoxDecoration(color: const Color(0xFF6366F1), borderRadius: BorderRadius.circular(10)), child: TextButton(onPressed: () => Navigator.pop(context, DateTime.now()), child: const Text('Hoy', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))))],
+          );
+        });
+      },
+    );
+    if (selected != null) {
+      setState(() => _selectedDate = selected);
+      await _loadData();
+      await _fetchDaysWithCounts();
     }
+  }
+
+  Future<void> _sendWhatsAppNotification(LocalAppointment appointment, {String type = 'confirmed'}) async {
+    if (appointment.clientPhone == null || appointment.clientPhone!.isEmpty) return;
     String phone = appointment.clientPhone!.replaceAll(RegExp(r'[^0-9]'), '');
     if (phone.startsWith('0')) phone = phone.substring(1);
     if (!phone.startsWith('56') && phone.length == 9) phone = '56$phone';
     final dateStr = DateFormat('dd/MM/yyyy').format(appointment.appointmentDate);
     final timeStr = DateFormat('HH:mm').format(appointment.appointmentDate);
-    String message;
-    if (type == 'cancelled') {
-      message = 'Hola ${appointment.clientName}, tu cita en BBS Club ha sido *CANCELADA*.\n\n📅 $dateStr ⏰ $timeStr ✂️ ${appointment.serviceName}';
-    } else if (type == 'booking') {
-      message = 'Hola ${appointment.clientName}, tu cita en BBS Club ha sido *REGISTRADA*.\n\n📅 $dateStr ⏰ $timeStr ✂️ ${appointment.serviceName} 💈 ${appointment.barberName}';
-    } else {
-      message = 'Hola ${appointment.clientName}, tu cita en BBS Club ha sido *CONFIRMADA*.\n\n📅 $dateStr ⏰ $timeStr ✂️ ${appointment.serviceName} 💈 ${appointment.barberName}';
-    }
+    String message = type == 'cancelled' ? 'Hola ${appointment.clientName}, tu cita ha sido *CANCELADA*. $dateStr $timeStr' : type == 'booking' ? 'Hola ${appointment.clientName}, tu cita *REGISTRADA*. $dateStr $timeStr ${appointment.serviceName}' : 'Hola ${appointment.clientName}, tu cita *CONFIRMADA*. $dateStr $timeStr';
     final url = 'https://wa.me/$phone?text=${Uri.encodeComponent(message)}';
-    try { if (await canLaunchUrl(Uri.parse(url))) await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication); } catch (e) {}
-  }
-
-  Future<void> _syncAppointments() async {
-    if (_isLoading) return;
-    setState(() { _isLoading = true; });
-    try { await _loadData(); if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('✅ Citas actualizadas'), backgroundColor: Colors.green, behavior: SnackBarBehavior.floating)); } finally { if (mounted) setState(() { _isLoading = false; }); }
+    try { if (await canLaunchUrl(Uri.parse(url))) await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication); } catch (_) {}
   }
 
   Future<void> _updateAppointmentStatus(LocalAppointment appointment, String newStatus) async {
@@ -100,28 +188,23 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with TickerProv
       if (newStatus == 'confirmed') await _sendWhatsAppNotification(appointment, type: 'confirmed');
       else if (newStatus == 'cancelled') await _sendWhatsAppNotification(appointment, type: 'cancelled');
       await _loadData();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text({'confirmed': '✅ Confirmada', 'in_progress': '🟡 En proceso', 'completed': '🎉 Completada', 'cancelled': '❌ Cancelada'}[newStatus] ?? 'Actualizado'), backgroundColor: newStatus == 'cancelled' ? Colors.red : Colors.green, behavior: SnackBarBehavior.floating));
-    } catch (e) {}
+      await _fetchDaysWithCounts();
+    } catch (_) {}
   }
 
   Future<void> _deleteAppointment(LocalAppointment appointment) async {
-    final confirm = await showDialog<bool>(context: context, builder: (c) {
-      return AlertDialog(backgroundColor: const Color(0xFF1E293B), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), title: const Text('Cancelar cita', style: TextStyle(color: Colors.white)), content: Text('¿Cancelar cita de ${appointment.clientName}?', style: const TextStyle(color: Colors.white70)), actions: [TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('No')), ElevatedButton(onPressed: () => Navigator.pop(c, true), style: ElevatedButton.styleFrom(backgroundColor: Colors.red), child: const Text('Sí, cancelar'))]);
-    });
+    final confirm = await showDialog<bool>(context: context, builder: (c) => AlertDialog(backgroundColor: const Color(0xFF1E293B), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), title: const Text('Cancelar cita', style: TextStyle(color: Colors.white)), content: Text('¿Cancelar cita de ${appointment.clientName}?', style: const TextStyle(color: Colors.white70)), actions: [TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('No')), ElevatedButton(onPressed: () => Navigator.pop(c, true), style: ElevatedButton.styleFrom(backgroundColor: Colors.red), child: const Text('Sí'))]));
     if (confirm == true) await _updateAppointmentStatus(appointment, 'cancelled');
   }
 
   void _showAppointmentDialog({LocalAppointment? appointment}) {
-    // Mantén lógica original pero con UI premium - simplificado para no romper
     final clientNameController = TextEditingController(text: appointment?.clientName ?? '');
     final serviceNameController = TextEditingController(text: appointment?.serviceName ?? '');
     final barberNameController = TextEditingController(text: appointment?.barberName ?? '');
     final notesController = TextEditingController(text: appointment?.notes ?? '');
-    DateTime selectedDateTime = appointment?.appointmentDate ?? DateTime.now();
+    DateTime selectedDateTime = appointment?.appointmentDate ?? _selectedDate;
 
-    showDialog(context: context, builder: (context) {
-      return StatefulBuilder(builder: (context, setS) {
-        return AlertDialog(
+    showDialog(context: context, builder: (context) => StatefulBuilder(builder: (context, setS) => AlertDialog(
           backgroundColor: const Color(0xFF1E293B),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: Text(appointment == null ? 'Nueva Cita' : 'Editar Cita', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
@@ -138,11 +221,9 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with TickerProv
           ])),
           actions: [
             TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar', style: TextStyle(color: Colors.grey))),
-            Container(decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF818CF8)]), borderRadius: BorderRadius.circular(10)), child: ElevatedButton(onPressed: () async { if (clientNameController.text.isEmpty) return; Navigator.pop(context); final newApp = LocalAppointment()..remoteId = appointment?.remoteId ?? 'app-${DateTime.now().millisecondsSinceEpoch}'..clientName = clientNameController.text..serviceName = serviceNameController.text..barberName = barberNameController.text..appointmentDate = selectedDateTime..notes = notesController.text..status = appointment?.status ?? 'pending'..clientPhone = _clients.firstWhere((c) => c.name == clientNameController.text, orElse: () => _clients.isNotEmpty ? _clients.first : LocalClient()..phone = '').phone; if (appointment == null) { await _appointmentRepo.createAppointment(newApp); await _sendWhatsAppNotification(newApp, type: 'booking'); } else { await _appointmentRepo.updateAppointment(newApp); } await _loadData(); }, style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, shadowColor: Colors.transparent), child: const Text('Guardar'))),
+            Container(decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF818CF8)]), borderRadius: BorderRadius.circular(10)), child: ElevatedButton(onPressed: () async { if (clientNameController.text.isEmpty) return; Navigator.pop(context); final newApp = LocalAppointment()..remoteId = appointment?.remoteId ?? 'app-${DateTime.now().millisecondsSinceEpoch}'..clientName = clientNameController.text..serviceName = serviceNameController.text..barberName = barberNameController.text..appointmentDate = selectedDateTime..notes = notesController.text..status = appointment?.status ?? 'pending'..clientPhone = _clients.firstWhere((c) => c.name == clientNameController.text, orElse: () => _clients.isNotEmpty ? _clients.first : LocalClient()..phone = '').phone; if (appointment == null) { await _appointmentRepo.createAppointment(newApp); } else { await _appointmentRepo.updateAppointment(newApp); } await _loadData(); await _fetchDaysWithCounts(); }, style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, shadowColor: Colors.transparent), child: const Text('Guardar'))),
           ],
-        );
-      });
-    });
+        )));
   }
 
   Widget _field(TextEditingController c, String label, String icon, {int maxLines = 1}) {
@@ -158,6 +239,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with TickerProv
 
   @override
   Widget build(BuildContext context) {
+    final totalCitas = _daysWithCounts.values.fold(0, (a, b) => a + b);
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
       appBar: AppBar(
@@ -166,26 +248,29 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with TickerProv
         backgroundColor: const Color(0xFF1E293B),
         foregroundColor: Colors.white,
         elevation: 0,
-        actions: [IconButton(icon: const Icon(Icons.sync_rounded, color: Colors.white), onPressed: _syncAppointments)],
+        actions: [IconButton(icon: const Icon(Icons.sync_rounded, color: Colors.white), onPressed: () async { await _loadData(); await _fetchDaysWithCounts(); })],
       ),
       body: Column(
         children: [
-          Container(
-            margin: const EdgeInsets.all(16),
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF1E293B), Color(0xFF312E81)]), borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: const Color(0xFF6366F1).withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 8))]),
-            child: Row(children: [
-              Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), borderRadius: BorderRadius.circular(12)), child: const Text('📅', style: TextStyle(fontSize: 20))),
-              const SizedBox(width: 12),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(DateFormat('EEEE, dd MMM', 'es').format(_selectedDate), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)), Text('${_appointments.length} citas', style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12))])),
-              InkWell(onTap: () async { final d = await showDatePicker(context: context, initialDate: _selectedDate, firstDate: DateTime(2023), lastDate: DateTime.now().add(const Duration(days: 60)), builder: (c, child) => Theme(data: ThemeData.dark().copyWith(colorScheme: const ColorScheme.dark(primary: Color(0xFF6366F1))), child: child!),); if (d != null) { setState(() => _selectedDate = d); _loadData(); } }, child: Container(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), decoration: BoxDecoration(color: const Color(0xFF6366F1), borderRadius: BorderRadius.circular(20)), child: const Text('Cambiar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)))),
-            ]),
+          InkWell(
+            onTap: _showCalendarDialog,
+            child: Container(
+              margin: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF1E293B), Color(0xFF312E81)]), borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: const Color(0xFF6366F1).withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 8))]),
+              child: Row(children: [
+                Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), borderRadius: BorderRadius.circular(12)), child: const Text('📅', style: TextStyle(fontSize: 20))),
+                const SizedBox(width: 12),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(DateFormat('EEEE, dd MMM', 'es').format(_selectedDate), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)), Text('${_appointments.length} citas este día • $totalCitas mes • ${_daysWithCounts.length} días con citas', style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 11))])),
+                Container(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), decoration: BoxDecoration(color: const Color(0xFF6366F1), borderRadius: BorderRadius.circular(20)), child: const Row(children: [Icon(Icons.calendar_month_rounded, size: 14, color: Colors.white), SizedBox(width: 4), Text('Calendario', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11))])),
+              ]),
+            ),
           ),
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator(color: Color(0xFF6366F1)))
                 : _appointments.isEmpty
-                    ? const Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Text('📅', style: TextStyle(fontSize: 64)), SizedBox(height: 16), Text('No hay citas este día', style: TextStyle(color: Colors.white54, fontSize: 16))]))
+                    ? const Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Text('📅', style: TextStyle(fontSize: 64)), SizedBox(height: 16), Text('No hay citas este día', style: TextStyle(color: Colors.white54, fontSize: 16)), SizedBox(height: 8), Text('Toca Calendario para ver días con puntito naranja', style: TextStyle(color: Colors.white24, fontSize: 12))]))
                     : ListView.builder(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         itemCount: _appointments.length,
