@@ -7,7 +7,7 @@ import 'services/settings_service.dart';
 import 'services/theme_service.dart';
 import 'screens/login_screen.dart';
 import 'screens/public_booking_screen.dart';
-import 'screens/dashboard_screen.dart'; // <- TU PANTALLA PRINCIPAL
+import 'screens/pos_screen.dart'; // <- Pantalla principal real después del login
 
 String currentUserRole = 'admin';
 String currentUserName = '';
@@ -60,7 +60,7 @@ class _BarberFlowAppState extends State<BarberFlowApp> {
       routes: {
         '/login': (context) => LoginScreen(),
         '/reservar': (context) => PublicBookingScreen(),
-        '/dashboard': (context) => DashboardScreen(),
+        '/pos': (context) => PosScreen(),
       },
     );
   }
@@ -87,6 +87,28 @@ class _AuthGateState extends State<AuthGate> {
   Future<void> _init() async {
     try {
       await Supabase.instance.client.auth.getSession();
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user != null) {
+        // Recupera rol y nombre si hay sesión guardada
+        try {
+          if (user.email?.toLowerCase() == 'cjplazido@gmail.com') {
+            currentUserRole = 'admin';
+            currentUserName = 'Desarrollador (Acceso Total)';
+            currentUserEmail = user.email ?? '';
+          } else {
+            final profile = await Supabase.instance.client
+                .from('profiles')
+                .select()
+                .eq('email', user.email ?? '')
+                .maybeSingle();
+            if (profile != null) {
+              currentUserRole = profile['role'] ?? 'admin';
+              currentUserName = profile['full_name'] ?? profile['name'] ?? user.email?.split('@').first ?? 'Usuario';
+              currentUserEmail = user.email ?? '';
+            }
+          }
+        } catch (_) {}
+      }
     } catch (_) {}
     await Future.delayed(const Duration(milliseconds: 400));
     if (mounted) setState(() => _isLoading = false);
@@ -102,9 +124,9 @@ class _AuthGateState extends State<AuthGate> {
     final user = Supabase.instance.client.auth.currentUser;
 
     if (session != null && user != null) {
-      currentUserEmail = user.email ?? '';
-      // ✅ Ahora vuelve al Dashboard, y desde el Dashboard entras a Agenda con flecha
-      return DashboardScreen();
+      // ✅ Entra directo al POS (tu pantalla principal real)
+      // Desde el POS podrás ir a Dashboard y a Agenda con flecha de volver
+      return PosScreen();
     }
 
     return LoginScreen();
