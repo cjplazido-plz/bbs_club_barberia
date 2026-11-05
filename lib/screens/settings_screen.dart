@@ -49,7 +49,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _saveSettings() async {
     if (!_formKey.currentState!.validate()) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('❌ Completa campos obligatorios'), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('❌ Por favor completa todos los campos obligatorios'), backgroundColor: Colors.red));
       return;
     }
     setState(() { _isSaving = true; });
@@ -68,10 +68,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
         'ticket_footer': _ticketFooterController.text.trim(),
       });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(success ? '✅ Guardado correctamente' : '⚠️ Algunos valores no se guardaron'), backgroundColor: success ? Colors.green : Colors.orange, behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(success ? '✅ Configuracion guardada correctamente' : '⚠️ Algunos valores no se pudieron guardar'), backgroundColor: success ? Colors.green : Colors.orange));
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ $e'), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ Error: $e'), backgroundColor: Colors.red));
+      }
     } finally {
       if (mounted) setState(() { _isSaving = false; });
     }
@@ -79,39 +81,73 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   void dispose() {
-    _shopNameController.dispose(); _shopRifController.dispose(); _shopAddressController.dispose(); _shopPhoneController.dispose(); _shopEmailController.dispose(); _shopLogoUrlController.dispose(); _ticketLogoUrlController.dispose(); _currencySymbolController.dispose(); _currencyCodeController.dispose(); _ticketHeaderController.dispose(); _ticketFooterController.dispose();
+    _shopNameController.dispose();
+    _shopRifController.dispose();
+    _shopAddressController.dispose();
+    _shopPhoneController.dispose();
+    _shopEmailController.dispose();
+    _shopLogoUrlController.dispose();
+    _ticketLogoUrlController.dispose();
+    _currencySymbolController.dispose();
+    _currencyCodeController.dispose();
+    _ticketHeaderController.dispose();
+    _ticketFooterController.dispose();
     super.dispose();
   }
 
-  Widget _premiumField(TextEditingController c, String label, String icon, {int maxLines = 1, String? hint}) {
-    return TextFormField(
-      controller: c,
-      maxLines: maxLines,
-      style: const TextStyle(color: Colors.white, fontSize: 14),
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
-        prefixText: '$icon  ',
-        labelStyle: const TextStyle(color: Colors.white54, fontSize: 12),
-        hintStyle: const TextStyle(color: Colors.white24, fontSize: 12),
-        filled: true,
-        fillColor: const Color(0xFF0F172A),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Colors.white10)),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Colors.white10)),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFF6366F1), width: 2)),
-      ),
-      validator: (v) => label.contains('*') && (v == null || v.trim().isEmpty) ? 'Requerido' : null,
+  InputDecoration _premiumDecoration(String label, String icon) {
+    return InputDecoration(
+      labelText: label,
+      prefixText: '$icon  ',
+      labelStyle: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600, letterSpacing: 0.3),
+      floatingLabelStyle: const TextStyle(color: Color(0xFF6366F1), fontSize: 13, fontWeight: FontWeight.bold),
+      hintStyle: const TextStyle(color: Colors.white24, fontSize: 12),
+      filled: true,
+      fillColor: const Color(0xFF0F172A),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Colors.white10)),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Colors.white10)),
+      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFF6366F1), width: 2)),
     );
   }
 
-  Widget _section({required String title, required String icon, required Widget child}) {
+  Widget _buildPremiumField(TextEditingController controller, String label, String icon, {int maxLines = 1, bool isRequired = false}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 6),
+          child: Row(
+            children: [
+              Text(icon, style: const TextStyle(fontSize: 13)),
+              const SizedBox(width: 6),
+              Text(isRequired ? "$label *" : label, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700, letterSpacing: 0.3)),
+            ],
+          ),
+        ),
+        TextFormField(
+          controller: controller,
+          maxLines: maxLines,
+          style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
+          decoration: _premiumDecoration(label, ''),
+          validator: isRequired ? (v) => (v == null || v.trim().isEmpty) ? 'Obligatorio' : null : null,
+        ),
+      ],
+    );
+  }
+
+  Widget _sectionCard({required String title, required String icon, required List<Widget> children}) {
     return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.white.withOpacity(0.05)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 8))]),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(18), border: Border.all(color: Colors.white.withOpacity(0.05)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 14, offset: const Offset(0, 6))]),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.15), borderRadius: BorderRadius.circular(10)), child: Text(icon, style: const TextStyle(fontSize: 16))), const SizedBox(width: 10), Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14))]),
+        Row(children: [
+          Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.15), borderRadius: BorderRadius.circular(10)), child: Text(icon, style: const TextStyle(fontSize: 16))),
+          const SizedBox(width: 10),
+          Text(title, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
+        ]),
         const SizedBox(height: 16),
-        child,
+        ...children,
       ]),
     );
   }
@@ -122,7 +158,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       backgroundColor: const Color(0xFF0F172A),
       appBar: AppBar(
         leading: IconButton(icon: const Icon(Icons.arrow_back_rounded, color: Colors.white), onPressed: () => Navigator.pop(context)),
-        title: const Text('Configuración Premium', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Configuracion Premium', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         backgroundColor: const Color(0xFF1E293B),
         foregroundColor: Colors.white,
         elevation: 0,
@@ -130,77 +166,80 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Color(0xFF6366F1)))
           : SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(16),
               child: Form(
                 key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF1E293B), Color(0xFF312E81)]), borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: const Color(0xFF6366F1).withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 8))]),
-                      child: Row(children: [
-                        Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), borderRadius: BorderRadius.circular(14)), child: const Text('🏪', style: TextStyle(fontSize: 28))),
-                        const SizedBox(width: 16),
-                        const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('BBS CLUB BARBERÍA', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 0.5)), SizedBox(height: 4), Text('Configura tu negocio como un pro', style: TextStyle(color: Colors.white60, fontSize: 12))])),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF1E293B), Color(0xFF312E81)]), borderRadius: BorderRadius.circular(18), boxShadow: [BoxShadow(color: const Color(0xFF6366F1).withOpacity(0.25), blurRadius: 20, offset: const Offset(0, 8))]),
+                    child: Row(children: [
+                      Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.white.withOpacity(0.08), borderRadius: BorderRadius.circular(14)), child: const Text('🏪', style: TextStyle(fontSize: 28))),
+                      const SizedBox(width: 14),
+                      const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('BBS CLUB BARBERIA', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)), SizedBox(height: 4), Text('Configura tu negocio como un pro', style: TextStyle(color: Colors.white54, fontSize: 12))])),
+                    ]),
+                  ),
+                  const SizedBox(height: 16),
+                  _sectionCard(
+                    title: 'Informacion del Negocio',
+                    icon: '🏢',
+                    children: [
+                      _buildPremiumField(_shopNameController, 'Nombre del Negocio', '🏷️', isRequired: true),
+                      const SizedBox(height: 14),
+                      _buildPremiumField(_shopRifController, 'RUT / RIF', '🆔'),
+                      const SizedBox(height: 14),
+                      _buildPremiumField(_shopAddressController, 'Direccion Completa', '📍', maxLines: 2),
+                      const SizedBox(height: 14),
+                      Row(children: [
+                        Expanded(child: _buildPremiumField(_shopPhoneController, 'Telefono', '📞')),
+                        const SizedBox(width: 12),
+                        Expanded(child: _buildPremiumField(_shopEmailController, 'Email de Contacto', '✉️')),
                       ]),
-                    ),
-                    const SizedBox(height: 20),
-                    _section(title: 'Información del Negocio', icon: '🏪', child: Column(children: [
-                      _premiumField(_shopNameController, 'Nombre *', '🏷️'),
-                      const SizedBox(height: 12),
-                      _premiumField(_shopRifController, 'RUT / RIF', '🆔'),
-                      const SizedBox(height: 12),
-                      _premiumField(_shopAddressController, 'Dirección', '📍', maxLines: 2),
-                      const SizedBox(height: 12),
-                      Row(children: [Expanded(child: _premiumField(_shopPhoneController, 'Teléfono', '📱')), const SizedBox(width: 12), Expanded(child: _premiumField(_shopEmailController, 'Email', '📧'))]),
-                    ])),
-                    const SizedBox(height: 16),
-                    _section(title: 'Moneda & Logos', icon: '💰', child: Column(children: [
-                      Row(children: [Expanded(child: _premiumField(_currencySymbolController, 'Símbolo *', '💲')), const SizedBox(width: 12), Expanded(child: _premiumField(_currencyCodeController, 'Código', '🏦'))]),
-                      const SizedBox(height: 12),
-                      _premiumField(_shopLogoUrlController, 'Logo URL (App)', '🖼️', hint: 'https://...'),
-                      const SizedBox(height: 12),
-                      _premiumField(_ticketLogoUrlController, 'Logo URL (Ticket)', '🧾', hint: 'https://...'),
-                    ])),
-                    const SizedBox(height: 16),
-                    _section(title: 'Ticket', icon: '🧾', child: Column(children: [
-                      _premiumField(_ticketHeaderController, 'Encabezado', '📝', hint: 'BARBER_SHOP POS'),
-                      const SizedBox(height: 12),
-                      _premiumField(_ticketFooterController, 'Pie', '🙏', hint: '¡Gracias por su visita!', maxLines: 2),
-                    ])),
-                    const SizedBox(height: 24),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 56,
-                      child: Container(
-                        decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF818CF8)]), borderRadius: BorderRadius.circular(14), boxShadow: [BoxShadow(color: const Color(0xFF6366F1).withOpacity(0.4), blurRadius: 12, offset: const Offset(0, 6))]),
-                        child: ElevatedButton(
-                          onPressed: _isSaving ? null : _saveSettings,
-                          style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, shadowColor: Colors.transparent, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
-                          child: _isSaving ? const Row(mainAxisAlignment: MainAxisAlignment.center, children: [SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)), SizedBox(width: 12), Text('Guardando...', style: TextStyle(fontWeight: FontWeight.bold))]) : const Text('GUARDAR CONFIGURACIÓN', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 0.5)),
-                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  _sectionCard(
+                    title: 'Moneda & Logos',
+                    icon: '💰',
+                    children: [
+                      Row(children: [
+                        Expanded(child: _buildPremiumField(_currencySymbolController, 'Simbolo Moneda', '💵', isRequired: true)),
+                        const SizedBox(width: 12),
+                        Expanded(child: _buildPremiumField(_currencyCodeController, 'Codigo (CLP, USD)', '🏦')),
+                      ]),
+                      const SizedBox(height: 14),
+                      _buildPremiumField(_shopLogoUrlController, 'Logo URL (App)', '🖼️'),
+                      const SizedBox(height: 14),
+                      _buildPremiumField(_ticketLogoUrlController, 'Logo URL (Ticket)', '🧾'),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  _sectionCard(
+                    title: 'Personalizacion Ticket',
+                    icon: '🎨',
+                    children: [
+                      _buildPremiumField(_ticketHeaderController, 'Encabezado del Ticket', '🔝'),
+                      const SizedBox(height: 14),
+                      _buildPremiumField(_ticketFooterController, 'Pie de Ticket', '🔻', maxLines: 2),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 56,
+                    child: Container(
+                      decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF818CF8)]), borderRadius: BorderRadius.circular(14), boxShadow: [BoxShadow(color: const Color(0xFF6366F1).withOpacity(0.4), blurRadius: 16, offset: const Offset(0, 6))]),
+                      child: ElevatedButton(
+                        onPressed: _isSaving ? null : _saveSettings,
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, shadowColor: Colors.transparent, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+                        child: _isSaving
+                            ? const Row(mainAxisAlignment: MainAxisAlignment.center, children: [SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)), SizedBox(width: 12), Text('Guardando...', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white))])
+                            : const Text('💾 GUARDAR CONFIGURACION', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 0.5)),
                       ),
                     ),
-                    const SizedBox(height: 20),
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withOpacity(0.05))),
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        const Text('Vista previa del ticket:', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-                        const SizedBox(height: 12),
-                        if (_ticketLogoUrlController.text.isNotEmpty) Center(child: Container(height: 50, margin: const EdgeInsets.only(bottom: 8), child: Image.network(_ticketLogoUrlController.text, fit: BoxFit.contain, errorBuilder: (_, __, ___) => const SizedBox.shrink()))),
-                        Center(child: Text(_ticketHeaderController.text.isNotEmpty ? _ticketHeaderController.text : 'BBS CLUB POS', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
-                        if (_shopRifController.text.isNotEmpty) Center(child: Text('RUT: ${_shopRifController.text}', style: const TextStyle(color: Colors.white54, fontSize: 11))),
-                        if (_shopAddressController.text.isNotEmpty) Center(child: Text(_shopAddressController.text, style: const TextStyle(color: Colors.white54, fontSize: 11))),
-                        if (_shopPhoneController.text.isNotEmpty) Center(child: Text('Tel: ${_shopPhoneController.text}', style: const TextStyle(color: Colors.white54, fontSize: 11))),
-                        const Divider(color: Colors.white10, height: 24),
-                        Center(child: Text(_ticketFooterController.text.isNotEmpty ? _ticketFooterController.text : '¡Gracias por su visita!', style: const TextStyle(color: Colors.white38, fontSize: 11, fontStyle: FontStyle.italic))),
-                      ]),
-                    ),
-                    const SizedBox(height: 40),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 24),
+                ]),
               ),
             ),
     );

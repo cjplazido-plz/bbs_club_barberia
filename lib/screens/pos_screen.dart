@@ -1,6 +1,6 @@
-import 'commissions_screen.dart' hide SalesHistoryScreen;
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:intl/intl.dart';
 import '../models/local_service.dart';
 import '../models/local_transaction.dart';
 import '../models/local_barber.dart';
@@ -27,6 +27,7 @@ import 'dashboard_screen.dart';
 import 'login_screen.dart';
 import 'settings_screen.dart';
 import 'advanced_reports_screen.dart';
+import 'commissions_screen.dart';
 
 class PosScreen extends StatefulWidget {
   @override
@@ -73,417 +74,290 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
     final products = await _productRepo.getAllProducts();
     final today = DateTime.now();
     final appointments = await _appointmentRepo.getAppointmentsByDate(today);
-    final pendingAppointments = appointments.where((a) =>
-        a.status == 'pending' || a.status == 'confirmed' || a.status == 'in_progress'
-    ).toList();
-
+    final pending = appointments.where((a) => a.status == 'pending' || a.status == 'confirmed' || a.status == 'in_progress').toList();
     setState(() {
       _services = services;
       _barbers = barbers;
       _clients = clients;
       _products = products;
-      _todayAppointments = pendingAppointments;
+      _todayAppointments = pending;
     });
   }
 
+  double get _subtotal => _cart.fold(0.0, (s, i) => s + (i.priceAtMoment * i.quantity));
+  double get _total => _subtotal - _discount;
+
   void _addServiceToCart(LocalService service) {
-    if (_selectedBarber == null) {
-      _showBarberRequiredDialog();
-      return;
-    }
+    if (_selectedBarber == null) { _showBarberRequiredDialog(); return; }
     setState(() {
-      final existingIndex = _cart.indexWhere((item) =>
-          item.type == 'service' && item.serviceId == service.remoteId);
-      if (existingIndex >= 0) {
-        _cart[existingIndex].quantity++;
-      } else {
-        _cart.add(LocalTransactionItem()
-          ..type = 'service'
-          ..serviceId = service.remoteId ?? ''
-          ..serviceName = service.name
-          ..barberId = _selectedBarber!.remoteId ?? ''
-          ..barberName = _selectedBarber!.name
-          ..priceAtMoment = service.price
-          ..quantity = 1
-          ..commissionEarned = (service.price * service.commissionValue) / 100);
-      }
+      final idx = _cart.indexWhere((e) => e.type == 'service' && e.serviceId == service.remoteId);
+      if (idx >= 0) _cart[idx].quantity++;
+      else _cart.add(LocalTransactionItem()..type='service'..serviceId=service.remoteId??''..serviceName=service.name..barberId=_selectedBarber!.remoteId??''..barberName=_selectedBarber!.name..priceAtMoment=service.price..quantity=1..commissionEarned=(service.price*service.commissionValue)/100);
     });
-    _showSnackbar('✅ ${service.name} agregado', Colors.green);
+    _snack('✅ ${service.name} agregado');
   }
 
   void _addProductToCart(LocalProduct product) {
     setState(() {
-      final existingIndex = _cart.indexWhere((item) =>
-          item.type == 'product' && item.productId == product.remoteId);
-      if (existingIndex >= 0) {
-        _cart[existingIndex].quantity++;
-      } else {
-        _cart.add(LocalTransactionItem()
-          ..type = 'product'
-          ..productId = product.remoteId ?? ''
-          ..productName = product.name
-          ..priceAtMoment = product.price
-          ..quantity = 1);
-      }
+      final idx = _cart.indexWhere((e) => e.type=='product' && e.productId==product.remoteId);
+      if (idx>=0) _cart[idx].quantity++; else _cart.add(LocalTransactionItem()..type='product'..productId=product.remoteId??''..productName=product.name..priceAtMoment=product.price..quantity=1);
     });
-    _showSnackbar('✅ ${product.name} agregado', Colors.green);
+    _snack('✅ ${product.name} agregado');
   }
 
+  void _snack(String msg) { ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg, style: const TextStyle(fontSize: 13)), backgroundColor: const Color(0xFF10B981), behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)))); }
+
   void _showBarberRequiredDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(children: [Text('💈', style: TextStyle(fontSize: 24)), SizedBox(width: 8), Text('Selecciona un barbero', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white))]),
-        content: const Text('Para agregar servicios, primero selecciona un barbero.', style: TextStyle(color: Colors.white70)),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar', style: TextStyle(color: Colors.grey))),
-          Container(
-            decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF818CF8)]), borderRadius: BorderRadius.circular(10)),
-            child: ElevatedButton(onPressed: () { Navigator.pop(context); _showBarberSelector(); }, style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, shadowColor: Colors.transparent), child: const Text('Elegir')),
-          ),
-        ],
-      ),
-    );
+    showDialog(context: context, builder: (c) => AlertDialog(backgroundColor: const Color(0xFF1E293B), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), title: const Text('💈 Selecciona un barbero', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)), content: const Text('Para agregar servicios debes seleccionar un barbero primero.', style: TextStyle(color: Colors.white70, fontSize: 13)), actions: [TextButton(onPressed: ()=>Navigator.pop(c), child: const Text('Cancelar', style: TextStyle(color: Colors.grey))), ElevatedButton(onPressed: (){Navigator.pop(c); _showBarberSelector();}, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6366F1)), child: const Text('Seleccionar'))]));
   }
 
   void _showBarberSelector() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => Container(
-        decoration: const BoxDecoration(color: Color(0xFF1E293B), borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2))),
-            const SizedBox(height: 20),
-            const Text('✂️ Elige Barbero', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
-            const SizedBox(height: 16),
-            ..._barbers.map((b) => Container(
-                  margin: const EdgeInsets.only(bottom: 10),
-                  decoration: BoxDecoration(
-                    color: _selectedBarber?.remoteId == b.remoteId ? const Color(0xFF6366F1).withOpacity(0.2) : const Color(0xFF0F172A),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: _selectedBarber?.remoteId == b.remoteId ? const Color(0xFF6366F1) : Colors.white10),
-                  ),
-                  child: ListTile(
-                    leading: CircleAvatar(backgroundColor: const Color(0xFF6366F1).withOpacity(0.2), child: Text(b.name[0], style: const TextStyle(color: Color(0xFF6366F1), fontWeight: FontWeight.bold))),
-                    title: Text(b.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                    subtitle: Text('Comisión ${b.commissionValue}%', style: const TextStyle(color: Colors.white54, fontSize: 12)),
-                    trailing: _selectedBarber?.remoteId == b.remoteId ? const Icon(Icons.check_circle_rounded, color: Color(0xFF6366F1)) : null,
-                    onTap: () { setState(() { _selectedBarber = b; }); Navigator.pop(context); _showSnackbar('✂️ ${b.name} seleccionado', const Color(0xFF6366F1)); },
-                  ),
-                )),
-          ],
-        ),
-      ),
-    );
+    showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: const Color(0xFF1E293B), shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), builder: (c) => DraggableScrollableSheet(initialChildSize: 0.6, minChildSize: 0.4, maxChildSize: 0.85, expand: false, builder: (ctx, sc) => Column(children: [Container(padding: const EdgeInsets.all(16), decoration: const BoxDecoration(color: Color(0xFF6366F1), borderRadius: BorderRadius.vertical(top: Radius.circular(20))), child: Row(children: const [Text('💈', style: TextStyle(fontSize: 20)), SizedBox(width: 8), Text('Seleccionar Barbero', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15))])), Expanded(child: ListView.builder(controller: sc, itemCount: _barbers.length, itemBuilder: (ctx,i){final b=_barbers[i]; return ListTile(leading: CircleAvatar(backgroundColor: const Color(0xFF6366F1).withOpacity(0.15), child: Text(b.name[0].toUpperCase(), style: const TextStyle(color: Color(0xFF6366F1), fontWeight: FontWeight.bold))), title: Text(b.name, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)), subtitle: Text('Comisión ${b.commissionValue}%', style: const TextStyle(color: Colors.white54, fontSize: 11)), onTap: (){setState((){_selectedBarber=b;}); Navigator.pop(c);});}))])));
   }
 
   void _showClientSelector() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: const BoxDecoration(color: Color(0xFF1E293B), borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('👤 Elige Cliente', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
-            const SizedBox(height: 16),
-            SizedBox(height: 300, child: ListView.builder(itemCount: _clients.length, itemBuilder: (c, i) {
-              final cl = _clients[i];
-              return ListTile(title: Text(cl.name, style: const TextStyle(color: Colors.white)), subtitle: Text(cl.phone ?? '', style: const TextStyle(color: Colors.white54)), onTap: () { setState(() { _selectedClient = cl; }); Navigator.pop(context); });
-            })),
-          ],
-        ),
-      ),
-    );
+    final search = TextEditingController();
+    List<LocalClient> filtered = _clients;
+    showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: const Color(0xFF1E293B), shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), builder: (c) => StatefulBuilder(builder: (ctx,setModal){return DraggableScrollableSheet(initialChildSize: 0.7, minChildSize: 0.5, maxChildSize: 0.9, expand: false, builder: (ctx,sc)=>Column(children: [Container(padding: const EdgeInsets.all(16), decoration: const BoxDecoration(color: Color(0xFF6366F1), borderRadius: BorderRadius.vertical(top: Radius.circular(20))), child: Row(children: const [Text('👥', style: TextStyle(fontSize: 20)), SizedBox(width: 8), Text('Seleccionar Cliente', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15))])), Padding(padding: const EdgeInsets.all(12), child: TextField(controller: search, style: const TextStyle(color: Colors.white, fontSize: 13), decoration: InputDecoration(hintText: 'Buscar cliente...', hintStyle: const TextStyle(color: Colors.white38, fontSize: 12), prefixIcon: const Icon(Icons.search, color: Colors.white38, size: 18), filled: true, fillColor: const Color(0xFF0F172A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none), contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10)), onChanged: (q){setModal((){filtered = _clients.where((cl)=> cl.name.toLowerCase().contains(q.toLowerCase()) || (cl.phone??'').contains(q)).toList();});})), Expanded(child: ListView.builder(controller: sc, itemCount: filtered.length, itemBuilder: (ctx,i){final cl=filtered[i]; return ListTile(leading: CircleAvatar(backgroundColor: const Color(0xFF10B981).withOpacity(0.15), child: Text(cl.name[0].toUpperCase(), style: const TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.bold, fontSize: 12))), title: Text(cl.name, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)), subtitle: Text(cl.phone??'', style: const TextStyle(color: Colors.white54, fontSize: 11)), onTap: (){setState((){_selectedClient=cl;}); Navigator.pop(c);});})), Padding(padding: const EdgeInsets.all(12), child: SizedBox(width: double.infinity, child: OutlinedButton(onPressed: (){setState((){_selectedClient=null;}); Navigator.pop(c);}, child: const Text('Sin cliente', style: TextStyle(color: Colors.white70, fontSize: 12)))))]));}));
   }
 
   void _showAppointmentSelector() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: const BoxDecoration(color: Color(0xFF1E293B), borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('📅 Citas de Hoy', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
-            const SizedBox(height: 16),
-            if (_todayAppointments.isEmpty) const Text('No hay citas pendientes', style: TextStyle(color: Colors.white54)),
-            ..._todayAppointments.map((a) => ListTile(title: Text(a.clientName ?? 'Cliente', style: const TextStyle(color: Colors.white)), subtitle: Text('${a.appointmentDate.hour.toString().padLeft(2, '0')}:${a.appointmentDate.minute.toString().padLeft(2, '0')} - ${a.serviceName ?? ''}', style: const TextStyle(color: Colors.white54, fontSize: 12)), onTap: () { setState(() { _selectedAppointment = a; if (_clients.isNotEmpty) { _selectedClient = _clients.firstWhere((c) => c.name == a.clientName, orElse: () => _clients.first); } }); Navigator.pop(context); })),
-          ],
-        ),
-      ),
-    );
+    showModalBottomSheet(context: context, backgroundColor: const Color(0xFF1E293B), shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), builder: (c) => Column(mainAxisSize: MainAxisSize.min, children: [
+      Container(padding: const EdgeInsets.all(16), decoration: const BoxDecoration(color: Color(0xFF6366F1), borderRadius: BorderRadius.vertical(top: Radius.circular(20))), child: Row(children: const [Text('📅', style: TextStyle(fontSize: 20)), SizedBox(width: 8), Text('Citas de Hoy', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15))])),
+      _todayAppointments.isEmpty ? const Padding(padding: EdgeInsets.all(24), child: Text('No hay citas pendientes hoy', style: TextStyle(color: Colors.white54, fontSize: 13))) : ListView.builder(shrinkWrap: true, itemCount: _todayAppointments.length, itemBuilder: (ctx,i){
+        final ap=_todayAppointments[i];
+        final timeStr = DateFormat('HH:mm').format(ap.appointmentDate);
+        return ListTile(
+          title: Text(ap.clientName??'Cliente', style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+          subtitle: Text('${ap.serviceName??''} - $timeStr', style: const TextStyle(color: Colors.white54, fontSize: 11)),
+          onTap: (){
+            setState((){
+              _selectedAppointment=ap;
+              _selectedClient=_clients.firstWhere((cl)=>cl.remoteId==ap.clientId, orElse: ()=> LocalClient()..name=ap.clientName??''..phone=ap.clientPhone??'');
+            });
+            Navigator.pop(c);
+          }
+        );
+      })
+    ]));
   }
 
-  double get _subtotal => _cart.fold(0, (sum, item) => sum + (item.priceAtMoment * item.quantity));
-  double get _total => _subtotal - _discount;
+  void _updateQuantity(int index, int qty) { setState((){ if(qty<=0) _cart.removeAt(index); else _cart[index].quantity=qty; }); }
 
-  void _updateQuantity(int index, int qty) {
-    setState(() {
-      if (qty <= 0) { _cart.removeAt(index); } else { _cart[index].quantity = qty; }
+  Future<void> _processPayment() async {
+    if(_cart.isEmpty) return;
+    String method = _paymentMethod;
+    if(method=='cash'){
+      final result = await _showCashDialog();
+      if(result==null) return;
+      await _completeTransaction(cashReceived: result['received']!, change: result['change']!);
+    } else {
+      await _completeTransaction(cashReceived: _total, change: 0);
+    }
+  }
+
+  Future<Map<String,double>?> _showCashDialog() async {
+    final ctrl = TextEditingController();
+    double change = 0;
+    return showDialog<Map<String,double>>(context: context, builder: (c){
+      return StatefulBuilder(builder: (ctx,setSt){
+        void calc(){ final rec = double.tryParse(ctrl.text)??0; setSt(()=> change = rec - _total); }
+        return AlertDialog(backgroundColor: const Color(0xFF1E293B), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), title: const Text('💵 Pago en Efectivo', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)), content: Column(mainAxisSize: MainAxisSize.min, children: [Container(width: double.infinity, padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: const Color(0xFF0F172A), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white10)), child: Column(children: [const Text('Total a pagar', style: TextStyle(color: Colors.white54, fontSize: 11)), Text(SettingsService.formatCurrency(_total), style: const TextStyle(color: Color(0xFF818CF8), fontSize: 22, fontWeight: FontWeight.bold))])), const SizedBox(height: 12), TextField(controller: ctrl, autofocus: true, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold), keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(labelText: 'Monto recibido', labelStyle: const TextStyle(color: Colors.white54, fontSize: 12), prefixText: '${SettingsService.currencySymbol} ', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)), focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF10B981), width: 2))), onChanged: (_)=>calc()), const SizedBox(height: 10), Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: change>=0 ? const Color(0xFF10B981).withOpacity(0.15) : Colors.red.withOpacity(0.15), borderRadius: BorderRadius.circular(10)), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(change>=0 ? 'Vuelto:' : 'Falta:', style: TextStyle(color: change>=0 ? const Color(0xFF10B981) : Colors.redAccent, fontSize: 12)), Text(SettingsService.formatCurrency(change.abs()), style: TextStyle(color: change>=0 ? const Color(0xFF10B981) : Colors.redAccent, fontSize: 16, fontWeight: FontWeight.bold))]))]), actions: [TextButton(onPressed: ()=>Navigator.pop(c), child: const Text('Cancelar', style: TextStyle(color: Colors.grey, fontSize: 12))), ElevatedButton(onPressed: (){ final rec = double.tryParse(ctrl.text)??0; if(rec < _total){ ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Faltan ${SettingsService.formatCurrency(_total-rec)}'), backgroundColor: Colors.red)); return;} Navigator.pop(c, {'received': rec, 'change': rec-_total}); }, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981)), child: const Text('Confirmar', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)))]);
+      });
     });
   }
 
-  void _showSnackbar(String msg, Color color) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: color, behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))));
+  Future<void> _completeTransaction({required double cashReceived, required double change}) async {
+    final transaction = LocalTransaction()
+      ..remoteId='trans-${DateTime.now().millisecondsSinceEpoch}'
+      ..cashRegisterId='caja-001'
+      ..cashierId='user-001'
+      ..cashierName=currentUserName.isNotEmpty ? currentUserName : 'Recepcion'
+      ..subtotal=_subtotal
+      ..total=_total
+      ..paymentMethod=_paymentMethod
+      ..cashReceived=cashReceived
+      ..changeAmount=change
+      ..items=List.from(_cart);
+    try{
+      final transResponse = await Supabase.instance.client.from('transactions').insert({'id': transaction.remoteId, 'cash_register_id': transaction.cashRegisterId, 'cashier_id': transaction.cashierId, 'cashier_name': transaction.cashierName, 'barber_id': _selectedBarber?.remoteId??'', 'subtotal': transaction.subtotal, 'total': transaction.total, 'payment_method': transaction.paymentMethod, 'cash_received': cashReceived, 'change_amount': change, 'status': 'completed', 'created_at': DateTime.now().toIso8601String()}).select().single();
+      final transactionId = transResponse['id'] as String;
+      final itemsData = transaction.items.map((item)=>{'transaction_id': transactionId, 'item_type': item.type, 'service_id': item.type=='service'?item.serviceId:null, 'service_name': item.type=='service'?item.serviceName:null, 'product_id': item.type=='product'?item.productId:null, 'product_name': item.type=='product'?item.productName:null, 'barber_id': item.barberId.isNotEmpty?item.barberId:null, 'barber_name': item.barberName.isNotEmpty?item.barberName:null, 'price_at_moment': item.priceAtMoment, 'quantity': item.quantity, 'commission_earned': item.commissionEarned}).toList();
+      await Supabase.instance.client.from('transaction_items').insert(itemsData);
+      for(final item in transaction.items){
+        if(item.type=='product'){
+          final pid = item.productId;
+          if(pid!=null && pid.isNotEmpty){
+            try{
+              final prodResp = await Supabase.instance.client.from('products').select('stock').eq('id', pid).single();
+              final cur = (prodResp['stock'] as num).toInt();
+              final newStock = cur - item.quantity;
+              await Supabase.instance.client.from('products').update({'stock': newStock}).eq('id', pid);
+            }catch(_){}
+          }
+        }
+      }
+      await _printer.printTicket(transaction);
+      if(mounted){ setState((){ _cart.clear(); _selectedClient=null; _selectedAppointment=null; _discount=0; }); _snack('✅ Venta registrada'); await _loadData(); }
+    }catch(e){ if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red)); }
   }
 
-  Future<void> _processPayment() async {
-    // Lógica original de pago - mantenida
-    try {
-      final supabase = Supabase.instance.client;
-      final total = _total;
-      final transactionData = {
-        'total': total,
-        'subtotal': _subtotal,
-        'discount': _discount,
-        'payment_method': _paymentMethod,
-        'cashier_name': supabase.auth.currentUser?.email ?? 'Cajero',
-        'barber_name': _selectedBarber?.name,
-        'client_name': _selectedClient?.name,
-        'status': 'completed',
-      };
-      final transRes = await supabase.from('transactions').insert(transactionData).select().single();
-      final transId = transRes['id'];
-      for (var item in _cart) {
-        await supabase.from('transaction_items').insert({
-          'transaction_id': transId,
-          'type': item.type,
-          'service_id': (item.serviceId == null || item.serviceId!.isEmpty) ? null : item.serviceId,
-          'product_id': (item.productId == null || item.productId!.isEmpty) ? null : item.productId,
-          'service_name': item.serviceName,
-          'product_name': item.productName,
-          'barber_id': item.barberId,
-          'barber_name': item.barberName,
-          'price_at_moment': item.priceAtMoment,
-          'quantity': item.quantity,
-          'commission_earned': item.commissionEarned,
+  Widget _buildServiceCard(LocalService s) {
+    final price = SettingsService.formatCurrency(s.price);
+    return InkWell(onTap: ()=>_addServiceToCart(s), child: Container(decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withOpacity(0.06)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 8, offset: const Offset(0,3))]), child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.15), shape: BoxShape.circle), child: const Text('✂️', style: TextStyle(fontSize: 16))), const Spacer(), Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.15), borderRadius: BorderRadius.circular(20)), child: Text(price, style: const TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold)))]),
+      const SizedBox(height: 8),
+      Text(s.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold, height: 1.1)),
+      const SizedBox(height: 4),
+      Text('${s.durationMinutes} min • ${s.commissionValue.toStringAsFixed(0)}%', style: const TextStyle(color: Colors.white38, fontSize: 10)),
+    ]))));
+  }
+
+  Widget _buildProductCard(LocalProduct p) {
+    final price = SettingsService.formatCurrency(p.price);
+    final isLow = p.stock <= p.minStock;
+    return InkWell(onTap: ()=>_addProductToCart(p), child: Container(decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(16), border: Border.all(color: isLow ? Colors.red.withOpacity(0.2) : Colors.white.withOpacity(0.06))), child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: isLow ? Colors.red.withOpacity(0.15) : const Color(0xFFF59E0B).withOpacity(0.15), shape: BoxShape.circle), child: const Text('📦', style: TextStyle(fontSize: 16))), const Spacer(), Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.15), borderRadius: BorderRadius.circular(20)), child: Text(price, style: const TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold)))]),
+      const SizedBox(height: 8),
+      Text(p.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold, height: 1.1)),
+      const SizedBox(height: 4),
+      Text('Stock: ${p.stock}', style: TextStyle(color: isLow ? Colors.redAccent : Colors.white38, fontSize: 10, fontWeight: FontWeight.w600)),
+    ]))));
+  }
+
+  Widget _buildDesktopCart() {
+    return Container(width: 360, decoration: const BoxDecoration(color: Color(0xFF1E293B), border: Border(left: BorderSide(color: Colors.white10))), child: Column(children: [
+      Container(padding: const EdgeInsets.all(14), decoration: const BoxDecoration(gradient: LinearGradient(colors: [Color(0xFF312E81), Color(0xFF1E293B)]), border: Border(bottom: BorderSide(color: Colors.white10))), child: Row(children: [const Text('🛒', style: TextStyle(fontSize: 20)), const SizedBox(width: 8), Text('Carrito (${_cart.length})', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)), const Spacer(), if(_cart.isNotEmpty) InkWell(onTap: ()=>setState(()=>_cart.clear()), child: const Text('Vaciar', style: TextStyle(color: Colors.redAccent, fontSize: 11)))])),
+      Expanded(child: _cart.isEmpty ? const Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Text('🛒', style: TextStyle(fontSize: 48)), SizedBox(height: 12), Text('Carrito vacio', style: TextStyle(color: Colors.white54, fontSize: 13))])) : ListView.builder(padding: const EdgeInsets.all(10), itemCount: _cart.length, itemBuilder: (c,i){ final it=_cart[i]; return Container(margin: const EdgeInsets.only(bottom: 8), decoration: BoxDecoration(color: const Color(0xFF0F172A), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white10)), child: ListTile(dense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), title: Text(it.serviceName.isNotEmpty?it.serviceName:it.productName??'', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis), subtitle: Text('${SettingsService.formatCurrency(it.priceAtMoment)} x ${it.quantity}', style: const TextStyle(color: Colors.white54, fontSize: 10)), trailing: Row(mainAxisSize: MainAxisSize.min, children: [IconButton(icon: const Text('➖', style: TextStyle(fontSize: 12)), onPressed: ()=>_updateQuantity(i, it.quantity-1), padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 28, minHeight: 28)), Text('${it.quantity}', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)), IconButton(icon: const Text('➕', style: TextStyle(fontSize: 12)), onPressed: ()=>_updateQuantity(i, it.quantity+1), padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 28, minHeight: 28))]))); })),
+      Container(padding: const EdgeInsets.all(14), decoration: const BoxDecoration(color: Color(0xFF0F172A), border: Border(top: BorderSide(color: Colors.white10))), child: Column(children: [
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Subtotal:', style: TextStyle(color: Colors.white54, fontSize: 12)), Text(SettingsService.formatCurrency(_subtotal), style: const TextStyle(color: Colors.white, fontSize: 12))]),
+        const SizedBox(height: 6),
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('TOTAL:', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)), Text(SettingsService.formatCurrency(_total), style: const TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.bold, fontSize: 20))]),
+        const SizedBox(height: 12),
+        _buildOptionButton(icon: '📅', label: _selectedAppointment?.clientName ?? 'Cita (opcional)', onTap: _showAppointmentSelector),
+        const SizedBox(height: 8),
+        _buildOptionButton(icon: '👤', label: _selectedClient?.name ?? 'Cliente (opcional)', onTap: _showClientSelector),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(value: _paymentMethod, dropdownColor: const Color(0xFF1E293B), style: const TextStyle(color: Colors.white, fontSize: 12), decoration: InputDecoration(filled: true, fillColor: const Color(0xFF0F172A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none), contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8)), items: const [DropdownMenuItem(value: 'cash', child: Text('💵 Efectivo', style: TextStyle(fontSize: 12))), DropdownMenuItem(value: 'card', child: Text('💳 Tarjeta', style: TextStyle(fontSize: 12))), DropdownMenuItem(value: 'transfer', child: Text('📱 Transferencia', style: TextStyle(fontSize: 12)))], onChanged: (v)=>setState(()=>_paymentMethod=v!)),
+        const SizedBox(height: 12),
+        SizedBox(width: double.infinity, height: 48, child: ElevatedButton(onPressed: _cart.isEmpty?null:_processPayment, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981), disabledBackgroundColor: Colors.white10, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), child: const Text('COBRAR', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.white))))
+      ]))
+    ]));
+  }
+
+  Widget _buildOptionButton({required String icon, required String label, required VoidCallback onTap}) {
+    return InkWell(onTap: onTap, child: Container(width: double.infinity, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10), decoration: BoxDecoration(color: const Color(0xFF0F172A), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.white10)), child: Row(children: [Text(icon, style: const TextStyle(fontSize: 14)), const SizedBox(width: 8), Expanded(child: Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis)), const Icon(Icons.chevron_right_rounded, color: Colors.white24, size: 16)])));
+  }
+
+  Widget _buildMobileBottomBar() {
+    return Container(padding: const EdgeInsets.fromLTRB(12,10,12,12), decoration: BoxDecoration(color: const Color(0xFF1E293B), border: Border(top: BorderSide(color: Colors.white.withOpacity(0.08))), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.4), blurRadius: 12, offset: const Offset(0,-4))]), child: Column(mainAxisSize: MainAxisSize.min, children: [
+      Row(children: [Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Subtotal: ${SettingsService.formatCurrency(_subtotal)}', style: const TextStyle(color: Colors.white54, fontSize: 11)), Text(SettingsService.formatCurrency(_total), style: const TextStyle(color: Color(0xFF10B981), fontSize: 18, fontWeight: FontWeight.bold))])), const SizedBox(width: 10), Expanded(child: OutlinedButton.icon(onPressed: ()=>_showCartModal(), icon: const Text('🛒', style: TextStyle(fontSize: 14)), label: Text('Carrito (${_cart.length})', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)), style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: const BorderSide(color: Colors.white24), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)))))]),
+      const SizedBox(height: 8),
+      Row(children: [Expanded(child: _buildOptionButton(icon: '📅', label: _selectedAppointment?.clientName ?? 'Cita', onTap: _showAppointmentSelector)), const SizedBox(width: 8), Expanded(child: _buildOptionButton(icon: '👤', label: _selectedClient?.name ?? 'Cliente', onTap: _showClientSelector))]),
+      const SizedBox(height: 8),
+      SizedBox(width: double.infinity, height: 48, child: ElevatedButton(onPressed: _cart.isEmpty?null:_processPayment, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981), disabledBackgroundColor: Colors.white10, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), child: Text(_cart.isEmpty ? 'CARRITO VACIO' : 'COBRAR ${SettingsService.formatCurrency(_total)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white))))
+    ]));
+  }
+
+  void _showCartModal() {
+    showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: const Color(0xFF1E293B), shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), builder: (c){
+      return StatefulBuilder(builder: (ctx,setModal){
+        return DraggableScrollableSheet(initialChildSize: 0.7, minChildSize: 0.5, maxChildSize: 0.9, expand: false, builder: (ctx,sc){
+          return Column(children: [
+            Container(padding: const EdgeInsets.all(16), decoration: const BoxDecoration(color: Color(0xFF6366F1), borderRadius: BorderRadius.vertical(top: Radius.circular(20))), child: Row(children: [Text('Carrito (${_cart.length})', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)), const Spacer(), if(_cart.isNotEmpty) TextButton(onPressed: (){ setState(()=>_cart.clear()); setModal((){}); }, child: const Text('Vaciar', style: TextStyle(color: Colors.white70, fontSize: 12)))])),
+            Expanded(child: _cart.isEmpty ? const Center(child: Text('🛒 Carrito vacio', style: TextStyle(color: Colors.white54, fontSize: 13))) : ListView.builder(controller: sc, padding: const EdgeInsets.all(12), itemCount: _cart.length, itemBuilder: (ctx,i){ final it=_cart[i]; return Container(margin: const EdgeInsets.only(bottom: 8), decoration: BoxDecoration(color: const Color(0xFF0F172A), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white10)), child: ListTile(dense: true, title: Text(it.serviceName.isNotEmpty?it.serviceName:it.productName??'', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)), subtitle: Text('${SettingsService.formatCurrency(it.priceAtMoment)} x ${it.quantity} = ${SettingsService.formatCurrency(it.priceAtMoment*it.quantity)}', style: const TextStyle(color: Colors.white54, fontSize: 10)), trailing: Row(mainAxisSize: MainAxisSize.min, children: [IconButton(icon: const Text('➖', style: TextStyle(fontSize: 12)), onPressed: (){ setState(()=> _updateQuantity(i, it.quantity-1)); setModal((){}); }, padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 28, minHeight: 28)), Text('${it.quantity}', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)), IconButton(icon: const Text('➕', style: TextStyle(fontSize: 12)), onPressed: (){ setState(()=> it.quantity++); setModal((){}); }, padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 28, minHeight: 28)), IconButton(icon: const Icon(Icons.delete_outline, size: 16, color: Colors.redAccent), onPressed: (){ setState(()=>_cart.removeAt(i)); setModal((){}); })]))); })),
+            Container(padding: const EdgeInsets.all(16), decoration: const BoxDecoration(color: Color(0xFF0F172A), border: Border(top: BorderSide(color: Colors.white10))), child: Column(children: [
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Subtotal:', style: TextStyle(color: Colors.white54, fontSize: 12)), Text(SettingsService.formatCurrency(_subtotal), style: const TextStyle(color: Colors.white, fontSize: 12))]),
+              const SizedBox(height: 6),
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('TOTAL:', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)), Text(SettingsService.formatCurrency(_total), style: const TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.bold, fontSize: 20))]),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(value: _paymentMethod, dropdownColor: const Color(0xFF1E293B), style: const TextStyle(color: Colors.white, fontSize: 12), decoration: InputDecoration(filled: true, fillColor: const Color(0xFF1E293B), border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none), contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10)), items: const [DropdownMenuItem(value: 'cash', child: Text('💵 Efectivo', style: TextStyle(fontSize: 12))), DropdownMenuItem(value: 'card', child: Text('💳 Tarjeta', style: TextStyle(fontSize: 12))), DropdownMenuItem(value: 'transfer', child: Text('📱 Transferencia', style: TextStyle(fontSize: 12)))], onChanged: (v){ setState(()=>_paymentMethod=v!); setModal((){}); }),
+              const SizedBox(height: 12),
+              SizedBox(width: double.infinity, height: 48, child: ElevatedButton(onPressed: _cart.isEmpty?null:(){ Navigator.pop(c); _processPayment(); }, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), child: Text('COBRAR ${SettingsService.formatCurrency(_total)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white))))
+            ]))
+          ]);
         });
-      }
-      setState(() { _cart.clear(); _discount = 0; _selectedClient = null; _selectedAppointment = null; });
-      _showSnackbar('✅ Venta completada ${SettingsService.formatCurrency(total)}', Colors.green);
-    } catch (e) {
-      _showSnackbar('❌ Error: $e', Colors.red);
-    }
+      });
+    });
+  }
+
+  void _showMobileMenu() {
+    showModalBottomSheet(context: context, isScrollControlled: true, shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), backgroundColor: const Color(0xFF1E293B), builder: (context) => DraggableScrollableSheet(initialChildSize: 0.9, minChildSize: 0.5, maxChildSize: 0.95, expand: false, builder: (context, scrollController) => SingleChildScrollView(controller: scrollController, child: Column(children: [
+      Container(padding: const EdgeInsets.all(20), decoration: const BoxDecoration(color: Color(0xFF6366F1), borderRadius: BorderRadius.vertical(top: Radius.circular(20))), child: Row(children: const [Text('☰', style: TextStyle(fontSize: 28, color: Colors.white)), SizedBox(width: 12), Text('Menú', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white))])),
+      Column(children: [
+        if (currentUserRole == 'admin') ...[
+          _buildMenuItem('📝', 'Reportes Avanzados', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => AdvancedReportsScreen())); }),
+          _buildMenuItem('💰', 'Comisiones', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => CommissionsScreen())); }),
+          _buildMenuItem('💈', 'Barberos', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => BarbersScreen())).then((_) => _loadData()); }),
+          _buildMenuItem('✂️', 'Servicios', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ServicesScreen())).then((_) => _loadData()); }),
+          _buildMenuItem('📦', 'Productos', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ProductsScreen())).then((_) => _loadData()); }),
+          _buildMenuItem('👥', 'Usuarios', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => UsersScreen())); }),
+          _buildMenuItem('📅', 'Agenda', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => AppointmentsScreen())); }),
+          _buildMenuItem('📊', 'Dashboard', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => DashboardScreen())); }),
+          _buildMenuItem('📈', 'Reportes', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ReportsScreen())); }),
+          _buildMenuItem('📜', 'Historial', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => SalesHistoryScreen())); }),
+          _buildMenuItem('⚙️', 'Configuración', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => SettingsScreen())); }),
+        ],
+        _buildMenuItem('🧑‍💼', 'Clientes', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ClientsScreen())).then((_) => _loadData()); }),
+        const Divider(color: Colors.white10),
+        _buildMenuItem('🚪', 'Cerrar sesión', () { Navigator.pop(context); _handleLogout(); }, isLogout: true),
+      ]),
+      const SizedBox(height: 20),
+    ])))) ;
+  }
+
+  Widget _buildMenuItem(String icon, String text, VoidCallback onTap, {bool isLogout = false}) {
+    return ListTile(leading: Text(icon, style: const TextStyle(fontSize: 20)), title: Text(text, style: TextStyle(fontSize: 14, color: isLogout ? Colors.redAccent : Colors.white, fontWeight: FontWeight.w500)), onTap: onTap);
+  }
+
+  Future<void> _handleLogout() async {
+    final confirm = await showDialog<bool>(context: context, builder: (context) => AlertDialog(backgroundColor: const Color(0xFF1E293B), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), title: const Text('Cerrar sesión', style: TextStyle(color: Colors.white, fontSize: 14)), content: const Text('¿Seguro que deseas cerrar sesión?', style: TextStyle(color: Colors.white70, fontSize: 12)), actions: [TextButton(onPressed: ()=>Navigator.pop(context,false), child: const Text('Cancelar', style: TextStyle(color: Colors.grey, fontSize: 12))), ElevatedButton(onPressed: ()=>Navigator.pop(context,true), style: ElevatedButton.styleFrom(backgroundColor: Colors.red), child: const Text('Cerrar', style: TextStyle(fontSize: 12))) ]));
+    if(confirm==true){ await Supabase.instance.client.auth.signOut(); if(mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (c)=>LoginScreen())); }
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDark = true;
-    final bgColor = const Color(0xFF0F172A);
-    final cardColor = const Color(0xFF1E293B);
-
+    final isMobile = MediaQuery.of(context).size.width < 800;
     return Scaffold(
-      backgroundColor: bgColor,
+      backgroundColor: const Color(0xFF0F172A),
       appBar: AppBar(
         backgroundColor: const Color(0xFF1E293B),
-        foregroundColor: Colors.white,
         elevation: 0,
+        leading: IconButton(icon: const Icon(Icons.menu_rounded, color: Colors.white), onPressed: _showMobileMenu),
         title: Row(children: [
-          Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF818CF8)]), borderRadius: BorderRadius.circular(10)), child: const Text('💈', style: TextStyle(fontSize: 18))),
-          const SizedBox(width: 10),
-          const Text('POS Premium', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 0.5)),
+          Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: const Color(0xFF6366F1), borderRadius: BorderRadius.circular(10)), child: const Text('💈', style: TextStyle(fontSize: 18))),
+          const SizedBox(width: 8),
+          const Text('POS Premium', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+          if(_selectedBarber!=null) ...[
+            const SizedBox(width: 10),
+            Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.15), borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFF6366F1).withOpacity(0.3))), child: Text('✂️ ${_selectedBarber!.name}', style: const TextStyle(color: Color(0xFF818CF8), fontSize: 11, fontWeight: FontWeight.bold))),
+          ]
         ]),
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: const Color(0xFF6366F1),
-          indicatorWeight: 3,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white54,
-          tabs: const [Tab(icon: Text('✂️'), text: 'Servicios'), Tab(icon: Text('📦'), text: 'Productos')],
-        ),
-      ),
-      drawer: _buildPremiumDrawer(),
-      body: Row(
-        children: [
-          Expanded(flex: 2, child: TabBarView(controller: _tabController, children: [_buildServicesTab(cardColor), _buildProductsTab(cardColor)])),
-          Container(width: 1, color: Colors.white10),
-          Expanded(flex: 1, child: _buildPremiumCart()),
+        actions: [
+          if(isMobile) Stack(children: [IconButton(icon: const Icon(Icons.shopping_cart_rounded, color: Colors.white), onPressed: _showCartModal), if(_cart.isNotEmpty) Positioned(right: 6, top: 6, child: Container(padding: const EdgeInsets.all(4), decoration: const BoxDecoration(color: Color(0xFF10B981), shape: BoxShape.circle), child: Text('${_cart.length}', style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold))))]),
+          IconButton(icon: const Icon(Icons.person_rounded, color: Colors.white70), onPressed: _showBarberSelector),
         ],
+        bottom: TabBar(controller: _tabController, indicatorColor: const Color(0xFF6366F1), indicatorWeight: 3, labelColor: Colors.white, unselectedLabelColor: Colors.white54, labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold), tabs: const [Tab(icon: Text('✂️', style: TextStyle(fontSize: 16)), text: 'Servicios'), Tab(icon: Text('📦', style: TextStyle(fontSize: 16)), text: 'Productos')]),
       ),
-    );
-  }
-
-Widget _buildPremiumDrawer() {
-    return Drawer(
-      backgroundColor: const Color(0xFF1E293B),
-      child: ListView(padding: EdgeInsets.zero, children: [
-        DrawerHeader(decoration: const BoxDecoration(gradient: LinearGradient(colors: [Color(0xFF1E293B), Color(0xFF312E81)])), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), borderRadius: BorderRadius.circular(14)), child: const Text('💈', style: TextStyle(fontSize: 32))), const SizedBox(height: 12), const Text('BBS CLUB', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 20, letterSpacing: 1)), Text('Barbería Premium', style: TextStyle(color: Colors.white60, fontSize: 12))])),
-        _drawerItem('📊', 'Dashboard', () => Navigator.push(context, MaterialPageRoute(builder: (_) => DashboardScreen()))),
-        _drawerItem('📅', 'Agenda', () => Navigator.push(context, MaterialPageRoute(builder: (_) => AppointmentsScreen()))),
-        _drawerItem('👥', 'Clientes', () => Navigator.push(context, MaterialPageRoute(builder: (_) => ClientsScreen()))),
-        _drawerItem('✂️', 'Barberos', () => Navigator.push(context, MaterialPageRoute(builder: (_) => BarbersScreen()))),
-        _drawerItem('💈', 'Servicios', () => Navigator.push(context, MaterialPageRoute(builder: (_) => ServicesScreen()))),
-        _drawerItem('📦', 'Productos', () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProductsScreen()))),
-        _drawerItem('🧾', 'Historial', () => Navigator.push(context, MaterialPageRoute(builder: (_) => SalesHistoryScreen()))),
-        const Divider(color: Colors.white10, height: 1),
-        _drawerItem('💰', 'Comisiones', () => Navigator.push(context, MaterialPageRoute(builder: (_) => CommissionsScreen()))),
-        _drawerItem('📈', 'Reportes', () => Navigator.push(context, MaterialPageRoute(builder: (_) => ReportsScreen()))),
-        _drawerItem('📊', 'Reportes Avanzados', () => Navigator.push(context, MaterialPageRoute(builder: (_) => AdvancedReportsScreen()))),
-        _drawerItem('👑', 'Usuarios', () => Navigator.push(context, MaterialPageRoute(builder: (_) => UsersScreen()))),
-        _drawerItem('⚙️', 'Ajustes', () => Navigator.push(context, MaterialPageRoute(builder: (_) => SettingsScreen()))),
-        const Divider(color: Colors.white10, height: 1),
-        _drawerItem('🚪', 'Salir', () async { await Supabase.instance.client.auth.signOut(); if (mounted) Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => LoginScreen()), (route) => false); }),
-      ]),
-    );
-  }
-
-  Widget _drawerItem(String icon, String title, VoidCallback onTap) {
-    return ListTile(leading: Text(icon, style: const TextStyle(fontSize: 20)), title: Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500)), onTap: onTap, hoverColor: const Color(0xFF6366F1).withOpacity(0.1));
-  }
-
-  Widget _buildServicesTab(Color cardColor) {
-    return GridView.builder(
-      padding: const EdgeInsets.all(16),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, childAspectRatio: 1.4, crossAxisSpacing: 12, mainAxisSpacing: 12),
-      itemCount: _services.length,
-      itemBuilder: (context, index) {
-        final s = _services[index];
-        return InkWell(
-          onTap: () => _addServiceToCart(s),
-          borderRadius: BorderRadius.circular(18),
-          child: Container(
-            decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(18), border: Border.all(color: Colors.white.withOpacity(0.05)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4))]),
-            padding: const EdgeInsets.all(16),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.15), borderRadius: BorderRadius.circular(10)), child: const Text('✂️', style: TextStyle(fontSize: 18))), Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.15), borderRadius: BorderRadius.circular(20)), child: Text(SettingsService.formatCurrency(s.price), style: const TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold)))]),
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(s.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis), const SizedBox(height: 2), Text('${s.durationMinutes} min • ${s.commissionValue}%', style: const TextStyle(color: Colors.white54, fontSize: 11))]),
+      body: isMobile
+          ? Column(children: [
+              if(_selectedBarber==null) Container(width: double.infinity, padding: const EdgeInsets.all(10), color: const Color(0xFFF59E0B).withOpacity(0.15), child: const Text('⚠️ Selecciona un barbero para vender servicios', style: TextStyle(color: Color(0xFFF59E0B), fontSize: 11, fontWeight: FontWeight.w600), textAlign: TextAlign.center)),
+              Expanded(child: TabBarView(controller: _tabController, children: [
+                _services.isEmpty ? const Center(child: Text('No hay servicios', style: TextStyle(color: Colors.white54, fontSize: 13))) : GridView.builder(padding: const EdgeInsets.all(10), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, childAspectRatio: 1.25, crossAxisSpacing: 10, mainAxisSpacing: 10), itemCount: _services.length, itemBuilder: (c,i)=>_buildServiceCard(_services[i])),
+                _products.isEmpty ? const Center(child: Text('No hay productos', style: TextStyle(color: Colors.white54, fontSize: 13))) : GridView.builder(padding: const EdgeInsets.all(10), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, childAspectRatio: 1.25, crossAxisSpacing: 10, mainAxisSpacing: 10), itemCount: _products.length, itemBuilder: (c,i)=>_buildProductCard(_products[i])),
+              ])),
+              _buildMobileBottomBar(),
+            ])
+          : Row(children: [
+              Expanded(child: Column(children: [
+                if(_selectedBarber==null) Container(width: double.infinity, padding: const EdgeInsets.all(10), color: const Color(0xFFF59E0B).withOpacity(0.15), child: const Text('⚠️ Selecciona un barbero para vender servicios', style: TextStyle(color: Color(0xFFF59E0B), fontSize: 12), textAlign: TextAlign.center)),
+                Expanded(child: TabBarView(controller: _tabController, children: [
+                  _services.isEmpty ? const Center(child: Text('No hay servicios', style: TextStyle(color: Colors.white54))) : GridView.builder(padding: const EdgeInsets.all(16), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, childAspectRatio: 1.3, crossAxisSpacing: 12, mainAxisSpacing: 12), itemCount: _services.length, itemBuilder: (c,i)=>_buildServiceCard(_services[i])),
+                  _products.isEmpty ? const Center(child: Text('No hay productos', style: TextStyle(color: Colors.white54))) : GridView.builder(padding: const EdgeInsets.all(16), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, childAspectRatio: 1.3, crossAxisSpacing: 12, mainAxisSpacing: 12), itemCount: _products.length, itemBuilder: (c,i)=>_buildProductCard(_products[i])),
+                ]))
+              ])),
+              _buildDesktopCart(),
             ]),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildProductsTab(Color cardColor) {
-    return GridView.builder(
-      padding: const EdgeInsets.all(16),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, childAspectRatio: 1.4, crossAxisSpacing: 12, mainAxisSpacing: 12),
-      itemCount: _products.length,
-      itemBuilder: (context, index) {
-        final p = _products[index];
-        return InkWell(
-          onTap: () => _addProductToCart(p),
-          borderRadius: BorderRadius.circular(18),
-          child: Container(
-            decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(18), border: Border.all(color: Colors.white.withOpacity(0.05)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4))]),
-            padding: const EdgeInsets.all(16),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: const Color(0xFFF59E0B).withOpacity(0.15), borderRadius: BorderRadius.circular(10)), child: const Text('📦', style: TextStyle(fontSize: 18))), Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.15), borderRadius: BorderRadius.circular(20)), child: Text(SettingsService.formatCurrency(p.price), style: const TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold)))]),
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(p.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis), Text('Stock: ${p.stock}', style: const TextStyle(color: Colors.white54, fontSize: 11))]),
-            ]),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildPremiumCart() {
-    return Container(
-      color: const Color(0xFF1E293B),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: const BoxDecoration(gradient: LinearGradient(colors: [Color(0xFF1E293B), Color(0xFF312E81)]), border: Border(bottom: BorderSide(color: Colors.white10))),
-            child: Row(children: [const Text('🛒', style: TextStyle(fontSize: 20)), const SizedBox(width: 8), const Text('Carrito', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)), const Spacer(), Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.2), borderRadius: BorderRadius.circular(20)), child: Text('${_cart.length}', style: const TextStyle(color: Color(0xFF818CF8), fontWeight: FontWeight.bold)))]),
-          ),
-          Expanded(
-            child: _cart.isEmpty
-                ? const Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Text('🛒', style: TextStyle(fontSize: 48)), SizedBox(height: 12), Text('Carrito vacío', style: TextStyle(color: Colors.white54))]))
-                : ListView.builder(
-                    padding: const EdgeInsets.all(12),
-                    itemCount: _cart.length,
-                    itemBuilder: (context, index) {
-                      final item = _cart[index];
-                      final isService = item.type == 'service';
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 10),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(color: const Color(0xFF0F172A), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.white.withOpacity(0.05))),
-                        child: Row(
-                          children: [
-                            Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: isService ? const Color(0xFF6366F1).withOpacity(0.15) : const Color(0xFFF59E0B).withOpacity(0.15), borderRadius: BorderRadius.circular(10)), child: Text(isService ? '✂️' : '📦', style: const TextStyle(fontSize: 14))),
-                            const SizedBox(width: 10),
-                            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text((item.serviceName?.isNotEmpty == true ? item.serviceName : item.productName) ?? 'Item', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis), Text('${SettingsService.formatCurrency(item.priceAtMoment)} x ${item.quantity}', style: const TextStyle(color: Colors.white54, fontSize: 11)), if (item.barberName?.isNotEmpty == true) Text('✂️ ${item.barberName}', style: const TextStyle(color: Colors.white38, fontSize: 10))])),
-                            Row(children: [
-                              InkWell(onTap: () => _updateQuantity(index, item.quantity - 1), child: Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.remove_rounded, size: 14, color: Colors.white))),
-                              Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: Text('${item.quantity}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
-                              InkWell(onTap: () => _updateQuantity(index, item.quantity + 1), child: Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.2), borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.add_rounded, size: 14, color: Color(0xFF818CF8)))),
-                            ]),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-          ),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: const BoxDecoration(color: Color(0xFF0F172A), border: Border(top: BorderSide(color: Colors.white10))),
-            child: Column(
-              children: [
-                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Subtotal:', style: TextStyle(color: Colors.white54, fontSize: 13)), Text(SettingsService.formatCurrency(_subtotal), style: const TextStyle(color: Colors.white, fontSize: 13))]),
-                if (_discount > 0) Padding(padding: const EdgeInsets.only(top: 4), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Descuento:', style: TextStyle(color: Colors.red, fontSize: 13)), Text('-${SettingsService.formatCurrency(_discount)}', style: const TextStyle(color: Colors.red, fontSize: 13))])),
-                const SizedBox(height: 12),
-                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('TOTAL:', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18, letterSpacing: 1)), Text(SettingsService.formatCurrency(_total), style: const TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.w900, fontSize: 26))]),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: _showAppointmentSelector,
-                    icon: const Text('📅'),
-                    label: Text(_selectedAppointment?.clientName ?? 'Cita (opcional)', style: const TextStyle(color: Colors.white70, fontSize: 12)),
-                    style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.white10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 12)),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: _showClientSelector,
-                    icon: const Text('👤'),
-                    label: Text(_selectedClient?.name ?? 'Cliente (opcional)', style: const TextStyle(color: Colors.white70, fontSize: 12)),
-                    style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.white10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 12)),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  value: _paymentMethod,
-                  dropdownColor: const Color(0xFF1E293B),
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Colors.white10)), filled: true, fillColor: const Color(0xFF1E293B), contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10)),
-                  items: const [DropdownMenuItem(value: 'cash', child: Text('💵 Efectivo')), DropdownMenuItem(value: 'card', child: Text('💳 Tarjeta')), DropdownMenuItem(value: 'transfer', child: Text('📱 Transferencia'))],
-                  onChanged: (v) => setState(() => _paymentMethod = v!),
-                ),
-                const SizedBox(height: 14),
-                SizedBox(
-                  width: double.infinity,
-                  height: 56,
-                  child: Container(
-                    decoration: BoxDecoration(gradient: LinearGradient(colors: _cart.isEmpty ? [Colors.grey, Colors.grey] : [const Color(0xFF10B981), const Color(0xFF059669)]), borderRadius: BorderRadius.circular(14), boxShadow: _cart.isEmpty ? [] : [BoxShadow(color: const Color(0xFF10B981).withOpacity(0.4), blurRadius: 12, offset: const Offset(0, 6))]),
-                    child: ElevatedButton(
-                      onPressed: _cart.isEmpty ? null : _processPayment,
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, shadowColor: Colors.transparent, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
-                      child: Text('COBRAR ${SettingsService.formatCurrency(_total)}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
