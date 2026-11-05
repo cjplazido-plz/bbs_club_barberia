@@ -114,21 +114,63 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     }
   }
 
-  Future<void> _syncAppointments() async {
-    if (_isLoading) return;
-    setState(() { _isLoading = true; });
+Future<void> _syncAppointments() async {
+  if (_isLoading) return;
+  setState(() { _isLoading = true; });
+  try {
+    print('🔄 Recargando citas desde Supabase...');
+    await _loadData();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('✅ Citas actualizadas'), backgroundColor: Colors.green),
+      );
+    }
+  } finally {
+    if (mounted) setState(() { _isLoading = false; });
+  }
+}
+
+  Future<void> _updateAppointmentStatus(LocalAppointment appointment, String newStatus) async {
     try {
-      // DEFINITIVO: No se hace ningún insert/upsert aquí. Solo recarga desde Supabase.
-      // Así es imposible que salga 409 duplicate key.
-      print('🔄 Recargando (sin subida)...');
+      appointment.status = newStatus;
+      await _appointmentRepo.updateAppointment(appointment);
+      await Supabase.instance.client.from('appointments').update({'status': newStatus}).eq('id', appointment.remoteId!);
+      if (newStatus == 'confirmed') {
+        await _sendWhatsAppNotification(appointment, type: 'confirmed');
+      } else if (newStatus == 'cancelled') {
+        await _sendWhatsAppNotification(appointment, type: 'cancelled');
+      }
       await _loadData();
+      final statusMessages = {
+        'confirmed': '✅ Cita confirmada',
+        'in_progress': '🟡 Cita en proceso',
+        'completed': '🎉 Cita completada',
+        'cancelled': '❌ Cita cancelada',
+      };
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('✅ Citas actualizadas (409 eliminado)'), backgroundColor: Colors.green),
+          SnackBar(content: Text(statusMessages[newStatus] ?? 'Estado actualizado'), backgroundColor: newStatus == 'cancelled' ? Colors.red : Colors.green),
         );
       }
-    } finally {
-      if (mounted) setState(() { _isLoading = false; });
+    } catch (e) {
+      print('❌ Error al actualizar estado: $e');
+    }
+  }
+
+  Future<void> _deleteAppointment(LocalAppointment appointment) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirmar cancelación'),
+        content: Text('¿Cancelar la cita de ${appointment.clientName}? Se enviará un mensaje de WhatsApp.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('No')),
+          ElevatedButton(onPressed: () => Navigator.pop(context, true), style: ElevatedButton.styleFrom(backgroundColor: Colors.red), child: const Text('Sí, cancelar')),
+        ],
+      ),
+    );
+    if (confirm == true) {
+      await _updateAppointmentStatus(appointment, 'cancelled');
     }
   }
 
