@@ -159,10 +159,10 @@ transactions!inner(created_at, status)
       selected: isSelected,
       onSelected: (selected) => _setQuickFilter(period),
       backgroundColor: Colors.white,
-      selectedColor: Colors.indigo[100],
-      checkmarkColor: Colors.indigo[700],
+      selectedColor: const Color(0xFF6366F1).withOpacity(0.15),
+      checkmarkColor: const Color(0xFF6366F1),
       labelStyle: TextStyle(
-        color: isSelected ? Colors.indigo[700] : Colors.black87,
+        color: isSelected ? const Color(0xFF6366F1) : Colors.black87,
         fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
       ),
     );
@@ -219,10 +219,12 @@ transactions!inner(created_at, status)
     final medals = ['', '🥈', '🥉'];
     final medal = position <= 3 ? medals[position - 1] : '$position';
     return Card(
-      elevation: 2,
+      color: const Color(0xFF1E293B),
       margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Container(
+        decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withOpacity(0.05))),
+        child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -242,8 +244,8 @@ transactions!inner(created_at, status)
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(color: Colors.indigo[100], borderRadius: BorderRadius.circular(12)),
-                  child: Text('${commissionRate.toStringAsFixed(1)}%', style: TextStyle(color: Colors.indigo[700], fontWeight: FontWeight.bold, fontSize: 12)),
+                  decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.15), borderRadius: BorderRadius.circular(12)),
+                  child: Text('${commissionRate.toStringAsFixed(1)}%', style: TextStyle(color: const Color(0xFF6366F1), fontWeight: FontWeight.bold, fontSize: 12)),
                 ),
               ],
             ),
@@ -276,9 +278,10 @@ transactions!inner(created_at, status)
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFF0F172A),
       appBar: AppBar(
-        title: const Text(' Comisiones por Barbero'),
-        backgroundColor: Colors.indigo[700],
+        title: const Text('Comisiones Premium', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: const Color(0xFF1E293B),
         foregroundColor: Colors.white,
         actions: [
           IconButton(icon: const Text('🔄', style: TextStyle(fontSize: 20)), tooltip: 'Actualizar', onPressed: _loadCommissions),
@@ -288,7 +291,7 @@ transactions!inner(created_at, status)
         children: [
           Container(
             padding: const EdgeInsets.all(16),
-            color: Colors.indigo[50],
+            color: const Color(0xFF1E293B),
             child: Column(
               children: [
                 Row(
@@ -306,7 +309,7 @@ transactions!inner(created_at, status)
                       icon: const Text('📆', style: TextStyle(fontSize: 16)),
                       label: const Text('Rango'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.indigo[700],
+                        backgroundColor: const Color(0xFF1E293B),
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       ),

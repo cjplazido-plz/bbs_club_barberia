@@ -71,13 +71,14 @@ class _ReportsScreenState extends State<ReportsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFF0F172A),
       appBar: AppBar(
         leading: IconButton(
-          icon: const Text('←', style: TextStyle(fontSize: 24, color: Colors.white)),
+          icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text('Reportes del Día'),
-        backgroundColor: Colors.indigo[700],
+        title: const Text('Reportes Premium', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: const Color(0xFF1E293B),
         foregroundColor: Colors.white, // ✅ Agrega esta línea
       ),
       body: _isLoading
@@ -114,14 +115,15 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   if (_barberTotals.isEmpty)
                     const Card(child: Padding(padding: EdgeInsets.all(16), child: Text('No hay datos')))
                   else
-                    ..._barberTotals.entries.map((entry) => Card(
-                      margin: const EdgeInsets.only(bottom: 8),
+                    ..._barberTotals.entries.map((entry) => Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.white.withOpacity(0.05))),
                       child: ListTile(
                         leading: CircleAvatar(
-                          backgroundColor: Colors.indigo[100],
+                          backgroundColor: const Color(0xFF6366F1).withOpacity(0.15),
                           child: Text(
                             entry.key.isNotEmpty ? entry.key[0].toUpperCase() : '?',
-                            style: TextStyle(color: Colors.indigo[700]),
+                            style: TextStyle(color: const Color(0xFF6366F1)),
                           ),
                         ),
                         title: Text(entry.key, style: const TextStyle(fontWeight: FontWeight.w600)),
@@ -134,8 +136,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   if (_paymentMethods.isEmpty)
                     const Card(child: Padding(padding: EdgeInsets.all(16), child: Text('No hay datos')))
                   else
-                    ..._paymentMethods.entries.map((entry) => Card(
-                      margin: const EdgeInsets.only(bottom: 8),
+                    ..._paymentMethods.entries.map((entry) => Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.white.withOpacity(0.05))),
                       child: ListTile(
                         leading: Text(
                           entry.key == 'cash' ? '💵' : entry.key == 'card' ? '💳' : '',
@@ -171,9 +174,8 @@ class _SummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    return Container(
+      decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(18), border: Border.all(color: Colors.white.withOpacity(0.05)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 12, offset: const Offset(0,4))]),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
