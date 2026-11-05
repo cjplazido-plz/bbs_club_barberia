@@ -4,7 +4,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
-import 'package:excel/excel.dart';
+import 'package:excel/excel.dart' hide Border; // ✅ FIX: hide Border para evitar conflicto con Flutter
 import 'package:intl/intl.dart';
 import '../services/settings_service.dart';
 import 'dart:typed_data';
@@ -107,7 +107,7 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
       case 'week': _startDate = now.subtract(const Duration(days: 7)); _endDate = now; break;
       case 'month': _startDate = now.subtract(const Duration(days: 30)); _endDate = now; break;
       case 'year': _startDate = now.subtract(const Duration(days: 365)); _endDate = now; break;
-      case 'custom': return; // no auto
+      case 'custom': return;
     }
     _loadReportData();
   }
@@ -170,7 +170,7 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
         ],
         pw.Header(level: 1, child: pw.Text('Detalle Transacciones')),
         pw.TableHelper.fromTextArray(headers: ['Fecha', 'Barbero', 'Pago', 'Total'], data: _rawTransactions.map((t) => [
-          DateFormat('dd/MM/yyyy HH:mm').format(DateTime.parse(t['created_at'])),
+          DateFormat('dd/MM/yyyy HH:mm').format(DateTime.parse(t['created_at'] as String)),
           (t['barber_name'] ?? 'Sin barbero').toString(),
           (t['payment_method'] ?? '').toString(),
           SettingsService.formatCurrency((t['total'] as num).toDouble())
@@ -203,7 +203,7 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
     sheet.appendRow([TextCellValue('Fecha'), TextCellValue('Barbero'), TextCellValue('Cajero'), TextCellValue('Pago'), TextCellValue('Total')]);
     for (final t in _rawTransactions) {
       sheet.appendRow([
-        TextCellValue(DateFormat('dd/MM/yyyy HH:mm').format(DateTime.parse(t['created_at']))),
+        TextCellValue(DateFormat('dd/MM/yyyy HH:mm').format(DateTime.parse(t['created_at'] as String))),
         TextCellValue((t['barber_name'] ?? 'Sin barbero').toString()),
         TextCellValue((t['cashier_name'] ?? '').toString()),
         TextCellValue((t['payment_method'] ?? '').toString()),
@@ -219,7 +219,21 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
 
   Widget _buildChip(String id, String label) {
     final selected = _selectedPeriod == id;
-    return InkWell(onTap: () => id == 'custom' ? _pickCustomRange() : _setPeriod(id), child: Container(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6), decoration: BoxDecoration(color: selected ? const Color(0xFF6366F1) : const Color(0xFF1E293B), borderRadius: BorderRadius.circular(20), border: Border.all(color: selected ? const Color(0xFF6366F1) : Colors.white10)), child: Row(mainAxisSize: MainAxisSize.min, children: [if (selected) const Text('✓ ', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)), Text(label, style: TextStyle(color: selected ? Colors.white : Colors.white54, fontSize: 11, fontWeight: FontWeight.bold))])) );
+    return InkWell(
+      onTap: () => id == 'custom' ? _pickCustomRange() : _setPeriod(id),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFF6366F1) : const Color(0xFF1E293B),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: selected ? const Color(0xFF6366F1) : Colors.white10),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          if (selected) const Text('✓ ', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+          Text(label, style: TextStyle(color: selected ? Colors.white : Colors.white54, fontSize: 11, fontWeight: FontWeight.bold)),
+        ]),
+      ),
+    );
   }
 
   @override
@@ -239,7 +253,6 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
         ],
       ),
       body: _isLoading ? const Center(child: CircularProgressIndicator(color: Color(0xFF6366F1))) : SingleChildScrollView(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        // FILTRO FECHAS PREMIUM
         Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF1E1B4B), Color(0xFF312E81)]), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.white.withOpacity(0.08))), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
             Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: const Text('📅', style: TextStyle(fontSize: 14))),
@@ -262,16 +275,13 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
             Expanded(child: ElevatedButton.icon(onPressed: _exportToPDF, icon: const Text('📕', style: TextStyle(fontSize: 14)), label: const Text('PDF', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6366F1), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)), padding: const EdgeInsets.symmetric(vertical: 10)))),
           ])
         ])),
-
         const SizedBox(height: 12),
-        // CARDS RESUMEN COMPACTAS
         GridView.count(crossAxisCount: 2, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio: 2.2, children: [
           _summary('Total Ventas', SettingsService.formatCurrency(_totalSales), const Color(0xFF10B981)),
           _summary('Ticket Prom', SettingsService.formatCurrency(_averageTicket), const Color(0xFF60A5FA)),
           _summary('Transacciones', '${_totalTransactions.toInt()}', const Color(0xFFA78BFA)),
           _summary('Periodo', _selectedPeriod, const Color(0xFFFBBF24)),
         ]),
-
         const SizedBox(height: 16),
         const Text('Ventas por Día', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white)),
         const SizedBox(height: 8),
@@ -280,10 +290,9 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
           maxY: _salesByDay.map((e) => e['total'] as double).reduce((a, b) => a > b ? a : b) * 1.3,
           barGroups: _salesByDay.asMap().entries.map((entry) => BarChartGroupData(x: entry.key, barRods: [BarChartRodData(toY: entry.value['total'] as double, color: const Color(0xFF6366F1), width: 12, borderRadius: const BorderRadius.vertical(top: Radius.circular(4)))])).toList(),
           titlesData: FlTitlesData(bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 22, getTitlesWidget: (v, m) { if (v.toInt() < _salesByDay.length) return Padding(padding: const EdgeInsets.only(top: 4), child: Text(_salesByDay[v.toInt()]['day'] as String, style: const TextStyle(fontSize: 9, color: Colors.white54))); return const SizedBox.shrink(); })), leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)), topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)), rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false))),
-          gridData: const FlGridData(show: true, drawVerticalLine: false, horizontalInterval: 5000, getDrawingHorizontalLine: (v) => const FlLine(color: Colors.white10, strokeWidth: 0.5)),
+          gridData: FlGridData(show: true, drawVerticalLine: false, horizontalInterval: 5000, getDrawingHorizontalLine: (v) => const FlLine(color: Colors.white10, strokeWidth: 0.5)),
           borderData: FlBorderData(show: false),
         )))),
-
         const SizedBox(height: 16),
         const Text('Ventas por Barbero', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white)),
         const SizedBox(height: 8),
