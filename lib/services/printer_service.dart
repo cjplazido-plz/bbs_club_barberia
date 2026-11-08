@@ -1,209 +1,130 @@
-import 'dart:typed_data';
-import 'package:flutter/foundation.dart' show kIsWeb;
+// lib/services/printer_service.dart - SIN RECTANGULO FAKE - SOLO LOGO REAL PNG
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
-import 'package:http/http.dart' as http;
-import 'package:intl/intl.dart';
 import '../models/local_transaction.dart';
 import '../services/settings_service.dart';
-
-/// Servicio de impresión 80mm Premium + ESC/POS directo
-/// - WEB (Vercel): imprime PDF 80mm que llena los 72.1mm imprimibles sin necesidad de 125%
-/// - WINDOWS/ANDROID con impresora conectada: puede imprimir ESC/POS directo sin diálogo (sin necesidad de estar con la impresora para probar, genera bytes y los loguea)
+import '../services/ticket_config_service.dart';
+import 'package:intl/intl.dart';
 
 class PrinterService {
-  static pw.MemoryImage? _cachedLogo;
-  static String _cachedLogoUrl = '';
-
-  Future<pw.MemoryImage?> _getTicketLogo() async {
-    String logoUrl = SettingsService.ticketLogoUrl.isNotEmpty ? SettingsService.ticketLogoUrl : SettingsService.shopLogoUrl;
-    if (logoUrl.isEmpty) return null;
-    if (_cachedLogo != null && _cachedLogoUrl == logoUrl) return _cachedLogo;
-    try {
-      final r = await http.get(Uri.parse(logoUrl));
-      if (r.statusCode == 200) {
-        _cachedLogo = pw.MemoryImage(r.bodyBytes);
-        _cachedLogoUrl = logoUrl;
-        return _cachedLogo;
-      }
-    } catch (_) {}
-    return null;
-  }
-
-  // ✅ FORMATO QUE LLENA 80MM - 0 MARGEN LATERAL PARA QUE NO SE ENCOJA
-  PdfPageFormat get _paper80Full => PdfPageFormat(
-        80 * PdfPageFormat.mm,
-        double.infinity,
-        marginLeft: 2 * PdfPageFormat.mm,
-        marginRight: 2 * PdfPageFormat.mm,
-        marginTop: 3 * PdfPageFormat.mm,
-        marginBottom: 3 * PdfPageFormat.mm,
-      );
-
-  // ============ WEB PDF 80MM ============
   Future<void> printTicket(LocalTransaction transaction) async {
-    if (!kIsWeb) {
-      // Si es app nativa Windows/Android, intenta ESC/POS directo
-      final esc = await _buildEscPosBytesFromLocal(transaction);
-      // Aquí iría el envío real a impresora USB/Network
-      // Por ahora logueamos para probar sin impresora
-      print('🧾 ESC/POS bytes generados: ${esc.length} bytes (listo para enviar a XPrinter)');
-      // Igual mostramos PDF como fallback
-    }
-    final logo = await _getTicketLogo();
-    final pdf = pw.Document();
-    final cashierSafe = (transaction.cashierName ?? '').toString().trim();
-    final barberSafe = transaction.items.isNotEmpty ? (transaction.items.first.barberName ?? '').toString() : '';
+    final ancho = TicketConfigService.ancho;
+    final is58 = ancho == '58mm';
+    final pageWidth = is58 ? 58 * PdfPageFormat.mm : 80 * PdfPageFormat.mm;
 
-    pdf.addPage(pw.Page(
-      pageFormat: _paper80Full,
-      build: (ctx) => pw.Container(
-        width: double.infinity,
-        child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.center, children: [
-          if (logo != null) pw.Container(width: 55 * PdfPageFormat.mm, height: 30 * PdfPageFormat.mm, child: pw.Image(logo, fit: pw.BoxFit.contain)),
-          if (logo != null) pw.SizedBox(height: 3 * PdfPageFormat.mm),
-          pw.Container(width: double.infinity, child: pw.Text(SettingsService.shopName.isNotEmpty ? SettingsService.shopName.toUpperCase() : 'BBS CLUB', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold), textAlign: pw.TextAlign.center)),
-          pw.SizedBox(height: 1 * PdfPageFormat.mm),
-          if (SettingsService.ticketHeader.isNotEmpty) pw.Text(SettingsService.ticketHeader, style: const pw.TextStyle(fontSize: 10), textAlign: pw.TextAlign.center),
-          if (SettingsService.shopAddress.isNotEmpty) pw.Text(SettingsService.shopAddress, style: const pw.TextStyle(fontSize: 9), textAlign: pw.TextAlign.center),
-          if (SettingsService.shopPhone.isNotEmpty) pw.Text('Tel: ${SettingsService.shopPhone}', style: const pw.TextStyle(fontSize: 9), textAlign: pw.TextAlign.center),
-          pw.SizedBox(height: 3 * PdfPageFormat.mm),
-          pw.Divider(thickness: 1, borderStyle: pw.BorderStyle.dashed),
-          pw.SizedBox(height: 2 * PdfPageFormat.mm),
-          pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Fecha:', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)), pw.Text(DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now()), style: const pw.TextStyle(fontSize: 10))]),
-          pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Cajero:', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)), pw.Text(cashierSafe.isNotEmpty ? cashierSafe : 'Sistema', style: const pw.TextStyle(fontSize: 10))]),
-          if (barberSafe.isNotEmpty) pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Barbero:', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)), pw.Text(barberSafe, style: const pw.TextStyle(fontSize: 10))]),
-          pw.SizedBox(height: 2 * PdfPageFormat.mm),
-          pw.Divider(thickness: 1, borderStyle: pw.BorderStyle.dashed),
-          pw.SizedBox(height: 2 * PdfPageFormat.mm),
-          ...transaction.items.map((item) {
-            final name = (item.serviceName.isNotEmpty ? item.serviceName : (item.productName ?? 'Item')).toString();
-            final totalItem = item.priceAtMoment * item.quantity;
-            return pw.Padding(padding: pw.EdgeInsets.only(bottom: 3 * PdfPageFormat.mm), child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-              pw.Container(width: double.infinity, child: pw.Text(name, style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold))),
+    // Cargar logo REAL de tu Supabase - image_e4e93d.png
+    pw.ImageProvider? logoProvider;
+    final logoUrl = TicketConfigService.logoUrl.isNotEmpty
+        ? TicketConfigService.logoUrl
+        : (SettingsService.ticketLogoUrl.isNotEmpty ? SettingsService.ticketLogoUrl : SettingsService.shopLogoUrl);
+    
+    if (logoUrl.isNotEmpty && (logoUrl.toLowerCase().endsWith('.png') || logoUrl.toLowerCase().endsWith('.jpg') || logoUrl.toLowerCase().endsWith('.jpeg'))) {
+      try {
+        logoProvider = await networkImage(logoUrl);
+        print('Logo cargado OK: $logoUrl');
+      } catch (e) {
+        print('Logo fail $e url=$logoUrl');
+      }
+    }
+
+    final pdf = pw.Document();
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat(pageWidth, double.infinity, marginAll: is58 ? 1.5 * PdfPageFormat.mm : 2 * PdfPageFormat.mm),
+        build: (_) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              // LOGO REAL - SIN RECTANGULO FAKE
+              if (logoProvider != null)
+                pw.Center(
+                  child: pw.Container(
+                    height: is58 ? 50 : 65,
+                    margin: const pw.EdgeInsets.only(bottom: 8),
+                    child: pw.Image(logoProvider),
+                  ),
+                ),
+              // Si no hay logo, NO mostrar rectangulo fake - solo nombre
+              pw.Center(child: pw.Text(TicketConfigService.nombreNegocio.toUpperCase(), style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: is58 ? 14 : 16))),
+              pw.Center(child: pw.Text('${TicketConfigService.config['sii_razon'] ?? SettingsService.shopName}', style: pw.TextStyle(fontSize: is58 ? 9 : 10))),
+              if (TicketConfigService.rut.isNotEmpty || SettingsService.shopRif.isNotEmpty)
+                pw.Center(child: pw.Text('RUT ${TicketConfigService.rut.isNotEmpty ? TicketConfigService.rut : SettingsService.shopRif}', style: pw.TextStyle(fontSize: is58 ? 9 : 10))),
+              if (TicketConfigService.direccion.isNotEmpty)
+                pw.Center(child: pw.Text(TicketConfigService.direccion, style: pw.TextStyle(fontSize: is58 ? 8 : 9), textAlign: pw.TextAlign.center)),
+              if (TicketConfigService.telefono.isNotEmpty)
+                pw.Center(child: pw.Text('Tel. ${TicketConfigService.telefono}', style: pw.TextStyle(fontSize: is58 ? 8 : 9))),
+              pw.SizedBox(height: 8),
+              pw.Center(child: pw.Text('BOLETA DTE39', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: is58 ? 11 : 12))),
+              pw.SizedBox(height: 4),
+              pw.Text(List.filled(is58 ? 32 : 42, '-').join(), style: const pw.TextStyle(fontSize: 8)),
+              pw.Text('Folio: ${transaction.remoteId}', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: is58 ? 10 : 11)),
+              pw.Text('Fecha: ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}', style: pw.TextStyle(fontSize: is58 ? 9 : 10)),
+              pw.Text('Cajero: ${transaction.cashierName.length > 22 ? transaction.cashierName.substring(0, 22) : transaction.cashierName}', style: pw.TextStyle(fontSize: is58 ? 9 : 10)),
+              pw.Text('Pago: ${_formatPayment(transaction.paymentMethod)}', style: pw.TextStyle(fontSize: is58 ? 9 : 10)),
+              pw.SizedBox(height: 4),
+              pw.Text(List.filled(is58 ? 32 : 42, '-').join(), style: const pw.TextStyle(fontSize: 8)),
+              pw.SizedBox(height: 6),
+              ...transaction.items.map((it) {
+                final rawName = (it.type == 'service' ? it.serviceName : it.productName).toString();
+                final name = rawName.length > 24 ? rawName.substring(0, 24) : rawName;
+                final qty = it.quantity as int;
+                final price = it.priceAtMoment as double;
+                final sub = price * qty;
+                final fmtSub = NumberFormat('#,###', 'es_CL').format(sub.round());
+                final fmtUnit = NumberFormat('#,###', 'es_CL').format(price.round());
+                return pw.Padding(
+                  padding: const pw.EdgeInsets.only(bottom: 6),
+                  child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+                    pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+                      pw.Expanded(child: pw.Text(name.toUpperCase(), style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: is58 ? 11 : 12))),
+                      pw.Text('\$$fmtSub', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: is58 ? 11 : 12)),
+                    ]),
+                    pw.Text('  $qty x \$$fmtUnit', style: pw.TextStyle(fontSize: is58 ? 9 : 10)),
+                  ]),
+                );
+              }),
+              pw.Text(List.filled(is58 ? 32 : 42, '.').join(), style: const pw.TextStyle(fontSize: 7)),
               pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
-                pw.Text('${item.quantity} x ${SettingsService.formatCurrency(item.priceAtMoment)}', style: const pw.TextStyle(fontSize: 10)),
-                pw.Text(SettingsService.formatCurrency(totalItem), style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
+                pw.Text('Subtotal:', style: pw.TextStyle(fontSize: is58 ? 10 : 11)),
+                pw.Text('\$${NumberFormat('#,###', 'es_CL').format((transaction.subtotal as double).round())}', style: pw.TextStyle(fontSize: is58 ? 10 : 11)),
               ]),
-            ]));
-          }),
-          pw.Divider(thickness: 1),
-          pw.SizedBox(height: 2 * PdfPageFormat.mm),
-          pw.Container(padding: pw.EdgeInsets.symmetric(vertical: 3 * PdfPageFormat.mm), decoration: pw.BoxDecoration(border: pw.Border(top: pw.BorderSide(width: 1), bottom: pw.BorderSide(width: 1))), child: pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
-            pw.Text('TOTAL:', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
-            pw.Text(SettingsService.formatCurrency(transaction.total), style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
-          ])),
-          pw.SizedBox(height: 3 * PdfPageFormat.mm),
-          pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Pago:', style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)), pw.Text(_fmtPay(transaction.paymentMethod), style: const pw.TextStyle(fontSize: 11))]),
-          if (transaction.paymentMethod == 'cash') ...[
-            pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Recibido:', style: const pw.TextStyle(fontSize: 10)), pw.Text(SettingsService.formatCurrency(transaction.cashReceived), style: const pw.TextStyle(fontSize: 10))]),
-            pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Vuelto:', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)), pw.Text(SettingsService.formatCurrency(transaction.changeAmount), style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold))]),
-          ],
-          pw.SizedBox(height: 6 * PdfPageFormat.mm),
-          pw.Divider(thickness: 1, borderStyle: pw.BorderStyle.dashed),
-          pw.SizedBox(height: 3 * PdfPageFormat.mm),
-          if (SettingsService.ticketFooter.isNotEmpty) pw.Text(SettingsService.ticketFooter, style: pw.TextStyle(fontSize: 10, fontStyle: pw.FontStyle.italic), textAlign: pw.TextAlign.center),
-          pw.Text('¡Gracias por su visita!', style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold), textAlign: pw.TextAlign.center),
-        ]),
+              pw.Divider(thickness: 0.8),
+              pw.Row(mainAxisAlignment: pw.MainAxisAlignment.end, children: [
+                pw.Text('TOTAL \$${NumberFormat('#,###', 'es_CL').format((transaction.total as double).round())}', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: is58 ? 14 : 18)),
+              ]),
+              pw.SizedBox(height: 6),
+              pw.Text(List.filled(is58 ? 32 : 42, '-').join(), style: const pw.TextStyle(fontSize: 8)),
+              pw.Text('Recibido: \$${NumberFormat('#,###', 'es_CL').format(((transaction.cashReceived as double?) ?? (transaction.total as double)).round())}', style: pw.TextStyle(fontSize: is58 ? 10 : 11)),
+              pw.Text('Vuelto: \$${NumberFormat('#,###', 'es_CL').format(((transaction.changeAmount as double?) ?? 0).round())}', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: is58 ? 10 : 11)),
+              pw.Text(List.filled(is58 ? 32 : 42, '-').join(), style: const pw.TextStyle(fontSize: 8)),
+              pw.SizedBox(height: 8),
+              pw.Center(child: pw.Text(TicketConfigService.mensaje.isNotEmpty ? TicketConfigService.mensaje : '¡Gracias por su visita!', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: is58 ? 10 : 11), textAlign: pw.TextAlign.center)),
+              pw.SizedBox(height: 4),
+              pw.Center(child: pw.Text(DateFormat('dd/MM/yyyy HH:mm:ss').format(DateTime.now()), style: const pw.TextStyle(fontSize: 7))),
+              pw.SizedBox(height: 25),
+            ],
+          );
+        },
       ),
-    ));
-    await Printing.layoutPdf(onLayout: (format) async => pdf.save(), name: 'Ticket_${DateFormat('yyyyMMdd_HHmm').format(DateTime.now())}.pdf');
+    );
+
+    await Printing.layoutPdf(
+      onLayout: (_) async => pdf.save(),
+      name: 'BBS CLUB ${transaction.remoteId} 80mm LOGO REAL',
+      format: PdfPageFormat(pageWidth, double.infinity, marginAll: 1 * PdfPageFormat.mm),
+      usePrinterSettings: false,
+    );
   }
 
-  Future<void> printTicketFromMap(Map<String, dynamic> transaction, List<Map<String, dynamic>> items) async {
-    final logo = await _getTicketLogo();
-    final pdf = pw.Document();
-    pdf.addPage(pw.Page(
-      pageFormat: _paper80Full,
-      build: (ctx) => pw.Container(
-        width: double.infinity,
-        child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.center, children: [
-          if (logo != null) pw.Container(width: 55 * PdfPageFormat.mm, height: 30 * PdfPageFormat.mm, child: pw.Image(logo, fit: pw.BoxFit.contain)),
-          if (logo != null) pw.SizedBox(height: 3 * PdfPageFormat.mm),
-          pw.Text(SettingsService.shopName.isNotEmpty ? SettingsService.shopName.toUpperCase() : 'BBS CLUB', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold), textAlign: pw.TextAlign.center),
-          if (SettingsService.shopAddress.isNotEmpty) pw.Text(SettingsService.shopAddress, style: const pw.TextStyle(fontSize: 9), textAlign: pw.TextAlign.center),
-          if (SettingsService.shopPhone.isNotEmpty) pw.Text('Tel: ${SettingsService.shopPhone}', style: const pw.TextStyle(fontSize: 9), textAlign: pw.TextAlign.center),
-          pw.SizedBox(height: 3 * PdfPageFormat.mm),
-          pw.Divider(thickness: 1, borderStyle: pw.BorderStyle.dashed),
-          pw.SizedBox(height: 2 * PdfPageFormat.mm),
-          pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Fecha:', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)), pw.Text(DateFormat('dd/MM/yyyy HH:mm').format(DateTime.parse(transaction['created_at'] as String)), style: const pw.TextStyle(fontSize: 10))]),
-          pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Cajero:', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)), pw.Text((transaction['cashier_name'] ?? 'N/A').toString(), style: const pw.TextStyle(fontSize: 10))]),
-          if (transaction['barber_name'] != null && (transaction['barber_name'] as String).isNotEmpty) pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Barbero:', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)), pw.Text(transaction['barber_name'] as String, style: const pw.TextStyle(fontSize: 10))]),
-          pw.SizedBox(height: 2 * PdfPageFormat.mm),
-          pw.Divider(thickness: 1, borderStyle: pw.BorderStyle.dashed),
-          pw.SizedBox(height: 2 * PdfPageFormat.mm),
-          ...items.map((it) {
-            final name = (it['service_name'] ?? it['product_name'] ?? 'Item').toString();
-            final qty = it['quantity'] as int;
-            final price = (it['price_at_moment'] as num).toDouble();
-            return pw.Padding(padding: pw.EdgeInsets.only(bottom: 3 * PdfPageFormat.mm), child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-              pw.Text(name, style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
-              pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('$qty x ${SettingsService.formatCurrency(price)}', style: const pw.TextStyle(fontSize: 10)), pw.Text(SettingsService.formatCurrency(price * qty), style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold))]),
-            ]));
-          }),
-          pw.Divider(thickness: 1),
-          pw.Container(padding: pw.EdgeInsets.symmetric(vertical: 3 * PdfPageFormat.mm), decoration: pw.BoxDecoration(border: pw.Border(top: pw.BorderSide(width: 1), bottom: pw.BorderSide(width: 1))), child: pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
-            pw.Text('TOTAL:', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
-            pw.Text(SettingsService.formatCurrency((transaction['total'] as num).toDouble()), style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
-          ])),
-          pw.SizedBox(height: 3 * PdfPageFormat.mm),
-          pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Pago:', style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)), pw.Text(_fmtPay(transaction['payment_method']?.toString() ?? 'cash'), style: const pw.TextStyle(fontSize: 11))]),
-          pw.SizedBox(height: 6 * PdfPageFormat.mm),
-          pw.Text('¡Gracias por su visita! (Reimpresión)', style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold), textAlign: pw.TextAlign.center),
-        ]),
-      ),
-    ));
-    await Printing.layoutPdf(onLayout: (f) async => pdf.save(), name: 'Ticket_Reimp_${DateFormat('yyyyMMdd_HHmm').format(DateTime.now())}.pdf');
-  }
-
-  // ============ ESC/POS DIRECTO (sin diálogo) - funciona aunque no tengas impresora para probar ============
-  Future<Uint8List> _buildEscPosBytesFromLocal(LocalTransaction tr) async {
-    // ESC/POS manual sin librerías externas (compatible con XPrinter 80mm)
-    List<int> bytes = [];
-    bytes += [0x1B, 0x40]; // INIT
-    bytes += [0x1B, 0x61, 0x01]; // CENTER
-    bytes += _textEsc('BBS CLUB\n', bold: true, doubleHeight: true);
-    bytes += _textEsc('${SettingsService.shopName}\n');
-    if (SettingsService.shopAddress.isNotEmpty) bytes += _textEsc('${SettingsService.shopAddress}\n');
-    if (SettingsService.shopPhone.isNotEmpty) bytes += _textEsc('Tel: ${SettingsService.shopPhone}\n');
-    bytes += _textEsc('--------------------------------\n');
-    bytes += [0x1B, 0x61, 0x00]; // LEFT
-    bytes += _textEsc('Fecha: ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}\n');
-    bytes += _textEsc('Cajero: ${(tr.cashierName ?? 'Sistema').toString()}\n');
-    if (tr.items.isNotEmpty && (tr.items.first.barberName ?? '').toString().isNotEmpty) bytes += _textEsc('Barbero: ${tr.items.first.barberName}\n');
-    bytes += _textEsc('--------------------------------\n');
-    for (var it in tr.items) {
-      final name = (it.serviceName.isNotEmpty ? it.serviceName : (it.productName ?? 'Item')).toString();
-      bytes += _textEsc('$name\n', bold: true);
-      bytes += _textEsc('  ${it.quantity} x ${SettingsService.formatCurrency(it.priceAtMoment)} = ${SettingsService.formatCurrency(it.priceAtMoment * it.quantity)}\n');
+  String _formatPayment(String m) {
+    switch (m) {
+      case 'cash': return 'Efectivo';
+      case 'card': return 'Tarjeta';
+      case 'transfer': return 'Transferencia';
+      case 'mixed': return 'Mixto';
+      default: return m;
     }
-    bytes += _textEsc('--------------------------------\n');
-    bytes += _textEsc('TOTAL: ${SettingsService.formatCurrency(tr.total)}\n', bold: true, doubleHeight: true);
-    bytes += _textEsc('Pago: ${_fmtPay(tr.paymentMethod)}\n');
-    if (tr.paymentMethod == 'cash') {
-      bytes += _textEsc('Recibido: ${SettingsService.formatCurrency(tr.cashReceived)}\n');
-      bytes += _textEsc('Vuelto: ${SettingsService.formatCurrency(tr.changeAmount)}\n', bold: true);
-    }
-    bytes += _textEsc('--------------------------------\n');
-    bytes += [0x1B, 0x61, 0x01];
-    if (SettingsService.ticketFooter.isNotEmpty) bytes += _textEsc('${SettingsService.ticketFooter}\n');
-    bytes += _textEsc('¡Gracias por su visita!\n', bold: true);
-    bytes += [0x0A, 0x0A, 0x0A];
-    bytes += [0x1D, 0x56, 0x41, 0x00]; // CUT
-    return Uint8List.fromList(bytes);
-  }
-
-  List<int> _textEsc(String text, {bool bold = false, bool doubleHeight = false}) {
-    List<int> b = [];
-    if (bold) b += [0x1B, 0x45, 0x01]; else b += [0x1B, 0x45, 0x00];
-    if (doubleHeight) b += [0x1D, 0x21, 0x11]; else b += [0x1D, 0x21, 0x00];
-    b += text.codeUnits;
-    b += [0x1B, 0x45, 0x00, 0x1D, 0x21, 0x00];
-    return b;
-  }
-
-  String _fmtPay(String m) {
-    switch (m) { case 'cash': return 'Efectivo'; case 'card': return 'Tarjeta'; case 'transfer': return 'Transferencia'; default: return m; }
   }
 }

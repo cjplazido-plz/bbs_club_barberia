@@ -1,135 +1,353 @@
+// lib/screens/sales_history_screen.dart - BUILD FIX para barberflow - Solo tocar = ver, imprime 80mm, edita pago, anula
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
+import 'package:printing/printing.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
 import '../services/settings_service.dart';
-import '../services/printer_service.dart';
+import '../services/ticket_config_service.dart';
 
 class SalesHistoryScreen extends StatefulWidget {
   @override
   State<SalesHistoryScreen> createState() => _SalesHistoryScreenState();
 }
 
-class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
+class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProviderStateMixin {
   bool _isLoading = true;
   List<Map<String, dynamic>> _transactions = [];
-  DateTime _startDate = DateTime.now().subtract(const Duration(days: 35));
+  DateTime _startDate = DateTime.now().subtract(const Duration(days: 7));
   DateTime _endDate = DateTime.now();
-  final _printer = PrinterService();
+  late AnimationController _ctrl;
 
   @override
   void initState() {
     super.initState();
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 600));
     _loadTransactions();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
   }
 
   Future<void> _loadTransactions() async {
     setState(() => _isLoading = true);
     try {
       final startStr = DateTime(_startDate.year, _startDate.month, _startDate.day).toIso8601String();
-      final endStr = DateTime(_endDate.year, _endDate.month, _endDate.day).add(const Duration(days: 1)).toIso8601String();
-      final response = await Supabase.instance.client.from('transactions').select('*').gte('created_at', startStr).lte('created_at', endStr).eq('status', 'completed').order('created_at', ascending: false);
-      setState(() { _transactions = List<Map<String, dynamic>>.from(response); _isLoading = false; });
+      final endStr = DateTime(_endDate.year, _endDate.month, _endDate.day, 23, 59, 59).toIso8601String();
+      final res = await Supabase.instance.client.from('transactions').select('*').gte('created_at', startStr).lte('created_at', endStr).order('created_at', ascending: false);
+      setState(() {
+        _transactions = List<Map<String, dynamic>>.from(res);
+        _isLoading = false;
+      });
+      _ctrl.forward(from: 0);
     } catch (e) {
-      print('Error ventas: $e');
+      debugPrint('❌ Error: $e');
       setState(() => _isLoading = false);
     }
   }
 
-  Future<List<Map<String, dynamic>>> _loadItems(String transactionId) async {
-    final itemsResponse = await Supabase.instance.client.from('transaction_items').select('*').eq('transaction_id', transactionId);
-    return List<Map<String, dynamic>>.from(itemsResponse);
+  String _formatPayment(String? p) {
+    switch (p) {
+      case 'cash': return 'Efectivo';
+      case 'card': return 'Tarjeta';
+      case 'transfer': return 'Transferencia';
+      case 'debito': return 'Débito';
+      case 'mixto': return 'Mixto';
+      case 'mixed': return 'Mixto';
+      default: return p ?? 'Efectivo';
+    }
   }
 
   Future<void> _showTransactionDetail(Map<String, dynamic> transaction) async {
-    final items = await _loadItems(transaction['id']);
+    final transactionId = transaction['id'];
+    List<Map<String, dynamic>> items = [];
+    try {
+      final itemsResponse = await Supabase.instance.client.from('transaction_items').select('*').eq('transaction_id', transactionId);
+      items = List<Map<String, dynamic>>.from(itemsResponse);
+    } catch (_) {}
+
     if (!mounted) return;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF1E293B),
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.85, minChildSize: 0.5, maxChildSize: 0.95, expand: false,
-        builder: (context, scrollController) => Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: const BoxDecoration(color: Color(0xFF6366F1), borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-              child: Row(children: [
-                const Text('🧾', style: TextStyle(fontSize: 20)),
-                const SizedBox(width: 10),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text('Detalle de Venta', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                  Text(DateFormat('dd/MM/yyyy HH:mm').format(DateTime.parse(transaction['created_at'])), style: const TextStyle(color: Colors.white70, fontSize: 11))
-                ])),
-                IconButton(onPressed: (){ Navigator.pop(context); _printer.printTicketFromMap(transaction, items); }, icon: const Icon(Icons.print_rounded, color: Colors.white)),
-              ]),
-            ),
-            Expanded(child: ListView(
-              controller: scrollController,
-              padding: const EdgeInsets.all(16),
-              children: [
-                Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: const Color(0xFF0F172A), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white10)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  _infoRow('ID', (transaction['id'] as String).length > 22 ? '${(transaction['id'] as String).substring(0,22)}...' : transaction['id']),
-                  const Divider(color: Colors.white10, height: 20),
-                  _infoRow('Cajero', transaction['cashier_name'] ?? 'N/A'),
-                  if (transaction['barber_name'] != null && (transaction['barber_name'] as String).isNotEmpty) _infoRow('Barbero', transaction['barber_name']),
-                  _infoRow('Pago', _formatPaymentMethod(transaction['payment_method'])),
-                  if (transaction['payment_method'] == 'cash') ...[
-                    _infoRow('Recibido', SettingsService.formatCurrency((transaction['cash_received'] as num?)?.toDouble() ?? 0.0)),
-                    _infoRow('Vuelto', SettingsService.formatCurrency((transaction['change_amount'] as num?)?.toDouble() ?? 0.0)),
-                  ]
-                ])),
-                const SizedBox(height: 16),
-                const Text('ITEMS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white70, letterSpacing: 1.2)),
-                const SizedBox(height: 10),
-                ...items.map((item) => Container(margin: const EdgeInsets.only(bottom: 8), padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: const Color(0xFF0F172A), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white10)), child: Row(children: [
-                  Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.15), shape: BoxShape.circle), child: Text(item['item_type']=='service'?'✂️':'📦', style: const TextStyle(fontSize: 14))),
-                  const SizedBox(width: 10),
-                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(item['service_name'] ?? item['product_name'] ?? 'Item', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
-                    if (item['barber_name'] != null) Text('Barbero: ${item['barber_name']}', style: const TextStyle(color: Colors.white38, fontSize: 10))
-                  ])),
-                  Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                    Text('${SettingsService.formatCurrency((item['price_at_moment'] as num).toDouble())} x${item['quantity']}', style: const TextStyle(color: Colors.white70, fontSize: 11)),
-                    Text(SettingsService.formatCurrency((item['price_at_moment'] as num).toDouble() * (item['quantity'] as int)), style: const TextStyle(color: Color(0xFF10B981), fontSize: 12, fontWeight: FontWeight.bold))
-                  ])
-                ]))),
-                const SizedBox(height: 16),
-                Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: const Color(0xFF0F172A), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFF10B981).withOpacity(0.3))), child: Column(children: [
-                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Subtotal:', style: TextStyle(color: Colors.white54, fontSize: 12)), Text(SettingsService.formatCurrency((transaction['subtotal'] as num?)?.toDouble() ?? (transaction['total'] as num).toDouble()), style: const TextStyle(color: Colors.white, fontSize: 12))]),
-                  const SizedBox(height: 6),
-                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('TOTAL:', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)), Text(SettingsService.formatCurrency((transaction['total'] as num).toDouble()), style: const TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.bold, fontSize: 18))]),
-                ])),
-                const SizedBox(height: 20),
-                Row(children: [
-                  Expanded(child: OutlinedButton.icon(onPressed: () async { Navigator.pop(context); await _printer.printTicketFromMap(transaction, items); }, icon: const Icon(Icons.print_rounded, size: 16), label: const Text('Imprimir 80mm', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)), style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: const BorderSide(color: Colors.white24), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 14)))),
-                  const SizedBox(width: 10),
-                  Expanded(child: ElevatedButton.icon(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.check_rounded, size: 16), label: const Text('Cerrar', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6366F1), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 14)))),
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.88,
+        decoration: const BoxDecoration(color: Color(0xFF0F172A), borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+        child: Column(children: [
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: const BoxDecoration(color: Color(0xFF6366F1), borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+            child: Row(children: [
+              Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(10)), child: const Icon(Icons.receipt_long_rounded, color: Colors.white, size: 18)),
+              const SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('Detalle de Venta', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                Text(DateFormat('dd/MM/yyyy HH:mm').format(DateTime.parse(transaction['created_at'])), style: const TextStyle(color: Colors.white70, fontSize: 11)),
+              ])),
+              Container(decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), borderRadius: BorderRadius.circular(10)), child: IconButton(icon: const Icon(Icons.print_rounded, color: Colors.white, size: 20), tooltip: 'Imprimir 80mm', onPressed: () => _printTicket(transaction, items))),
+            ]),
+          ),
+          Expanded(
+            child: ListView(padding: const EdgeInsets.all(16), children: [
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withOpacity(0.06))),
+                child: Column(children: [
+                  _infoRow('ID', transaction['id'].toString().length > 26 ? '${transaction['id'].toString().substring(0, 26)}...' : transaction['id'].toString()),
+                  const Divider(color: Colors.white10, height: 18),
+                  _infoRow('Cajero', transaction['cashier_name']?.toString() ?? 'N/A'),
+                  _infoRow('Barbero', transaction['barber_name']?.toString() ?? 'N/A'),
+                  _infoRow('Pago', _formatPayment(transaction['payment_method']?.toString())),
+                  if ((transaction['cash_received'] as num?) != null && (transaction['cash_received'] as num) > 0) _infoRow('Recibido', SettingsService.formatCurrency((transaction['cash_received'] as num).toDouble())),
+                  if ((transaction['change_amount'] as num?) != null && (transaction['change_amount'] as num) > 0) _infoRow('Vuelto', SettingsService.formatCurrency((transaction['change_amount'] as num).toDouble())),
+                  if (transaction['status'] != null && transaction['status'] != 'completed') _infoRow('Estado', transaction['status'].toString(), isStatus: true),
                 ]),
-              ],
-            )),
-          ],
-        ),
+              ),
+              const SizedBox(height: 18),
+              const Text('ITEMS', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11, letterSpacing: 1.2)),
+              const SizedBox(height: 10),
+              ...items.map((item) => Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white.withOpacity(0.04))),
+                child: Row(children: [
+                  Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: const Color(0xFF0F172A), borderRadius: BorderRadius.circular(8)), child: Icon(item['item_type'] == 'service' ? Icons.content_cut_rounded : Icons.inventory_2_rounded, size: 14, color: Colors.white54)),
+                  const SizedBox(width: 10),
+                  Expanded(child: Text(item['service_name'] ?? item['product_name'] ?? 'Item', style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600))),
+                  Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                    Text('\$${item['price_at_moment']} x${item['quantity']}', style: const TextStyle(color: Colors.white54, fontSize: 10)),
+                    Text(SettingsService.formatCurrency((item['price_at_moment'] as num).toDouble() * (item['quantity'] as num).toInt()), style: const TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.bold, fontSize: 12)),
+                  ]),
+                ]),
+              )),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.white.withOpacity(0.06))),
+                child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                  const Text('TOTAL:', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 14)),
+                  Text(SettingsService.formatCurrency((transaction['total'] as num).toDouble()), style: const TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.w900, fontSize: 22)),
+                ]),
+              ),
+              const SizedBox(height: 20),
+              Row(children: [
+                Expanded(child: OutlinedButton.icon(onPressed: () { Navigator.pop(context); _showEditPaymentDialog(transaction); }, icon: const Icon(Icons.edit_rounded, size: 16, color: Color(0xFF818CF8)), label: const Text('Editar Pago', style: TextStyle(color: Color(0xFF818CF8), fontSize: 12, fontWeight: FontWeight.bold)), style: OutlinedButton.styleFrom(side: const BorderSide(color: Color(0xFF6366F1)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 13)))),
+                const SizedBox(width: 8),
+                Expanded(child: OutlinedButton.icon(onPressed: transaction['status'] == 'cancelled' ? null : () { Navigator.pop(context); _showAnularDialog(transaction, items); }, icon: const Icon(Icons.cancel_rounded, size: 16, color: Colors.redAccent), label: const Text('Anular', style: TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.bold)), style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.redAccent), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 13)))),
+              ]),
+              const SizedBox(height: 10),
+              Row(children: [
+                Expanded(child: OutlinedButton.icon(onPressed: () => _printTicket(transaction, items), icon: const Icon(Icons.print_rounded, size: 18, color: Colors.white70), label: const Text('Imprimir 80mm', style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold)), style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.white24), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 14)))),
+                const SizedBox(width: 10),
+                Expanded(child: Container(decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF818CF8)]), borderRadius: BorderRadius.circular(12)), child: ElevatedButton.icon(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.check_rounded, size: 16), label: const Text('Cerrar', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)), style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, shadowColor: Colors.transparent, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 14))))),
+              ]),
+            ]),
+          ),
+        ]),
       ),
     );
   }
 
-  Widget _infoRow(String label, String value) {
-    return Padding(padding: const EdgeInsets.symmetric(vertical: 4), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-      Text(label, style: const TextStyle(color: Colors.white38, fontSize: 11, fontWeight: FontWeight.w600)),
-      Flexible(child: Text(value, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600), textAlign: TextAlign.right, overflow: TextOverflow.ellipsis)),
-    ]));
+  Widget _infoRow(String label, String value, {bool isStatus = false}) {
+    Color valColor = Colors.white;
+    if (isStatus) {
+      if (value == 'cancelled' || value == 'anulado') valColor = Colors.redAccent;
+      else valColor = const Color(0xFF10B981);
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        Text(label, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+        Flexible(child: Text(value, style: TextStyle(color: valColor, fontSize: 12, fontWeight: FontWeight.bold), textAlign: TextAlign.right, overflow: TextOverflow.ellipsis)),
+      ]),
+    );
   }
 
-  String _formatPaymentMethod(String? method) {
-    switch (method) { case 'cash': return 'Efectivo'; case 'card': return 'Tarjeta'; case 'transfer': return 'Transferencia'; default: return method ?? 'Efectivo'; }
+  String _shortFolioHist(dynamic id) { var s = (id ?? '').toString().replaceAll('-', ''); if (s.startsWith('V')) s = s.substring(1); if (s.length > 6) s = s.substring(s.length - 6); return 'V-$s'; }
+  // ===== MOVIMIENTO DE CAJA - para que Cuadratura lo vea =====
+  // Anulación y Cambio de Pago son INFORMATIVOS (afectaCaja=false) porque:
+  // - Anulada: Reports ya excluye las cancelled/anuladas del Total, no se vuelve a restar
+  // - Cambio Pago: la venta ya cambió de método, Reports recalcula solo
+  Future<void> _registrarCashMovement({required String tipo, required String categoria, required double monto, required String metodo, String folio = '', String motivo = '', bool afectaCaja = false}) async {
+    try {
+      await Supabase.instance.client.from('cash_movements').insert({'tipo': tipo, 'categoria': categoria, 'monto': monto, 'metodo': metodo, 'folio': folio, 'motivo': motivo, 'afecta_caja': afectaCaja, 'created_at': DateTime.now().toIso8601String()});
+    } catch (_) { /* si no existe tabla, no rompe la anulación / cambio */ }
   }
 
-  Future<void> _pickDateRange() async {
-    final picked = await showDateRangePicker(context: context, firstDate: DateTime(2023), lastDate: DateTime.now().add(const Duration(days: 1)), initialDateRange: DateTimeRange(start: _startDate, end: _endDate), builder: (context, child) => Theme(data: ThemeData.dark().copyWith(colorScheme: const ColorScheme.dark(primary: Color(0xFF6366F1), surface: Color(0xFF1E293B)), dialogBackgroundColor: const Color(0xFF0F172A)), child: child!));
-    if (picked != null) setState(() { _startDate = picked.start; _endDate = picked.end; });
-    await _loadTransactions();
+  String _normalizePago(String? raw) {
+    final v = (raw ?? 'cash').toString().toLowerCase().trim();
+    if (v == 'mixed' || v == 'mixto') return 'mixed';
+    if (v == 'cash' || v == 'efectivo') return 'cash';
+    if (v == 'transfer' || v == 'transferencia') return 'transfer';
+    if (v == 'card' || v == 'tarjeta') return 'card';
+    if (v == 'debito' || v == 'debit' || v == 'debito ') return 'debito';
+    return 'cash';
+  }
+
+  Future<void> _showEditPaymentDialog(Map<String, dynamic> transaction) async {
+    // FIX ASSERTION image_e27feb: valor guardado 'mixed' (POS/Supabase) no estaba en items ('mixto') -> Dropdown exigia exactamente 1 item con ese value y explotaba.
+    // Se normaliza 'mixto' -> 'mixed' y los items usan 'mixed'.
+    String selected = _normalizePago(transaction['payment_method']?.toString());
+    await showDialog(context: context, builder: (c) => AlertDialog(
+      backgroundColor: const Color(0xFF1E293B),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: const Text('Editar Pago', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+      content: StatefulBuilder(builder: (ctx, setSt) => DropdownButtonFormField<String>(
+        value: selected,
+        dropdownColor: const Color(0xFF1E293B),
+        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+        decoration: InputDecoration(filled: true, fillColor: const Color(0xFF0F172A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)), labelText: 'Método', labelStyle: const TextStyle(color: Colors.white54)),
+        items: const [
+          DropdownMenuItem(value: 'cash', child: Text('Efectivo')),
+          DropdownMenuItem(value: 'transfer', child: Text('Transferencia')),
+          DropdownMenuItem(value: 'card', child: Text('Tarjeta')),
+          DropdownMenuItem(value: 'debito', child: Text('Débito')),
+          DropdownMenuItem(value: 'mixed', child: Text('Mixto')),
+        ],
+        onChanged: (v) => setSt(() => selected = v!),
+      )),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(c), child: const Text('Cancelar', style: TextStyle(color: Colors.grey))),
+        Container(decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF818CF8)]), borderRadius: BorderRadius.circular(10)), child: ElevatedButton(onPressed: () async {
+          Navigator.pop(c);
+          try {
+            final viejo = (transaction['payment_method'] ?? 'cash').toString();
+            final total = (transaction['total'] as num?)?.toDouble() ?? 0;
+            await Supabase.instance.client.from('transactions').update({'payment_method': selected}).eq('id', transaction['id']);
+            if (viejo != selected) {
+              await _registrarCashMovement(tipo: 'salida', categoria: 'Cambio de Pago', monto: total, metodo: viejo, folio: 'Venta #${_shortFolioHist(transaction['id'])}', motivo: 'Desde Historial: ${_formatPayment(viejo)} -> ${_formatPayment(selected)}', afectaCaja: false);
+              await _registrarCashMovement(tipo: 'entrada', categoria: 'Cambio de Pago', monto: total, metodo: selected, folio: 'Venta #${_shortFolioHist(transaction['id'])}', motivo: 'Desde Historial: ${_formatPayment(viejo)} -> ${_formatPayment(selected)}', afectaCaja: false);
+            }
+            await _loadTransactions();
+            if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(viejo != selected ? '✅ Pago actualizado + registrado en Cuadratura (informativo)' : '✅ Pago actualizado'), backgroundColor: const Color(0xFF10B981)));
+          } catch (e) {
+            if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ $e'), backgroundColor: Colors.red));
+          }
+        }, style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, shadowColor: Colors.transparent), child: const Text('Guardar'))),
+      ],
+    ));
+  }
+
+  Future<void> _showAnularDialog(Map<String, dynamic> transaction, List<Map<String, dynamic>> items) async {
+    final motivoCtrl = TextEditingController();
+    bool devolverStock = true;
+    await showDialog(context: context, builder: (c) => StatefulBuilder(builder: (ctx, setSt) => AlertDialog(
+      backgroundColor: const Color(0xFF1E293B),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: Row(children: [Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: Colors.red.withOpacity(0.15), borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.warning_rounded, color: Colors.redAccent, size: 18)), const SizedBox(width: 10), const Text('Anular Venta', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16))]),
+      content: Column(mainAxisSize: MainAxisSize.min, children: [
+        Text('¿Anular ${SettingsService.formatCurrency((transaction['total'] as num).toDouble())}?', style: const TextStyle(color: Colors.white70, fontSize: 12)),
+        const SizedBox(height: 14),
+        TextField(controller: motivoCtrl, style: const TextStyle(color: Colors.white, fontSize: 13), maxLines: 2, decoration: InputDecoration(labelText: 'Motivo *', labelStyle: const TextStyle(color: Colors.white54, fontSize: 12), filled: true, fillColor: const Color(0xFF0F172A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
+        const SizedBox(height: 10),
+        CheckboxListTile(value: devolverStock, onChanged: (v) => setSt(() => devolverStock = v!), title: const Text('Devolver stock', style: TextStyle(color: Colors.white70, fontSize: 12)), activeColor: const Color(0xFF10B981), contentPadding: EdgeInsets.zero, controlAffinity: ListTileControlAffinity.leading),
+      ]),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(c), child: const Text('Cancelar', style: TextStyle(color: Colors.grey))),
+        Container(decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(10)), child: ElevatedButton(onPressed: () async {
+          if (motivoCtrl.text.trim().isEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('⚠️ Motivo obligatorio'), backgroundColor: Colors.orange));
+            return;
+          }
+          Navigator.pop(c);
+          try {
+            // FIX AL ANULAR 400: si no existen cancel_reason / cancelled_at, el update completo falla.
+            // Se intenta completo, y si da 400 se reintenta solo con status (que si existe).
+            try {
+              await Supabase.instance.client.from('transactions').update({'status': 'cancelled', 'cancel_reason': motivoCtrl.text.trim(), 'cancelled_at': DateTime.now().toIso8601String()}).eq('id', transaction['id']);
+            } catch (_) {
+              await Supabase.instance.client.from('transactions').update({'status': 'cancelled'}).eq('id', transaction['id']);
+            }
+            // Registrar en Cuadratura: informativo, Reports ya excluye cancelled del total
+            await _registrarCashMovement(tipo: 'salida', categoria: 'Anulación Venta', monto: (transaction['total'] as num?)?.toDouble() ?? 0, metodo: (transaction['payment_method'] ?? 'cash').toString(), folio: 'Venta #${_shortFolioHist(transaction['id'])}', motivo: motivoCtrl.text.trim(), afectaCaja: false);
+            if (devolverStock) {
+              for (final item in items) {
+                if (item['item_type'] == 'product' && item['product_id'] != null) {
+                  try {
+                    final prod = await Supabase.instance.client.from('products').select('stock').eq('id', item['product_id']).single();
+                    final cur = (prod['stock'] as num).toInt();
+                    final qty = (item['quantity'] as num).toInt();
+                    await Supabase.instance.client.from('products').update({'stock': cur + qty}).eq('id', item['product_id']);
+                  } catch (_) {}
+                }
+              }
+            }
+            await _loadTransactions();
+            if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('✅ Anulada'), backgroundColor: Colors.orange));
+          } catch (e) {
+            if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ $e'), backgroundColor: Colors.red));
+          }
+        }, style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, shadowColor: Colors.transparent), child: const Text('Anular'))),
+      ],
+    )));
+  }
+
+  // TICKET COMO EL CON LOGO: logo REAL (jpeg de Supabase, sin rectangulo fake) + datos de TicketConfigService (no F.C / BIGOTES) + Pago Mixto
+  Future<void> _printTicket(Map<String, dynamic> transaction, List<Map<String, dynamic>> items) async {
+    try {
+      // Encabezado = el de Vercel (Configuracion > Encabezado del Ticket = BBS CLUB F.C). Si la config trae 'encabezado', ese manda; si no, nombreNegocio.
+      final cfg = TicketConfigService.config;
+      final encabezado = (cfg['encabezado'] ?? cfg['encabezado_ticket'] ?? cfg['nombre_local'] ?? '').toString();
+      final businessName = encabezado.isNotEmpty ? encabezado : (TicketConfigService.nombreNegocio.isNotEmpty ? TicketConfigService.nombreNegocio : 'BBS CLUB F.C');
+      final businessAddress = TicketConfigService.direccion.isNotEmpty ? TicketConfigService.direccion : 'Manuel Montt #460, local 6 - Coronel';
+      final businessPhone = TicketConfigService.telefono.isNotEmpty ? 'Tel: ${TicketConfigService.telefono}' : 'Tel: +569 6106 9670';
+      // LOGO TICKET = LOGOTICKET.bmp (el de Vercel / Configuracion > Logo URL Ticket), NO el jpeg de App (WhatsApp Image...).
+      // El .bmp si lo decodifica el package image de networkImage, por eso NO se filtra por extension.
+      // Si el .bmp falla en PDF, se intenta con el jpeg de App como fallback.
+      pw.ImageProvider? logoProvider;
+      final ticketLogo = TicketConfigService.ticketLogoUrl.isNotEmpty ? TicketConfigService.ticketLogoUrl : SettingsService.ticketLogoUrl;
+      final appLogo = TicketConfigService.logoUrl.isNotEmpty ? TicketConfigService.logoUrl : SettingsService.shopLogoUrl;
+      if (ticketLogo.isNotEmpty) {
+        try { logoProvider = await networkImage(ticketLogo); } catch (_) { logoProvider = null; }
+      }
+      if (logoProvider == null && appLogo.isNotEmpty) {
+        try { logoProvider = await networkImage(appLogo); } catch (_) { logoProvider = null; }
+      }
+
+      final pdf = pw.Document();
+      pdf.addPage(pw.Page(
+        pageFormat: PdfPageFormat(80 * PdfPageFormat.mm, double.infinity, marginAll: 4 * PdfPageFormat.mm),
+        build: (_) => pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.center, children: [
+          if (logoProvider != null) pw.Container(width: 55 * PdfPageFormat.mm, child: pw.Image(logoProvider, fit: pw.BoxFit.contain)) else pw.Text('BBS CLUB', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14)),
+          pw.SizedBox(height: 6),
+          pw.Text(businessName, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11)),
+          pw.Text(businessAddress, style: const pw.TextStyle(fontSize: 7), textAlign: pw.TextAlign.center),
+          pw.Text(businessPhone, style: const pw.TextStyle(fontSize: 7), textAlign: pw.TextAlign.center),
+          pw.SizedBox(height: 6), pw.Divider(),
+          pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Fecha:', style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold)), pw.Text(DateFormat('dd/MM/yyyy HH:mm').format(DateTime.parse(transaction['created_at'])), style: const pw.TextStyle(fontSize: 7))]),
+          pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Cajero:', style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold)), pw.Text(transaction['cashier_name']?.toString() ?? '', style: const pw.TextStyle(fontSize: 7))]),
+          pw.Divider(),
+          ...items.map((it) => pw.Padding(padding: const pw.EdgeInsets.symmetric(vertical: 2), child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+            pw.Text(it['service_name'] ?? it['product_name'] ?? 'Item', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
+            pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('${it['quantity']} x ${SettingsService.formatCurrency((it['price_at_moment'] as num).toDouble())}', style: const pw.TextStyle(fontSize: 7)), pw.Text(SettingsService.formatCurrency((it['price_at_moment'] as num).toDouble() * (it['quantity'] as num).toInt()), style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold))]),
+          ]))),
+          pw.Divider(),
+          pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('TOTAL:', style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)), pw.Text(SettingsService.formatCurrency((transaction['total'] as num).toDouble()), style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold))]),
+          pw.SizedBox(height: 4),
+          pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Pago:', style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold)), pw.Text(_formatPayment(transaction['payment_method']?.toString()), style: const pw.TextStyle(fontSize: 7))]),
+          pw.SizedBox(height: 10),
+          pw.Text('Gracias por su visita! (Reimpresion)', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold), textAlign: pw.TextAlign.center),
+        ]),
+      ));
+      await Printing.layoutPdf(onLayout: (_) async => pdf.save(), name: 'Ticket', format: PdfPageFormat(80 * PdfPageFormat.mm, double.infinity));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error $e'), backgroundColor: Colors.red));
+    }
+  }
+
+  Future<void> _selectDateRange() async {
+    final picked = await showDateRangePicker(context: context, firstDate: DateTime(2023), lastDate: DateTime.now().add(const Duration(days: 1)), initialDateRange: DateTimeRange(start: _startDate, end: _endDate), builder: (c, child) => Theme(data: ThemeData.dark().copyWith(colorScheme: const ColorScheme.dark(primary: Color(0xFF6366F1))), child: child!));
+    if (picked != null) {
+      setState(() { _startDate = picked.start; _endDate = picked.end; });
+      await _loadTransactions();
+    }
   }
 
   @override
@@ -137,52 +355,66 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E293B),
-        elevation: 0,
-        title: const Text('Historial Premium', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
-        centerTitle: true,
         leading: IconButton(icon: const Icon(Icons.arrow_back_rounded, color: Colors.white), onPressed: () => Navigator.pop(context)),
-        actions: [IconButton(icon: const Icon(Icons.refresh_rounded, color: Colors.white70), onPressed: _loadTransactions), IconButton(icon: const Icon(Icons.calendar_month_rounded, color: Colors.white70), onPressed: _pickDateRange)],
-      ),
-      body: Column(
-        children: [
-          InkWell(onTap: _pickDateRange, child: Container(margin: const EdgeInsets.all(12), padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12), decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF312E81), Color(0xFF4338CA)]), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white.withOpacity(0.08))), child: Row(children: [
-            Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), borderRadius: BorderRadius.circular(8)), child: const Text('📅', style: TextStyle(fontSize: 14))),
-            const SizedBox(width: 10),
-            Expanded(child: Text('${DateFormat('dd/MM/yyyy').format(_startDate)} - ${DateFormat('dd/MM/yyyy').format(_endDate)}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13))),
-            Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), borderRadius: BorderRadius.circular(20)), child: Text('${_transactions.length} ventas', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)))
-          ]))),
-          Expanded(
-            child: _isLoading ? const Center(child: CircularProgressIndicator(color: Color(0xFF6366F1))) : _transactions.isEmpty ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [const Text('🧾', style: TextStyle(fontSize: 48)), const SizedBox(height: 12), const Text('No hay ventas en este periodo', style: TextStyle(color: Colors.white54, fontSize: 13)), const SizedBox(height: 12), ElevatedButton(onPressed: _loadTransactions, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6366F1)), child: const Text('Recargar', style: TextStyle(fontSize: 12))) ])) : ListView.builder(padding: const EdgeInsets.fromLTRB(12, 0, 12, 12), itemCount: _transactions.length, itemBuilder: (context, index) {
-              final t = _transactions[index];
-              final total = (t['total'] as num).toDouble();
-              final date = DateTime.parse(t['created_at']);
-              return Container(
-                margin: const EdgeInsets.only(bottom: 10),
-                decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.white.withOpacity(0.06))),
-                child: InkWell(onTap: () => _showTransactionDetail(t), borderRadius: BorderRadius.circular(14), child: Padding(padding: const EdgeInsets.all(14), child: Row(children: [
-                  Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: const Color(0xFF312E81), shape: BoxShape.circle), child: const Text('🧾', style: TextStyle(fontSize: 16))),
-                  const SizedBox(width: 12),
-                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(DateFormat('dd/MM/yyyy HH:mm').format(date), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-                    const SizedBox(height: 2),
-                    Text('${_formatPaymentMethod(t['payment_method'])} • ${t['cashier_name'] ?? 'N/A'}${t['barber_name'] != null ? ' • ${t['barber_name']}' : ''}', style: const TextStyle(color: Colors.white38, fontSize: 10), maxLines: 1, overflow: TextOverflow.ellipsis)
-                  ])),
-                  Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                    Text(SettingsService.formatCurrency(total), style: const TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.bold, fontSize: 13)),
-                    const SizedBox(height: 4),
-                    Row(mainAxisSize: MainAxisSize.min, children: [
-                      InkWell(onTap: () => _showTransactionDetail(t), child: Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.15), borderRadius: BorderRadius.circular(20)), child: const Text('Ver', style: TextStyle(color: Color(0xFF10B981), fontSize: 9, fontWeight: FontWeight.bold)))),
-                      const SizedBox(width: 6),
-                      InkWell(onTap: () async { final items = await _loadItems(t['id']); await _printer.printTicketFromMap(t, items); }, child: Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.15), borderRadius: BorderRadius.circular(20)), child: const Text('Imprimir', style: TextStyle(color: Color(0xFF818CF8), fontSize: 9, fontWeight: FontWeight.bold)))),
-                    ])
-                  ])
-                ]))),
-              );
-            }),
-          )
+        title: const Text('Historial Premium', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16)),
+        centerTitle: true,
+        backgroundColor: const Color(0xFF1E293B),
+        foregroundColor: Colors.white,
+        elevation: 0,
+        actions: [
+          IconButton(icon: const Icon(Icons.refresh_rounded, color: Colors.white70, size: 20), onPressed: _loadTransactions),
+          IconButton(icon: const Icon(Icons.calendar_month_rounded, color: Colors.white70, size: 20), onPressed: _selectDateRange),
         ],
       ),
+      body: Column(children: [
+        Container(
+          margin: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(color: const Color(0xFF312E81), borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFF6366F1).withOpacity(0.2))),
+          child: Row(children: [
+            Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.2), borderRadius: BorderRadius.circular(10)), child: const Icon(Icons.calendar_today_rounded, size: 14, color: Color(0xFF818CF8))),
+            const SizedBox(width: 10),
+            Text('${DateFormat('dd/MM/yyyy').format(_startDate)} - ${DateFormat('dd/MM/yyyy').format(_endDate)}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+            const Spacer(),
+            Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.2), borderRadius: BorderRadius.circular(20)), child: Text('${_transactions.length} ventas', style: const TextStyle(color: Color(0xFF818CF8), fontSize: 11, fontWeight: FontWeight.bold))),
+          ]),
+        ),
+        Expanded(
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator(color: Color(0xFF6366F1)))
+              : _transactions.isEmpty
+                  ? const Center(child: Text('No hay ventas', style: TextStyle(color: Colors.white38)))
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      itemCount: _transactions.length,
+                      itemBuilder: (c, i) {
+                        final t = _transactions[i];
+                        final isCancelled = t['status'] == 'cancelled';
+                        return AnimatedBuilder(
+                          animation: _ctrl,
+                          builder: (context, child) {
+                            final delay = i * 0.03;
+                            final anim = Tween<double>(begin: 0, end: 1).animate(CurvedAnimation(parent: _ctrl, curve: Interval(delay, 0.7 + delay, curve: Curves.easeOutCubic)));
+                            return FadeTransition(opacity: anim, child: SlideTransition(position: Tween<Offset>(begin: const Offset(0, 0.05), end: Offset.zero).animate(anim), child: child));
+                          },
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(14), border: Border.all(color: isCancelled ? Colors.red.withOpacity(0.2) : Colors.white.withOpacity(0.05))),
+                            child: ListTile(
+                              tileColor: Colors.transparent,
+                              onTap: () => _showTransactionDetail(t),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                              leading: Container(width: 38, height: 38, decoration: BoxDecoration(color: isCancelled ? Colors.red.withOpacity(0.15) : const Color(0xFF6366F1).withOpacity(0.15), shape: BoxShape.circle), child: Icon(isCancelled ? Icons.cancel_rounded : Icons.receipt_rounded, size: 18, color: isCancelled ? Colors.redAccent : const Color(0xFF818CF8))),
+                              title: Text(DateFormat('dd/MM/yyyy HH:mm').format(DateTime.parse(t['created_at'])), style: TextStyle(fontWeight: FontWeight.bold, color: isCancelled ? Colors.white54 : Colors.white, fontSize: 13, decoration: isCancelled ? TextDecoration.lineThrough : null)),
+                              subtitle: Text('${_formatPayment(t['payment_method']?.toString())} • ${t['cashier_name'] ?? ''}', style: const TextStyle(color: Colors.white38, fontSize: 11)),
+                              trailing: Text(SettingsService.formatCurrency((t['total'] as num).toDouble()), style: TextStyle(color: isCancelled ? Colors.white38 : const Color(0xFF10B981), fontWeight: FontWeight.w900, fontSize: 14, decoration: isCancelled ? TextDecoration.lineThrough : null)),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+        ),
+      ]),
     );
   }
 }

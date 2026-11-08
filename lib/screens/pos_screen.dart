@@ -14,6 +14,7 @@ import '../repositories/product_repository.dart';
 import '../repositories/appointment_repository.dart';
 import '../services/printer_service.dart';
 import '../services/settings_service.dart';
+import '../services/ticket_config_service.dart';
 import '../main.dart';
 import 'clients_screen.dart';
 import 'sales_history_screen.dart';
@@ -49,6 +50,10 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
   List<LocalAppointment> _todayAppointments = [];
   List<LocalTransactionItem> _cart = [];
   String _paymentMethod = 'cash';
+  List<Map<String, dynamic>> _mixedPayments = [];
+  double get _mixedTotal => _mixedPayments.fold(0.0, (s, e) => s + ((e['amount'] as num).toDouble()));
+  bool get _mixedCuadra => _mixedPayments.length >= 2 && (_mixedTotal - _total).abs() < 0.5;
+  String _labelForMethod(String m) => m == 'cash' ? 'Efectivo' : m == 'card' ? 'Tarjeta' : m == 'transfer' ? 'Transferencia' : m;
   LocalBarber? _selectedBarber;
   LocalClient? _selectedClient;
   LocalAppointment? _selectedAppointment;
@@ -111,7 +116,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
     showDialog(context: context, builder: (c) => AlertDialog(backgroundColor: const Color(0xFF1E293B), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), title: const Text('💈 Selecciona un barbero', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)), content: const Text('Para agregar servicios debes seleccionar un barbero primero.', style: TextStyle(color: Colors.white70, fontSize: 13)), actions: [TextButton(onPressed: ()=>Navigator.pop(c), child: const Text('Cancelar', style: TextStyle(color: Colors.grey))), ElevatedButton(onPressed: (){Navigator.pop(c); _showBarberSelector();}, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6366F1)), child: const Text('Seleccionar'))]));
   }
 
-  void _showBarberSelector() {
+  void _showBarberSelector(){
     showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: const Color(0xFF1E293B), shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), builder: (c) => DraggableScrollableSheet(initialChildSize: 0.6, minChildSize: 0.4, maxChildSize: 0.85, expand: false, builder: (ctx, sc) => Column(children: [Container(padding: const EdgeInsets.all(16), decoration: const BoxDecoration(color: Color(0xFF6366F1), borderRadius: BorderRadius.vertical(top: Radius.circular(20))), child: Row(children: const [Text('💈', style: TextStyle(fontSize: 20)), SizedBox(width: 8), Text('Seleccionar Barbero', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15))])), Expanded(child: ListView.builder(controller: sc, itemCount: _barbers.length, itemBuilder: (ctx,i){final b=_barbers[i]; return ListTile(leading: CircleAvatar(backgroundColor: const Color(0xFF6366F1).withOpacity(0.15), child: Text(b.name[0].toUpperCase(), style: const TextStyle(color: Color(0xFF6366F1), fontWeight: FontWeight.bold))), title: Text(b.name, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)), subtitle: Text('Comisión ${b.commissionValue}%', style: const TextStyle(color: Colors.white54, fontSize: 11)), onTap: (){setState((){_selectedBarber=b;}); Navigator.pop(c);});}))])));
   }
 
@@ -146,6 +151,13 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
 
   Future<void> _processPayment() async {
     if(_cart.isEmpty) return;
+    if(_paymentMethod=='mixed'){
+      final result = await _showMixedDialog();
+      if(result==null) return;
+      _mixedPayments = result;
+      await _completeTransaction(cashReceived: _total, change: 0, mixedPayments: List.from(_mixedPayments));
+      return;
+    }
     String method = _paymentMethod;
     if(method=='cash'){
       final result = await _showCashDialog();
@@ -154,6 +166,138 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
     } else {
       await _completeTransaction(cashReceived: _total, change: 0);
     }
+  }
+
+  // ===== PAGO MIXTO - FIX FOCO: controladores FUERA del build, no se recrean por tecla =====
+  Future<List<Map<String, dynamic>>?> _showMixedDialog() async {
+    List<Map<String, dynamic>> pagos = _mixedPayments.isNotEmpty ? List<Map<String, dynamic>>.from(_mixedPayments.map((e)=> Map<String, dynamic>.from(e))) : [
+      {'method': 'cash', 'amount': (_total / 2).roundToDouble()},
+      {'method': 'transfer', 'amount': _total - (_total / 2).roundToDouble()},
+    ];
+    if (_mixedPayments.isEmpty && pagos.length == 2) {
+      pagos[1]['amount'] = _total - (pagos[0]['amount'] as double);
+    }
+    // FIX FOCO: un controller + un FocusNode por fila, creados UNA vez fuera del StatefulBuilder.
+    // Antes se hacia TextEditingController(text: ...) DENTRO de List.generate en cada setSt,
+    // por eso al escribir "1" se recreaba el campo y se perdia el foco / cursor.
+    final List<TextEditingController> ctrls = pagos.map((p) => TextEditingController(text: (p['amount'] as num).toStringAsFixed(0))).toList();
+    final List<FocusNode> focusNodes = List.generate(pagos.length, (_) => FocusNode());
+    try {
+    return await showDialog<List<Map<String, dynamic>>>(context: context, builder: (c) {
+      return StatefulBuilder(builder: (ctx, setSt) {
+        double sum = pagos.fold(0.0, (s, e) => s + ((e['amount'] as num).toDouble()));
+        double diff = _total - sum;
+        bool cuadra = pagos.length >= 2 && diff.abs() < 0.5;
+        return Dialog(
+          backgroundColor: const Color(0xFF1E293B),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+          child: Container(
+            width: 420,
+            padding: const EdgeInsets.all(18),
+            child: SingleChildScrollView(
+              child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Cobrar - ${SettingsService.formatCurrency(_total)}', style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 2),
+                Text('Subtotal ${SettingsService.formatCurrency(_subtotal)}  Total ${SettingsService.formatCurrency(_total)}', style: const TextStyle(color: Colors.white54, fontSize: 11)),
+                const SizedBox(height: 14),
+                Container(width: double.infinity, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12), decoration: BoxDecoration(color: const Color(0xFF0F172A), borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFF6366F1).withOpacity(0.5))), child: Row(children: const [Text('Mixto', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)), Spacer(), Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white54, size: 18)])),
+                const SizedBox(height: 12),
+                Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: const Color(0xFF0F172A), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.4))), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('Pago Mixto - Elige 2 o más formas', style: TextStyle(color: Color(0xFFF59E0B), fontSize: 11, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 10),
+                  ...List.generate(pagos.length, (i) {
+                    final p = pagos[i];
+                    final ctrl = ctrls[i];
+                    final focusNode = focusNodes[i];
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(children: [
+                        Expanded(
+                          flex: 2,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.white10)),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                value: p['method'] as String,
+                                dropdownColor: const Color(0xFF1E293B),
+                                style: const TextStyle(color: Colors.white, fontSize: 12),
+                                isExpanded: true,
+                                items: const [
+                                  DropdownMenuItem(value: 'cash', child: Text('Efectivo')),
+                                  DropdownMenuItem(value: 'card', child: Text('Tarjeta')),
+                                  DropdownMenuItem(value: 'transfer', child: Text('Transferencia')),
+                                ],
+                                onChanged: (v) { setSt(() => pagos[i]['method'] = v!); },
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          flex: 2,
+                          child: TextField(
+                            controller: ctrl,
+                            focusNode: focusNode,
+                            keyboardType: TextInputType.number,
+                            style: const TextStyle(color: Colors.white, fontSize: 13),
+                            decoration: InputDecoration(
+                              filled: true,
+                              fillColor: const Color(0xFF1E293B),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                            ),
+                            onTap: () {
+                              // Al tocar, seleccionar todo para reemplazar 10000 por 10000 facil sin borrar digito a digito
+                              ctrl.selection = TextSelection(baseOffset: 0, extentOffset: ctrl.text.length);
+                            },
+                            onChanged: (v) {
+                              // Solo actualizar el monto, NO recrear controller. setSt solo redibuja el "Cuadra / Falta"
+                              pagos[i]['amount'] = double.tryParse(v) ?? 0;
+                              setSt(() {});
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        InkWell(onTap: (){ if(pagos.length>1) setSt((){ ctrls[i].dispose(); focusNodes[i].dispose(); ctrls.removeAt(i); focusNodes.removeAt(i); pagos.removeAt(i); }); }, child: Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: Colors.red.withOpacity(0.15), borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.close, size: 14, color: Colors.redAccent))),
+                      ]),
+                    );
+                  }),
+                  const SizedBox(height: 4),
+                  SizedBox(width: double.infinity, child: OutlinedButton(onPressed: (){ setSt((){ pagos.add({'method': 'cash', 'amount': 0.0}); ctrls.add(TextEditingController(text: '0')); focusNodes.add(FocusNode()); }); }, style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.white12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))), child: const Text('+ Agregar otro pago', style: TextStyle(color: Colors.white70, fontSize: 12)))),
+                  const SizedBox(height: 10),
+                  Center(child: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), decoration: BoxDecoration(color: cuadra ? const Color(0xFF10B981).withOpacity(0.15) : Colors.red.withOpacity(0.15), borderRadius: BorderRadius.circular(20)), child: Text(cuadra ? '✓ Cuadra ${SettingsService.formatCurrency(_total)}' : (diff > 0 ? 'Falta ${SettingsService.formatCurrency(diff)}' : 'Sobra ${SettingsService.formatCurrency(diff.abs())}'), style: TextStyle(color: cuadra ? const Color(0xFF10B981) : Colors.redAccent, fontSize: 11, fontWeight: FontWeight.bold)))),
+                ])),
+                const SizedBox(height: 14),
+                Row(children: [
+                  Expanded(child: SizedBox(height: 44, child: ElevatedButton(onPressed: cuadra ? ()=> Navigator.pop(c, pagos) : null, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981), disabledBackgroundColor: Colors.white10, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))), child: Text('Confirmar Mixto\n${SettingsService.formatCurrency(_total)}', textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white))))),
+                  const SizedBox(width: 10),
+                  Expanded(child: SizedBox(height: 44, child: ElevatedButton(onPressed: ()=> Navigator.pop(c), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF334155), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))), child: const Text('Cancelar', style: TextStyle(fontSize: 12, color: Colors.white))))),
+                ]),
+              ]),
+            ),
+          ),
+        );
+      });
+    });
+    } finally {
+      for (final cc in ctrls) { try { cc.dispose(); } catch (_) {} }
+      for (final ff in focusNodes) { try { ff.dispose(); } catch (_) {} }
+    }
+  }
+
+  Widget _buildPaymentMethodSelector({VoidCallback? onChanged}) {
+    Widget btn(String value, String icon, String label) {
+      final selected = _paymentMethod == value;
+      return Expanded(child: InkWell(onTap: (){ setState(()=> _paymentMethod = value); if(value=='mixed'){ _mixedPayments = []; } onChanged?.call(); }, child: Container(padding: const EdgeInsets.symmetric(vertical: 10), decoration: BoxDecoration(color: selected ? const Color(0xFF6366F1) : const Color(0xFF0F172A), borderRadius: BorderRadius.circular(10), border: Border.all(color: selected ? const Color(0xFF818CF8) : Colors.white10)), child: Column(children: [Text(icon, style: const TextStyle(fontSize: 15)), const SizedBox(height: 3), Text(label, style: TextStyle(color: selected ? Colors.white : Colors.white70, fontSize: 10, fontWeight: selected ? FontWeight.bold : FontWeight.w500))]))));
+    }
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const Text('Forma de pago', style: TextStyle(color: Colors.white54, fontSize: 11)),
+      const SizedBox(height: 8),
+      Row(children: [btn('cash', '💵', 'Efectivo'), const SizedBox(width: 6), btn('card', '💳', 'Tarjeta'), const SizedBox(width: 6), btn('transfer', '🔁', 'Transfer'), const SizedBox(width: 6), btn('mixed', '🧾', 'Mixto')]),
+      if(_paymentMethod=='mixed' && _mixedPayments.isNotEmpty) ...[const SizedBox(height: 8), Container(width: double.infinity, padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8), decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.12), borderRadius: BorderRadius.circular(8)), child: Text('Mixto: ${_mixedPayments.map((e)=> '${_labelForMethod(e['method'] as String)} ${SettingsService.formatCurrency((e['amount'] as num).toDouble())}').join(' + ')}', style: const TextStyle(color: Color(0xFF10B981), fontSize: 10, fontWeight: FontWeight.w600)))],
+    ]);
   }
 
   Future<Map<String,double>?> _showCashDialog() async {
@@ -167,7 +311,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
     });
   }
 
-  Future<void> _completeTransaction({required double cashReceived, required double change}) async {
+  Future<void> _completeTransaction({required double cashReceived, required double change, List<Map<String, dynamic>>? mixedPayments}) async {
     final transaction = LocalTransaction()
       ..remoteId='trans-${DateTime.now().millisecondsSinceEpoch}'
       ..cashRegisterId='caja-001'
@@ -197,18 +341,25 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
           }
         }
       }
+      if(mixedPayments!=null && mixedPayments.isNotEmpty){
+        try{
+          for(final p in mixedPayments){
+            await Supabase.instance.client.from('transaction_payments').insert({'transaction_id': transactionId, 'payment_method': p['method'], 'amount': p['amount']});
+          }
+        }catch(_){}
+      }
       await _printer.printTicket(transaction);
-      if(mounted){ setState((){ _cart.clear(); _selectedClient=null; _selectedAppointment=null; _discount=0; }); _snack('✅ Venta registrada'); await _loadData(); }
+      if(mounted){ setState((){ _cart.clear(); _selectedClient=null; _selectedAppointment=null; _discount=0; _mixedPayments.clear(); }); _snack('✅ Venta registrada'); await _loadData(); }
     }catch(e){ if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red)); }
   }
 
   Widget _buildServiceCard(LocalService s) {
     final price = SettingsService.formatCurrency(s.price);
-    return InkWell(onTap: ()=>_addServiceToCart(s), child: Container(decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withOpacity(0.06)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 8, offset: const Offset(0,3))]), child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(children: [Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.15), shape: BoxShape.circle), child: const Text('✂️', style: TextStyle(fontSize: 16))), const Spacer(), Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.15), borderRadius: BorderRadius.circular(20)), child: Text(price, style: const TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold)))]),
+    return InkWell(onTap: ()=>_addServiceToCart(s), child: Container(decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withOpacity(0.06)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 8, offset: const Offset(0,3))]), child: Padding(padding: const EdgeInsets.all(10), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [Container(padding: const EdgeInsets.all(7), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.15), shape: BoxShape.circle), child: const Text('✂️', style: TextStyle(fontSize: 15))), const Spacer(), Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.15), borderRadius: BorderRadius.circular(20)), child: Text(price, style: const TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold)))]),
       const SizedBox(height: 8),
-      Text(s.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold, height: 1.1)),
-      const SizedBox(height: 4),
+      Flexible(child: Text(s.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold, height: 1.05))),
+      const SizedBox(height: 3),
       Text('${s.durationMinutes} min • ${s.commissionValue.toStringAsFixed(0)}%', style: const TextStyle(color: Colors.white38, fontSize: 10)),
     ]))));
   }
@@ -219,7 +370,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
     return InkWell(onTap: ()=>_addProductToCart(p), child: Container(decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(16), border: Border.all(color: isLow ? Colors.red.withOpacity(0.2) : Colors.white.withOpacity(0.06))), child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: isLow ? Colors.red.withOpacity(0.15) : const Color(0xFFF59E0B).withOpacity(0.15), shape: BoxShape.circle), child: const Text('📦', style: TextStyle(fontSize: 16))), const Spacer(), Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.15), borderRadius: BorderRadius.circular(20)), child: Text(price, style: const TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold)))]),
       const SizedBox(height: 8),
-      Text(p.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold, height: 1.1)),
+      Flexible(child: Text(p.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold, height: 1.05))),
       const SizedBox(height: 4),
       Text('Stock: ${p.stock}', style: TextStyle(color: isLow ? Colors.redAccent : Colors.white38, fontSize: 10, fontWeight: FontWeight.w600)),
     ]))));
@@ -238,9 +389,9 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
         const SizedBox(height: 8),
         _buildOptionButton(icon: '👤', label: _selectedClient?.name ?? 'Cliente (opcional)', onTap: _showClientSelector),
         const SizedBox(height: 8),
-        DropdownButtonFormField<String>(value: _paymentMethod, dropdownColor: const Color(0xFF1E293B), style: const TextStyle(color: Colors.white, fontSize: 12), decoration: InputDecoration(filled: true, fillColor: const Color(0xFF0F172A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none), contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8)), items: const [DropdownMenuItem(value: 'cash', child: Text('💵 Efectivo', style: TextStyle(fontSize: 12))), DropdownMenuItem(value: 'card', child: Text('💳 Tarjeta', style: TextStyle(fontSize: 12))), DropdownMenuItem(value: 'transfer', child: Text('📱 Transferencia', style: TextStyle(fontSize: 12)))], onChanged: (v)=>setState(()=>_paymentMethod=v!)),
+        _buildPaymentMethodSelector(),
         const SizedBox(height: 12),
-        SizedBox(width: double.infinity, height: 48, child: ElevatedButton(onPressed: _cart.isEmpty?null:_processPayment, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981), disabledBackgroundColor: Colors.white10, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), child: const Text('COBRAR', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.white))))
+        SizedBox(width: double.infinity, height: 48, child: ElevatedButton(onPressed: _cart.isEmpty?null:_processPayment, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981), disabledBackgroundColor: Colors.white10, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), child: Text(_cart.isEmpty ? 'COBRAR' : 'COBRAR ${SettingsService.formatCurrency(_total)}${_paymentMethod=='mixed' ? ' - MIXED' : _paymentMethod=='cash' ? ' - CASH' : ''}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white))))
       ]))
     ]));
   }
@@ -255,7 +406,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
       const SizedBox(height: 8),
       Row(children: [Expanded(child: _buildOptionButton(icon: '📅', label: _selectedAppointment?.clientName ?? 'Cita', onTap: _showAppointmentSelector)), const SizedBox(width: 8), Expanded(child: _buildOptionButton(icon: '👤', label: _selectedClient?.name ?? 'Cliente', onTap: _showClientSelector))]),
       const SizedBox(height: 8),
-      SizedBox(width: double.infinity, height: 48, child: ElevatedButton(onPressed: _cart.isEmpty?null:_processPayment, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981), disabledBackgroundColor: Colors.white10, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), child: Text(_cart.isEmpty ? 'CARRITO VACIO' : 'COBRAR ${SettingsService.formatCurrency(_total)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white))))
+      SizedBox(width: double.infinity, height: 48, child: ElevatedButton(onPressed: _cart.isEmpty?null:_processPayment, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981), disabledBackgroundColor: Colors.white10, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), child: Text(_cart.isEmpty ? 'CARRITO VACIO' : 'COBRAR ${SettingsService.formatCurrency(_total)}${_paymentMethod=='mixed' ? ' - MIXED' : _paymentMethod=='cash' ? ' - CASH' : ''}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.white))))
     ]));
   }
 
@@ -271,9 +422,9 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
               const SizedBox(height: 6),
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('TOTAL:', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)), Text(SettingsService.formatCurrency(_total), style: const TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.bold, fontSize: 20))]),
               const SizedBox(height: 12),
-              DropdownButtonFormField<String>(value: _paymentMethod, dropdownColor: const Color(0xFF1E293B), style: const TextStyle(color: Colors.white, fontSize: 12), decoration: InputDecoration(filled: true, fillColor: const Color(0xFF1E293B), border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none), contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10)), items: const [DropdownMenuItem(value: 'cash', child: Text('💵 Efectivo', style: TextStyle(fontSize: 12))), DropdownMenuItem(value: 'card', child: Text('💳 Tarjeta', style: TextStyle(fontSize: 12))), DropdownMenuItem(value: 'transfer', child: Text('📱 Transferencia', style: TextStyle(fontSize: 12)))], onChanged: (v){ setState(()=>_paymentMethod=v!); setModal((){}); }),
+              _buildPaymentMethodSelector(onChanged: (){ setModal((){}); }),
               const SizedBox(height: 12),
-              SizedBox(width: double.infinity, height: 48, child: ElevatedButton(onPressed: _cart.isEmpty?null:(){ Navigator.pop(c); _processPayment(); }, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), child: Text('COBRAR ${SettingsService.formatCurrency(_total)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white))))
+              SizedBox(width: double.infinity, height: 48, child: ElevatedButton(onPressed: _cart.isEmpty?null:(){ Navigator.pop(c); _processPayment(); }, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), child: Text('COBRAR ${SettingsService.formatCurrency(_total)}${_paymentMethod=='mixed' ? ' - MIXED' : _paymentMethod=='cash' ? ' - CASH' : ''}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white))))
             ]))
           ]);
         });
@@ -343,8 +494,8 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
           ? Column(children: [
               if(_selectedBarber==null) Container(width: double.infinity, padding: const EdgeInsets.all(10), color: const Color(0xFFF59E0B).withOpacity(0.15), child: const Text('⚠️ Selecciona un barbero para vender servicios', style: TextStyle(color: Color(0xFFF59E0B), fontSize: 11, fontWeight: FontWeight.w600), textAlign: TextAlign.center)),
               Expanded(child: TabBarView(controller: _tabController, children: [
-                _services.isEmpty ? const Center(child: Text('No hay servicios', style: TextStyle(color: Colors.white54, fontSize: 13))) : GridView.builder(padding: const EdgeInsets.all(10), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, childAspectRatio: 1.25, crossAxisSpacing: 10, mainAxisSpacing: 10), itemCount: _services.length, itemBuilder: (c,i)=>_buildServiceCard(_services[i])),
-                _products.isEmpty ? const Center(child: Text('No hay productos', style: TextStyle(color: Colors.white54, fontSize: 13))) : GridView.builder(padding: const EdgeInsets.all(10), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, childAspectRatio: 1.25, crossAxisSpacing: 10, mainAxisSpacing: 10), itemCount: _products.length, itemBuilder: (c,i)=>_buildProductCard(_products[i])),
+                _services.isEmpty ? const Center(child: Text('No hay servicios', style: TextStyle(color: Colors.white54, fontSize: 13))) : GridView.builder(padding: const EdgeInsets.all(10), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, childAspectRatio: 1.02, crossAxisSpacing: 10, mainAxisSpacing: 10), itemCount: _services.length, itemBuilder: (c,i)=>_buildServiceCard(_services[i])),
+                _products.isEmpty ? const Center(child: Text('No hay productos', style: TextStyle(color: Colors.white54, fontSize: 13))) : GridView.builder(padding: const EdgeInsets.all(10), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, childAspectRatio: 1.02, crossAxisSpacing: 10, mainAxisSpacing: 10), itemCount: _products.length, itemBuilder: (c,i)=>_buildProductCard(_products[i])),
               ])),
               _buildMobileBottomBar(),
             ])
@@ -352,8 +503,8 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
               Expanded(child: Column(children: [
                 if(_selectedBarber==null) Container(width: double.infinity, padding: const EdgeInsets.all(10), color: const Color(0xFFF59E0B).withOpacity(0.15), child: const Text('⚠️ Selecciona un barbero para vender servicios', style: TextStyle(color: Color(0xFFF59E0B), fontSize: 12), textAlign: TextAlign.center)),
                 Expanded(child: TabBarView(controller: _tabController, children: [
-                  _services.isEmpty ? const Center(child: Text('No hay servicios', style: TextStyle(color: Colors.white54))) : GridView.builder(padding: const EdgeInsets.all(16), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, childAspectRatio: 1.3, crossAxisSpacing: 12, mainAxisSpacing: 12), itemCount: _services.length, itemBuilder: (c,i)=>_buildServiceCard(_services[i])),
-                  _products.isEmpty ? const Center(child: Text('No hay productos', style: TextStyle(color: Colors.white54))) : GridView.builder(padding: const EdgeInsets.all(16), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, childAspectRatio: 1.3, crossAxisSpacing: 12, mainAxisSpacing: 12), itemCount: _products.length, itemBuilder: (c,i)=>_buildProductCard(_products[i])),
+                  _services.isEmpty ? const Center(child: Text('No hay servicios', style: TextStyle(color: Colors.white54))) : GridView.builder(padding: const EdgeInsets.all(16), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, childAspectRatio: 1.08, crossAxisSpacing: 12, mainAxisSpacing: 12), itemCount: _services.length, itemBuilder: (c,i)=>_buildServiceCard(_services[i])),
+                  _products.isEmpty ? const Center(child: Text('No hay productos', style: TextStyle(color: Colors.white54))) : GridView.builder(padding: const EdgeInsets.all(16), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, childAspectRatio: 1.08, crossAxisSpacing: 12, mainAxisSpacing: 12), itemCount: _products.length, itemBuilder: (c,i)=>_buildProductCard(_products[i])),
                 ]))
               ])),
               _buildDesktopCart(),

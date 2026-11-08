@@ -1,4 +1,4 @@
-
+// lib/screens/appointments_screen.dart - PREMIUM FINAL - calendario compacto centrado + cards originales bonitas
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -11,13 +11,15 @@ import '../repositories/appointment_repository.dart';
 import '../repositories/barber_repository.dart';
 import '../repositories/client_repository.dart';
 import '../repositories/service_repository.dart';
+import '../services/settings_service.dart';
+import 'pos_screen.dart'; // para volver a POS si Agenda es la ruta raiz
 
 class AppointmentsScreen extends StatefulWidget {
   @override
   State<AppointmentsScreen> createState() => _AppointmentsScreenState();
 }
 
-class _AppointmentsScreenState extends State<AppointmentsScreen> with TickerProviderStateMixin {
+class _AppointmentsScreenState extends State<AppointmentsScreen> {
   final _appointmentRepo = AppointmentRepository();
   final _barberRepo = BarberRepository();
   final _clientRepo = ClientRepository();
@@ -29,49 +31,22 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with TickerProv
   bool _isLoading = true;
   DateTime _selectedDate = DateTime.now();
   Map<DateTime, int> _daysWithCounts = {};
-  late AnimationController _mainController;
+  DateTime _currentMonth = DateTime.now();
 
   @override
   void initState() {
     super.initState();
-    _mainController = AnimationController(vsync: this, duration: const Duration(milliseconds: 800));
     _loadData();
-    _fetchDaysWithCounts();
-  }
-
-  @override
-  void dispose() {
-    _mainController.dispose();
-    super.dispose();
-  }
-
-  Future<Map<DateTime, int>> _fetchDaysWithCounts() async {
-    try {
-      final supabase = Supabase.instance.client;
-      final firstDay = DateTime(_selectedDate.year, _selectedDate.month, 1);
-      final lastDay = DateTime(_selectedDate.year, _selectedDate.month + 1, 0);
-      final res = await supabase.from('appointments').select('appointment_date').gte('appointment_date', firstDay.toIso8601String()).lte('appointment_date', lastDay.toIso8601String());
-      final Map<DateTime, int> counts = {};
-      for (var row in res) {
-        try {
-          final dt = DateTime.parse(row['appointment_date']);
-          final key = DateTime(dt.year, dt.month, dt.day);
-          counts[key] = (counts[key] ?? 0) + 1;
-        } catch (_) {}
-      }
-      setState(() => _daysWithCounts = counts);
-      return counts;
-    } catch (e) {
-      return {};
-    }
+    _loadDaysWithCounts();
   }
 
   Future<void> _loadData() async {
-    setState(() { _isLoading = true; });
+    setState(() => _isLoading = true);
     final appointments = await _appointmentRepo.getAppointmentsByDate(_selectedDate);
     final barbers = await _barberRepo.getAllBarbers();
     final clients = await _clientRepo.getAllClients();
     final services = await _serviceRepo.getAllServices();
+    // deduplicar
     final uniqueBarbers = <String, LocalBarber>{};
     for (final b in barbers) { if (b.remoteId != null) uniqueBarbers[b.remoteId!] = b; }
     final uniqueClients = <String, LocalClient>{};
@@ -85,241 +60,458 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> with TickerProv
       _services = uniqueServices.values.toList();
       _isLoading = false;
     });
-    _mainController.forward(from: 0);
   }
 
-  Future<void> _showCalendarDialog() async {
-    await _fetchDaysWithCounts();
-    if (!mounted) return;
-    final selected = await showDialog<DateTime>(
-      context: context,
-      builder: (context) {
-        DateTime displayMonth = DateTime(_selectedDate.year, _selectedDate.month, 1);
-        return StatefulBuilder(builder: (context, setS) {
-          final daysInMonth = DateTime(displayMonth.year, displayMonth.month + 1, 0).day;
-          final firstWeekday = DateTime(displayMonth.year, displayMonth.month, 1).weekday;
-          final today = DateTime.now();
-          final totalDays = _daysWithCounts.values.fold(0, (a, b) => a + b);
-          return AlertDialog(
-            backgroundColor: const Color(0xFF1E293B),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            title: Row(children: [
-              Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.2), borderRadius: BorderRadius.circular(10)), child: const Text('📅', style: TextStyle(fontSize: 16))),
-              const SizedBox(width: 10),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(DateFormat('MMMM yyyy', 'es').format(displayMonth), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                Text('$_daysWithCounts.length días con citas - Total: $totalDays', style: const TextStyle(color: Colors.white54, fontSize: 11)),
-              ])),
-              IconButton(icon: const Icon(Icons.chevron_left_rounded, color: Colors.white), onPressed: () => setS(() => displayMonth = DateTime(displayMonth.year, displayMonth.month - 1, 1))),
-              IconButton(icon: const Icon(Icons.chevron_right_rounded, color: Colors.white), onPressed: () => setS(() => displayMonth = DateTime(displayMonth.year, displayMonth.month + 1, 1))),
-            ]),
-            content: SizedBox(
-              width: 340,
-              child: Column(mainAxisSize: MainAxisSize.min, children: [
-                Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: ['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((d) => SizedBox(width: 30, child: Center(child: Text(d, style: const TextStyle(color: Colors.white38, fontSize: 12, fontWeight: FontWeight.bold))))).toList()),
-                const SizedBox(height: 8),
-                GridView.builder(
-                  shrinkWrap: true,
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 7, childAspectRatio: 0.85),
-                  itemCount: firstWeekday - 1 + daysInMonth,
-                  itemBuilder: (c, i) {
-                    if (i < firstWeekday - 1) return const SizedBox();
-                    final day = i - (firstWeekday - 2);
-                    final date = DateTime(displayMonth.year, displayMonth.month, day);
-                    final isToday = date.year == today.year && date.month == today.month && date.day == today.day;
-                    final isSelected = date.year == _selectedDate.year && date.month == _selectedDate.month && date.day == _selectedDate.day;
-                    final count = _daysWithCounts[DateTime(date.year, date.month, date.day)] ?? 0;
-                    final hasAppointments = count > 0;
-                    return InkWell(
-                      onTap: () => Navigator.pop(context, date),
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        margin: const EdgeInsets.all(2),
-                        decoration: BoxDecoration(
-                          color: isSelected ? const Color(0xFF6366F1) : isToday ? const Color(0xFF3B82F6).withOpacity(0.3) : hasAppointments ? const Color(0xFFF59E0B).withOpacity(0.15) : Colors.transparent,
-                          borderRadius: BorderRadius.circular(12),
-                          border: hasAppointments ? Border.all(color: const Color(0xFFF59E0B).withOpacity(0.4)) : null,
-                        ),
-                        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                          Text('$day', style: TextStyle(color: isSelected ? Colors.white : isToday ? const Color(0xFF60A5FA) : Colors.white, fontWeight: isToday || isSelected || hasAppointments ? FontWeight.bold : FontWeight.normal, fontSize: 13)),
-                          if (hasAppointments) ...[
-                            const SizedBox(height: 2),
-                            Container(padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1), decoration: BoxDecoration(color: const Color(0xFFF59E0B), borderRadius: BorderRadius.circular(8)), child: Text('$count', style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold))),
-                          ] else ...[
-                            const SizedBox(height: 8),
-                          ],
-                          if (hasAppointments) Container(margin: const EdgeInsets.only(top: 2), width: 5, height: 5, decoration: const BoxDecoration(color: Color(0xFFF59E0B), shape: BoxShape.circle)),
-                        ]),
-                      ),
-                    );
-                  },
-                ),
-              ]),
-            ),
-            actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar', style: TextStyle(color: Colors.grey))), Container(decoration: BoxDecoration(color: const Color(0xFF6366F1), borderRadius: BorderRadius.circular(10)), child: TextButton(onPressed: () => Navigator.pop(context, DateTime.now()), child: const Text('Hoy', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))))],
-          );
-        });
-      },
-    );
-    if (selected != null) {
-      setState(() => _selectedDate = selected);
-      await _loadData();
-      await _fetchDaysWithCounts();
-    }
+  Future<void> _loadDaysWithCounts() async {
+    try {
+      final start = DateTime(_currentMonth.year, _currentMonth.month, 1);
+      final end = DateTime(_currentMonth.year, _currentMonth.month + 1, 0, 23, 59, 59);
+      final res = await Supabase.instance.client.from('appointments').select('appointment_date').gte('appointment_date', start.toIso8601String()).lte('appointment_date', end.toIso8601String());
+      Map<DateTime, int> counts = {};
+      for (var r in res) {
+        final dt = DateTime.parse(r['appointment_date'] as String);
+        final day = DateTime(dt.year, dt.month, dt.day);
+        counts[day] = (counts[day] ?? 0) + 1;
+      }
+      if (mounted) setState(() => _daysWithCounts = counts);
+    } catch (_) {}
   }
 
   Future<void> _sendWhatsAppNotification(LocalAppointment appointment, {String type = 'confirmed'}) async {
-    if (appointment.clientPhone == null || appointment.clientPhone!.isEmpty) return;
+    if (appointment.clientPhone == null || appointment.clientPhone!.isEmpty) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('El cliente no tiene teléfono'), backgroundColor: Colors.orange));
+      return;
+    }
     String phone = appointment.clientPhone!.replaceAll(RegExp(r'[^0-9]'), '');
     if (phone.startsWith('0')) phone = phone.substring(1);
     if (!phone.startsWith('56') && phone.length == 9) phone = '56$phone';
     final dateStr = DateFormat('dd/MM/yyyy').format(appointment.appointmentDate);
     final timeStr = DateFormat('HH:mm').format(appointment.appointmentDate);
-    String message = type == 'cancelled' ? 'Hola ${appointment.clientName}, tu cita ha sido *CANCELADA*. $dateStr $timeStr' : type == 'booking' ? 'Hola ${appointment.clientName}, tu cita *REGISTRADA*. $dateStr $timeStr ${appointment.serviceName}' : 'Hola ${appointment.clientName}, tu cita *CONFIRMADA*. $dateStr $timeStr';
-    final url = 'https://wa.me/$phone?text=${Uri.encodeComponent(message)}';
-    try { if (await canLaunchUrl(Uri.parse(url))) await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication); } catch (_) {}
+    String msg;
+    if (type == 'cancelled') {
+      msg = 'Hola ${appointment.clientName}, tu cita en BBS Club Barberia ha sido *CANCELADA*.\n\n📅 Fecha: $dateStr\n⏰ Hora: $timeStr\n✂️ Servicio: ${appointment.serviceName}\n💈 Barbero: ${appointment.barberName}\n\nSi deseas reagendar avisanos.';
+    } else if (type == 'booking') {
+      msg = 'Hola ${appointment.clientName}, tu cita en BBS Club Barberia ha sido *REGISTRADA*.\n\n📅 Fecha: $dateStr\n⏰ Hora: $timeStr\n✂️ Servicio: ${appointment.serviceName}\n💈 Barbero: ${appointment.barberName}\n\nTe confirmamos pronto.';
+    } else {
+      msg = 'Hola ${appointment.clientName}, tu cita en BBS Club Barberia ha sido *CONFIRMADA*.\n\n📅 Fecha: $dateStr\n⏰ Hora: $timeStr\n✂️ Servicio: ${appointment.serviceName}\n💈 Barbero: ${appointment.barberName}\n\n¡Te esperamos! 👋';
+    }
+    final abonoTxt = _abonoLine(appointment.notes);
+    if (abonoTxt.isNotEmpty) msg = '$msg\n\n💰 $abonoTxt';
+    final url = 'https://wa.me/$phone?text=${Uri.encodeComponent(msg)}';
+    final uri = Uri.parse(url);
+    try { if (await canLaunchUrl(uri)) await launchUrl(uri, mode: LaunchMode.externalApplication); } catch (e) { print('WA $e'); }
+  }
+
+  String _abonoTag(double amount, String method, bool paid) => '[Abono: ${amount.toStringAsFixed(0)} | $method | ${paid ? 'Recibido' : 'Pendiente'}]';
+  RegExp get _abonoReg => RegExp(r'\[Abono: ([0-9.]+) \| ([^|]+) \| (Recibido|Pendiente)\]');
+  Map<String, dynamic>? _parseAbono(String? notes) {
+    if (notes == null) return null;
+    final m = _abonoReg.firstMatch(notes);
+    if (m == null) return null;
+    return {'amount': double.tryParse(m.group(1) ?? '0') ?? 0, 'method': (m.group(2) ?? '').trim(), 'paid': m.group(3) == 'Recibido'};
+  }
+  String _stripAbono(String? notes) => (notes ?? '').replaceAll(_abonoReg, '').trim();
+  String _abonoLine(String? notes) {
+    final a = _parseAbono(notes);
+    if (a == null) return '';
+    final amt = SettingsService.formatCurrency(a['amount'] as double);
+    return 'Abono: $amt por ${a['method']} - ${a['paid'] ? 'Recibido' : 'Pendiente'}';
   }
 
   Future<void> _updateAppointmentStatus(LocalAppointment appointment, String newStatus) async {
     try {
+      final oldStatus = appointment.status;
       appointment.status = newStatus;
       await _appointmentRepo.updateAppointment(appointment);
       await Supabase.instance.client.from('appointments').update({'status': newStatus}).eq('id', appointment.remoteId!);
       if (newStatus == 'confirmed') await _sendWhatsAppNotification(appointment, type: 'confirmed');
-      else if (newStatus == 'cancelled') await _sendWhatsAppNotification(appointment, type: 'cancelled');
+      if (newStatus == 'cancelled') await _sendWhatsAppNotification(appointment, type: 'cancelled');
+      if (newStatus == 'pending' && oldStatus == 'cancelled') await _sendWhatsAppNotification(appointment, type: 'booking');
       await _loadData();
-      await _fetchDaysWithCounts();
-    } catch (_) {}
+      await _loadDaysWithCounts();
+      final msgs = {'pending': '🟠 Pendiente', 'confirmed': '✅ Confirmada', 'in_progress': '🟡 En proceso', 'completed': '🎉 Completada', 'cancelled': '❌ Cancelada'};
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msgs[newStatus] ?? newStatus), backgroundColor: newStatus == 'cancelled' ? Colors.red : Colors.green));
+    } catch (e) { print('status $e'); }
   }
 
   Future<void> _deleteAppointment(LocalAppointment appointment) async {
-    final confirm = await showDialog<bool>(context: context, builder: (c) => AlertDialog(backgroundColor: const Color(0xFF1E293B), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), title: const Text('Cancelar cita', style: TextStyle(color: Colors.white)), content: Text('¿Cancelar cita de ${appointment.clientName}?', style: const TextStyle(color: Colors.white70)), actions: [TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('No')), ElevatedButton(onPressed: () => Navigator.pop(c, true), style: ElevatedButton.styleFrom(backgroundColor: Colors.red), child: const Text('Sí'))]));
+    final confirm = await showDialog<bool>(context: context, builder: (_) => AlertDialog(backgroundColor: const Color(0xFF1E293B), title: const Text('Cancelar cita?', style: TextStyle(color: Colors.white)), content: Text('¿Cancelar cita de ${appointment.clientName}?', style: const TextStyle(color: Colors.white70)), actions: [TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('No')), ElevatedButton(onPressed: () => Navigator.pop(context, true), style: ElevatedButton.styleFrom(backgroundColor: Colors.red), child: const Text('Sí, cancelar'))]));
     if (confirm == true) await _updateAppointmentStatus(appointment, 'cancelled');
   }
 
-  void _showAppointmentDialog({LocalAppointment? appointment}) {
-    final clientNameController = TextEditingController(text: appointment?.clientName ?? '');
-    final serviceNameController = TextEditingController(text: appointment?.serviceName ?? '');
-    final barberNameController = TextEditingController(text: appointment?.barberName ?? '');
-    final notesController = TextEditingController(text: appointment?.notes ?? '');
-    DateTime selectedDateTime = appointment?.appointmentDate ?? _selectedDate;
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case 'pending': return Colors.orange;
+      case 'confirmed': return Colors.blue;
+      case 'in_progress': return Colors.purple;
+      case 'completed': return Colors.green;
+      case 'cancelled': return Colors.red;
+      default: return Colors.grey;
+    }
+  }
 
-    showDialog(context: context, builder: (context) => StatefulBuilder(builder: (context, setS) => AlertDialog(
+  String _getStatusText(String s) {
+    switch (s) {
+      case 'pending': return 'Pendiente';
+      case 'confirmed': return 'Confirmada';
+      case 'in_progress': return 'En proceso';
+      case 'completed': return 'Completada';
+      case 'cancelled': return 'Cancelada';
+      default: return s;
+    }
+  }
+
+  List<Widget> _buildCalendarWeeks(int leadingEmpty, int daysInMonth) {
+    final total = leadingEmpty + daysInMonth;
+    final weeks = (total / 7).ceil();
+    final List<Widget> rows = [];
+    for (int w = 0; w < weeks; w++) {
+      final List<Widget> cells = [];
+      for (int d = 0; d < 7; d++) {
+        final idx = w * 7 + d;
+        if (idx < leadingEmpty || idx >= total) {
+          cells.add(Expanded(child: Container(height: 38, margin: const EdgeInsets.all(3))));
+          continue;
+        }
+        final day = idx - leadingEmpty + 1;
+        final date = DateTime(_currentMonth.year, _currentMonth.month, day);
+        final count = _daysWithCounts[DateTime(date.year, date.month, date.day)] ?? 0;
+        final isSelected = date.year == _selectedDate.year && date.month == _selectedDate.month && date.day == _selectedDate.day;
+        final isToday = date.year == DateTime.now().year && date.month == DateTime.now().month && date.day == DateTime.now().day;
+        final bg = isSelected ? const Color(0xFF6366F1) : count > 0 ? const Color(0xFF6366F1).withOpacity(0.18) : const Color(0xFF0F172A);
+        final border = isSelected ? const Color(0xFF6366F1) : isToday ? const Color(0xFF6366F1).withOpacity(0.6) : count > 0 ? const Color(0xFFF59E0B).withOpacity(0.4) : Colors.white10;
+        cells.add(
+          Expanded(
+            child: Container(
+              height: 38,
+              margin: const EdgeInsets.all(3),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () {
+                    setState(() => _selectedDate = date);
+                    _loadData();
+                  },
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8), border: Border.all(color: border, width: 1)),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Text(
+                          '$day',
+                          style: TextStyle(color: isSelected ? Colors.white : Colors.white70, fontWeight: isSelected ? FontWeight.bold : FontWeight.w500, fontSize: 11),
+                        ),
+                        if (count > 0)
+                          Positioned(
+                            bottom: 2,
+                            child: Container(
+                              width: 16,
+                              height: 12,
+                              decoration: BoxDecoration(color: isSelected ? Colors.white : const Color(0xFFF59E0B), borderRadius: BorderRadius.circular(6)),
+                              child: Center(
+                                child: Text(
+                                  '$count',
+                                  style: TextStyle(color: isSelected ? const Color(0xFF6366F1) : Colors.white, fontSize: 7, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      }
+      rows.add(Row(children: cells));
+    }
+    return rows;
+  }
+
+  // ✅ CALENDARIO COMPACTO CENTRADO - fix image_8dbd47
+  Widget _buildPremiumCalendarCompact() {
+    final daysInMonth = DateTime(_currentMonth.year, _currentMonth.month + 1, 0).day;
+    final firstWeekday = DateTime(_currentMonth.year, _currentMonth.month, 1).weekday;
+    final leadingEmpty = firstWeekday - 1;
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white10)),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              Row(children: [
+                Container(padding: const EdgeInsets.all(5), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.2), borderRadius: BorderRadius.circular(6)), child: const Icon(Icons.calendar_month, color: Color(0xFF6366F1), size: 14)),
+                const SizedBox(width: 8),
+                Text(DateFormat('MMMM yyyy', 'es').format(_currentMonth), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+              ]),
+              Row(children: [
+                IconButton(icon: const Icon(Icons.chevron_left, color: Colors.white54, size: 18), onPressed: (){ setState(()=> _currentMonth = DateTime(_currentMonth.year, _currentMonth.month -1)); _loadDaysWithCounts(); }, padding: EdgeInsets.zero, constraints: const BoxConstraints.tightFor(width: 28, height: 28)),
+                IconButton(icon: const Icon(Icons.chevron_right, color: Colors.white54, size: 18), onPressed: (){ setState(()=> _currentMonth = DateTime(_currentMonth.year, _currentMonth.month +1)); _loadDaysWithCounts(); }, padding: EdgeInsets.zero, constraints: const BoxConstraints.tightFor(width: 28, height: 28)),
+              ]),
+            ]),
+            const SizedBox(height: 8),
+            Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: const ['L','M','X','J','V','S','D'].map((d)=> SizedBox(width: 32, child: Center(child: Text(d, style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold))))).toList()),
+            const SizedBox(height: 4),
+            // SIN viewport anidado: viewport + shrinkWrap dentro de SingleChildScrollView = RenderViewport no soporta intrinsic + Cannot hit test en Web. Ahora Column de Rows con celdas de tamano fijo.
+            ..._buildCalendarWeeks(leadingEmpty, daysInMonth),
+            const SizedBox(height: 8),
+            Row(children: [
+              Container(width: 8, height: 8, decoration: BoxDecoration(color: const Color(0xFFF59E0B), borderRadius: BorderRadius.circular(4))),
+              const SizedBox(width: 5),
+              const Text('Día con citas', style: TextStyle(color: Colors.white54, fontSize: 9)),
+              const SizedBox(width: 12),
+              Container(width: 8, height: 8, decoration: BoxDecoration(color: const Color(0xFF6366F1), borderRadius: BorderRadius.circular(4))),
+              const SizedBox(width: 5),
+              const Text('Seleccionado', style: TextStyle(color: Colors.white54, fontSize: 9)),
+              const Spacer(),
+              InkWell(onTap: (){ setState(()=> _selectedDate = DateTime.now()); _loadData(); }, child: Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.2), borderRadius: BorderRadius.circular(6)), child: const Text('Hoy', style: TextStyle(color: Color(0xFF6366F1), fontSize: 9, fontWeight: FontWeight.bold)))),
+            ]),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  // Agrega la cita como cliente en Clientes (si no existe). Se usa desde la tarjeta y desde Editar Cita.
+  Future<void> _addAsClient(LocalAppointment appointment) async {
+    final name = (appointment.clientName ?? '').trim();
+    final phone = (appointment.clientPhone ?? '').trim();
+    if (name.isEmpty) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sin nombre para agregar como cliente'), backgroundColor: Colors.orange)); return; }
+    final exists = _clients.any((c) => (c.remoteId != null && c.remoteId == appointment.clientId) || (c.name.trim().toLowerCase() == name.toLowerCase() && (c.phone ?? '').trim() == phone));
+    if (exists) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ya esta en Clientes'), backgroundColor: Colors.blue)); return; }
+    try {
+      await _clientRepo.createClient(name: name, phone: phone, email: '', notes: 'Creado desde Agenda ${DateFormat('dd/MM/yyyy').format(DateTime.now())}');
+    } catch (_) {
+      try { await Supabase.instance.client.from('clients').insert({'name': name, 'phone': phone}); } catch (_) {}
+    }
+    await _loadData();
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Cliente $name agregado a Clientes'), backgroundColor: Colors.green));
+  }
+
+  void _showAppointmentDialog({LocalAppointment? existing}) {
+    String? selectedBarberId = existing?.barberId;
+    String? selectedClientId = existing?.clientId;
+    final Set<String> selectedServiceIds = {};
+    if (existing?.serviceId != null) selectedServiceIds.add(existing!.serviceId!);
+    DateTime selectedDateTime = existing?.appointmentDate ?? DateTime.now();
+    String selectedStatus = existing?.status ?? 'pending';
+    final bool isReagendar = existing?.status == 'cancelled';
+    if (isReagendar) selectedStatus = 'pending';
+    final notesController = TextEditingController(text: _stripAbono(existing?.notes));
+    final _abonoExistente = _parseAbono(existing?.notes);
+    final depositAmountController = TextEditingController(text: _abonoExistente != null ? (_abonoExistente['amount'] as double).toStringAsFixed(0) : '');
+    String depositMethod = _abonoExistente?['method'] as String? ?? 'Transferencia';
+    bool depositPaid = _abonoExistente?['paid'] as bool? ?? false;
+    bool hasDeposit = _abonoExistente != null;
+    // TELEFONO + COMO CLIENTE: telefono editable en el menu, y opcion de crear / actualizar en Clientes
+    // FIX ASSERT DROPDOWN AL EDITAR: si la cita es de un cliente que NO esta en Clientes (ej: Plazido), su clientId no tiene item en el dropdown -> Flutter crashea "There should be exactly one item". Lo convertimos en Nuevo cliente con nombre pre-llenado.
+    final _clientIds = _clients.map((c) => c.remoteId).whereType<String>().where((id) => id.isNotEmpty).toSet();
+    final _barberIds = _barbers.map((b) => b.remoteId).whereType<String>().where((id) => id.isNotEmpty).toSet();
+    if (selectedClientId != null && !_clientIds.contains(selectedClientId)) {
+      selectedClientId = null;
+    }
+    if (selectedBarberId != null && !_barberIds.contains(selectedBarberId)) selectedBarberId = null;
+    bool isNewClient = selectedClientId == null && existing != null && (existing.clientName ?? '').isNotEmpty;
+    bool saveAsClient = true;
+    final newClientNameController = TextEditingController(text: isNewClient ? (existing?.clientName ?? '') : '');
+    final phoneController = TextEditingController(text: existing?.clientPhone ?? '');
+    LocalClient? selectedClient() {
+      if (selectedClientId == null) return null;
+      try { return _clients.firstWhere((c) => c.remoteId == selectedClientId); } catch (_) { return null; }
+    }
+    // Si el cliente existe en Clientes y la cita no tenia telefono, traerlo
+    if (phoneController.text.isEmpty && selectedClient() != null) phoneController.text = selectedClient()!.phone ?? '';
+    double totalServ() { double t=0; for(final s in _services){ if(selectedServiceIds.contains(s.remoteId)) t+= s.price; } return t; }
+
+    showDialog(context: context, builder: (ctx){
+      return StatefulBuilder(builder: (ctx2, setD){
+        return AlertDialog(
           backgroundColor: const Color(0xFF1E293B),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Text(appointment == null ? 'Nueva Cita' : 'Editar Cita', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text(existing==null?'Nueva Cita':'Editar Cita', style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
           content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
-            _field(clientNameController, 'Cliente *', '👤'),
-            const SizedBox(height: 12),
-            _field(serviceNameController, 'Servicio *', '✂️'),
-            const SizedBox(height: 12),
-            _field(barberNameController, 'Barbero *', '💈'),
-            const SizedBox(height: 12),
-            InkWell(onTap: () async { final d = await showDatePicker(context: context, initialDate: selectedDateTime, firstDate: DateTime.now().subtract(const Duration(days: 30)), lastDate: DateTime.now().add(const Duration(days: 90)), builder: (c, child) => Theme(data: ThemeData.dark().copyWith(colorScheme: const ColorScheme.dark(primary: Color(0xFF6366F1))), child: child!),); if (d != null) { final t = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(selectedDateTime)); if (t != null) setS(() => selectedDateTime = DateTime(d.year, d.month, d.day, t.hour, t.minute)); } }, child: Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: const Color(0xFF0F172A), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.white10)), child: Row(children: [const Text('📅  ', style: TextStyle(fontSize: 16)), Text(DateFormat('dd/MM/yyyy HH:mm').format(selectedDateTime), style: const TextStyle(color: Colors.white))]))),
-            const SizedBox(height: 12),
-            _field(notesController, 'Notas', '📝', maxLines: 2),
+            if (!isNewClient) DropdownButtonFormField<String>(value: (_clientIds.contains(selectedClientId) ? selectedClientId : null), dropdownColor: const Color(0xFF1E293B), style: const TextStyle(color: Colors.white, fontSize: 12), decoration: InputDecoration(labelText: 'Cliente *', labelStyle: const TextStyle(color: Colors.white54), filled: true, fillColor: const Color(0xFF0F172A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))), items: [...{for (final c in _clients) c.remoteId: c}.values.map((c)=> DropdownMenuItem(value: c.remoteId, child: Text(c.name, style: const TextStyle(fontSize: 12)))), const DropdownMenuItem(value: '__new__', child: Text('+ Nuevo cliente...', style: TextStyle(fontSize: 12, color: Color(0xFF6366F1), fontWeight: FontWeight.bold)))], onChanged: (v){ if (v == '__new__') { setD((){ isNewClient = true; selectedClientId = null; }); } else { setD((){ selectedClientId = v; final c = selectedClient(); if (c != null && (phoneController.text.isEmpty)) phoneController.text = c.phone ?? ''; }); } }),
+            if (isNewClient) Column(children: [
+              TextField(controller: newClientNameController, style: const TextStyle(color: Colors.white, fontSize: 12), decoration: InputDecoration(labelText: 'Nombre nuevo cliente *', labelStyle: const TextStyle(color: Colors.white54), filled: true, fillColor: const Color(0xFF0F172A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)))),
+              const SizedBox(height: 6),
+              TextButton.icon(onPressed: ()=> setD(()=> isNewClient = false), icon: const Icon(Icons.arrow_back, size: 14), label: const Text('Elegir cliente existente', style: TextStyle(fontSize: 11))),
+            ]),
+            const SizedBox(height: 8),
+            TextField(controller: phoneController, keyboardType: TextInputType.phone, style: const TextStyle(color: Colors.white, fontSize: 12), decoration: InputDecoration(labelText: 'Telefono del cliente *', hintText: 'Ej: +56 9 6106 9670', hintStyle: const TextStyle(color: Colors.white24, fontSize: 11), prefixIcon: const Icon(Icons.phone_rounded, color: Colors.white38, size: 18), labelStyle: const TextStyle(color: Colors.white54), filled: true, fillColor: const Color(0xFF0F172A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)))),
+            const SizedBox(height: 6),
+            Container(decoration: BoxDecoration(color: const Color(0xFF0F172A), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.white10)), child: SwitchListTile(value: saveAsClient, onChanged: (v)=> setD(()=> saveAsClient = v), activeColor: const Color(0xFF6366F1), dense: true, title: const Text('Guardar / actualizar como cliente', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)), subtitle: const Text('Si el cliente no esta en Clientes, se crea. Si ya esta, se actualiza su telefono.', style: TextStyle(color: Colors.white54, fontSize: 9)))),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(value: (_barberIds.contains(selectedBarberId) ? selectedBarberId : null), dropdownColor: const Color(0xFF1E293B), style: const TextStyle(color: Colors.white, fontSize: 12), decoration: InputDecoration(labelText: 'Barbero *', labelStyle: const TextStyle(color: Colors.white54), filled: true, fillColor: const Color(0xFF0F172A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))), items: {for (final b in _barbers) b.remoteId: b}.values.map((b)=> DropdownMenuItem(value: b.remoteId, child: Text(b.name, style: const TextStyle(fontSize: 12)))).toList(), onChanged: (v)=> setD(()=> selectedBarberId=v)),
+            const SizedBox(height: 8),
+            Align(alignment: Alignment.centerLeft, child: Text('Servicios * (varios)', style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.bold))),
+            const SizedBox(height: 4),
+            Container(constraints: const BoxConstraints(maxHeight: 150), decoration: BoxDecoration(color: const Color(0xFF0F172A), border: Border.all(color: Colors.white10), borderRadius: BorderRadius.circular(8)), child: SingleChildScrollView(child: Material(color: Colors.transparent, child: Column(children: _services.map((s){ final checked=selectedServiceIds.contains(s.remoteId); return CheckboxListTile(dense: true, value: checked, activeColor: const Color(0xFF6366F1), title: Text(s.name, style: const TextStyle(color: Colors.white, fontSize: 11)), subtitle: Text(SettingsService.formatCurrency(s.price), style: const TextStyle(color: Colors.white38, fontSize: 9)), onChanged: (v)=> setD(()=> v==true? selectedServiceIds.add(s.remoteId!): selectedServiceIds.remove(s.remoteId))); }).toList())))),
+            if(selectedServiceIds.isNotEmpty) Padding(padding: const EdgeInsets.only(top:6), child: Text('Total ${SettingsService.formatCurrency(totalServ())}', style: const TextStyle(color: Color(0xFF6366F1), fontWeight: FontWeight.bold, fontSize: 11))),
+            const SizedBox(height: 8),
+            ListTile(contentPadding: EdgeInsets.zero, title: const Text('Fecha y hora', style: TextStyle(color: Colors.white54, fontSize: 10)), subtitle: Text('${selectedDateTime.day}/${selectedDateTime.month} ${selectedDateTime.hour}:${selectedDateTime.minute.toString().padLeft(2,'0')}', style: const TextStyle(color: Colors.white, fontSize: 11)), trailing: const Icon(Icons.calendar_month, color: Colors.white54, size: 16), onTap: () async {
+              final d = await showDatePicker(context: context, initialDate: selectedDateTime, firstDate: DateTime.now(), lastDate: DateTime.now().add(const Duration(days: 60)));
+              if(d!=null){ final t=await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(selectedDateTime)); if(t!=null) setD(()=> selectedDateTime=DateTime(d.year,d.month,d.day,t.hour,t.minute)); }
+            }),
+            if (isReagendar) Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.12), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFF10B981).withOpacity(0.3))), child: const Row(children: [Icon(Icons.restore, size: 14, color: Color(0xFF10B981)), SizedBox(width: 6), Expanded(child: Text('Reagendando cita cancelada - al guardar quedara Pendiente para reconfirmar en la nueva fecha.', style: TextStyle(color: Colors.white70, fontSize: 10)))])),
+            if (isReagendar) const SizedBox(height: 8),
+            DropdownButtonFormField<String>(value: selectedStatus, dropdownColor: const Color(0xFF1E293B), style: const TextStyle(color: Colors.white, fontSize: 12), decoration: InputDecoration(labelText: 'Estado *', labelStyle: const TextStyle(color: Colors.white54), filled: true, fillColor: const Color(0xFF0F172A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))), items: const [DropdownMenuItem(value: 'pending', child: Text('Pendiente', style: TextStyle(fontSize: 12))), DropdownMenuItem(value: 'confirmed', child: Text('Confirmada', style: TextStyle(fontSize: 12))), DropdownMenuItem(value: 'in_progress', child: Text('En proceso', style: TextStyle(fontSize: 12))), DropdownMenuItem(value: 'completed', child: Text('Completada', style: TextStyle(fontSize: 12))), DropdownMenuItem(value: 'cancelled', child: Text('Cancelada', style: TextStyle(fontSize: 12)))], onChanged: (v)=> setD(()=> selectedStatus = v ?? 'pending')),
+            const SizedBox(height: 8),
+            Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: const Color(0xFF0F172A), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.white10)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [const Icon(Icons.payments, size: 14, color: Color(0xFFF59E0B)), const SizedBox(width: 6), const Text('Abono / Anticipo', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)), const Spacer(), Switch(value: hasDeposit, activeColor: const Color(0xFFF59E0B), onChanged: (v)=> setD(()=> hasDeposit = v)),
+              ]),
+              if (hasDeposit) Column(children: [
+                const SizedBox(height: 8),
+                TextField(controller: depositAmountController, keyboardType: TextInputType.number, style: const TextStyle(color: Colors.white, fontSize: 12), decoration: InputDecoration(labelText: 'Monto abono (ej: 5000)', labelStyle: const TextStyle(color: Colors.white54, fontSize: 11), filled: true, fillColor: const Color(0xFF1E293B), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)))),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(value: depositMethod, dropdownColor: const Color(0xFF1E293B), style: const TextStyle(color: Colors.white, fontSize: 12), decoration: InputDecoration(labelText: 'Metodo', labelStyle: const TextStyle(color: Colors.white54), filled: true, fillColor: const Color(0xFF1E293B), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))), items: const [DropdownMenuItem(value: 'Transferencia', child: Text('Transferencia', style: TextStyle(fontSize: 12))), DropdownMenuItem(value: 'Efectivo', child: Text('Efectivo', style: TextStyle(fontSize: 12))), DropdownMenuItem(value: 'Tarjeta', child: Text('Tarjeta', style: TextStyle(fontSize: 12)))], onChanged: (v)=> setD(()=> depositMethod = v ?? 'Transferencia')),
+                const SizedBox(height: 6),
+                Material(color: Colors.transparent, child: CheckboxListTile(dense: true, value: depositPaid, activeColor: const Color(0xFF10B981), title: const Text('Abono recibido / verificado', style: TextStyle(color: Colors.white, fontSize: 11)), subtitle: const Text('Marca esto solo cuando veas la transferencia en tu cuenta.', style: TextStyle(color: Colors.white54, fontSize: 9)), onChanged: (v)=> setD(()=> depositPaid = v ?? false))),
+                const Text('Pide que te mande el comprobante por WhatsApp y verifica en tu banco antes de marcar Recibido.', style: TextStyle(color: Colors.white38, fontSize: 9)),
+              ]),
+            ])),
+            const SizedBox(height: 8),
+            TextField(controller: notesController, style: const TextStyle(color: Colors.white, fontSize: 11), decoration: InputDecoration(labelText: 'Notas', labelStyle: const TextStyle(color: Colors.white54, fontSize: 9), filled: true, fillColor: const Color(0xFF0F172A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))), maxLines: 2),
           ])),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar', style: TextStyle(color: Colors.grey))),
-            Container(decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF818CF8)]), borderRadius: BorderRadius.circular(10)), child: ElevatedButton(onPressed: () async { if (clientNameController.text.isEmpty) return; Navigator.pop(context); final newApp = LocalAppointment()..remoteId = appointment?.remoteId ?? 'app-${DateTime.now().millisecondsSinceEpoch}'..clientName = clientNameController.text..serviceName = serviceNameController.text..barberName = barberNameController.text..appointmentDate = selectedDateTime..notes = notesController.text..status = appointment?.status ?? 'pending'..clientPhone = _clients.firstWhere((c) => c.name == clientNameController.text, orElse: () => _clients.isNotEmpty ? _clients.first : LocalClient()..phone = '').phone; if (appointment == null) { await _appointmentRepo.createAppointment(newApp); } else { await _appointmentRepo.updateAppointment(newApp); } await _loadData(); await _fetchDaysWithCounts(); }, style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, shadowColor: Colors.transparent), child: const Text('Guardar'))),
+            TextButton(onPressed: ()=> Navigator.pop(context), child: const Text('Cancelar')),
+            ElevatedButton(onPressed: () async {
+              final phone = phoneController.text.trim();
+              if(phone.isEmpty){ ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Falta el telefono del cliente'))); return; }
+              if(isNewClient && newClientNameController.text.trim().isEmpty){ ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Falta el nombre del nuevo cliente'))); return; }
+              if(!isNewClient && selectedClientId==null){ ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Falta cliente'))); return; }
+              if(selectedBarberId==null || selectedServiceIds.isEmpty){ ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Falta barbero/servicio'))); return; }
+              // Resolver cliente: nuevo -> crear en Clientes primero, existente -> usarlo
+              LocalClient client;
+              if (isNewClient) {
+                try { await _clientRepo.createClient(name: newClientNameController.text.trim(), phone: phone, email: '', notes: 'Creado desde Agenda'); } catch (_) { try { await Supabase.instance.client.from('clients').insert({'name': newClientNameController.text.trim(), 'phone': phone}); } catch (_) {} }
+                final all = await _clientRepo.getAllClients();
+                if (mounted) setState(() => _clients = all);
+                client = all.firstWhere((c) => c.name.trim().toLowerCase() == newClientNameController.text.trim().toLowerCase() && (c.phone ?? '').trim() == phone, orElse: () => LocalClient()..remoteId = 'tmp-${DateTime.now().millisecondsSinceEpoch}'..name = newClientNameController.text.trim()..phone = phone);
+                selectedClientId = client.remoteId;
+              } else {
+                client = _clients.firstWhere((c)=> c.remoteId==selectedClientId);
+                // Actualizar telefono en Clientes si cambio y esta activado Guardar como cliente
+                if (saveAsClient && (client.phone ?? '').trim() != phone) {
+                  try { await Supabase.instance.client.from('clients').update({'phone': phone}).eq('id', client.remoteId!); } catch (_) {}
+                  client.phone = phone;
+                } else if (saveAsClient && !_clients.any((c) => c.remoteId == client.remoteId)) {
+                  try { await _clientRepo.createClient(name: client.name, phone: phone, email: '', notes: 'Creado desde Agenda'); } catch (_) {}
+                }
+              }
+              final barber = _barbers.firstWhere((b)=> b.remoteId==selectedBarberId);
+              final firstService = _services.firstWhere((s)=> selectedServiceIds.contains(s.remoteId));
+              final newApp = LocalAppointment()
+                ..remoteId = existing?.remoteId
+                ..clientId = client.remoteId!
+                ..clientName = client.name
+                ..clientPhone = phone
+                ..barberId = barber.remoteId!
+                ..barberName = barber.name
+                ..serviceId = firstService.remoteId!
+                ..serviceName = _services.where((s)=> selectedServiceIds.contains(s.remoteId)).map((s)=> s.name).join(', ')
+                ..appointmentDate = selectedDateTime
+                ..status = selectedStatus
+                ..notes = (() {
+                  final base = notesController.text.trim();
+                  if (!hasDeposit) return base;
+                  final amt = double.tryParse(depositAmountController.text.trim().replaceAll('.', '').replaceAll(',', '')) ?? 0;
+                  if (amt <= 0) return base;
+                  final tag = _abonoTag(amt, depositMethod, depositPaid);
+                  return base.isEmpty ? tag : '$base $tag';
+                })();
+              if(newApp.remoteId==null){
+                await _appointmentRepo.createAppointment(newApp);
+                await Supabase.instance.client.from('appointments').insert({'client_id': newApp.clientId,'client_name': newApp.clientName,'client_phone': newApp.clientPhone,'barber_id': newApp.barberId,'barber_name': newApp.barberName,'service_id': newApp.serviceId,'service_name': newApp.serviceName,'appointment_date': newApp.appointmentDate.toIso8601String(),'status': newApp.status,'notes': newApp.notes});
+              } else {
+                await _appointmentRepo.updateAppointment(newApp);
+                await Supabase.instance.client.from('appointments').update({'client_id': newApp.clientId,'client_name': newApp.clientName,'client_phone': newApp.clientPhone,'barber_id': newApp.barberId,'service_id': newApp.serviceId,'service_name': newApp.serviceName,'appointment_date': newApp.appointmentDate.toIso8601String(),'status': newApp.status,'notes': newApp.notes}).eq('id', newApp.remoteId!);
+              }
+              Navigator.pop(context);
+              _loadData();
+              _loadDaysWithCounts();
+            }, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6366F1)), child: Text(existing==null?'Crear':'Guardar')),
           ],
-        )));
-  }
-
-  Widget _field(TextEditingController c, String label, String icon, {int maxLines = 1}) {
-    return TextField(controller: c, maxLines: maxLines, style: const TextStyle(color: Colors.white), decoration: InputDecoration(labelText: label, prefixText: '$icon  ', labelStyle: const TextStyle(color: Colors.white54, fontSize: 13), filled: true, fillColor: const Color(0xFF0F172A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Colors.white10)), focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFF6366F1), width: 2))));
-  }
-
-  Color _getStatusColor(String status) {
-    switch (status) { case 'pending': return const Color(0xFFF59E0B); case 'confirmed': return const Color(0xFF3B82F6); case 'in_progress': return const Color(0xFF8B5CF6); case 'completed': return const Color(0xFF10B981); case 'cancelled': return const Color(0xFFEF4444); default: return Colors.grey; }
-  }
-  String _getStatusText(String status) {
-    switch (status) { case 'pending': return 'Pendiente'; case 'confirmed': return 'Confirmada'; case 'in_progress': return 'En proceso'; case 'completed': return 'Completada'; case 'cancelled': return 'Cancelada'; default: return status; }
+        );
+      });
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final totalCitas = _daysWithCounts.values.fold(0, (a, b) => a + b);
+    final isDark = true;
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
-      appBar: AppBar(
-        leading: IconButton(icon: const Icon(Icons.arrow_back_rounded, color: Colors.white), onPressed: () => Navigator.pop(context)),
-        title: const Text('Agenda Premium', style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFF1E293B),
-        foregroundColor: Colors.white,
-        elevation: 0,
-        actions: [IconButton(icon: const Icon(Icons.sync_rounded, color: Colors.white), onPressed: () async { await _loadData(); await _fetchDaysWithCounts(); })],
-      ),
-      body: Column(
-        children: [
-          InkWell(
-            onTap: _showCalendarDialog,
-            child: Container(
-              margin: const EdgeInsets.all(16),
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF1E293B), Color(0xFF312E81)]), borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: const Color(0xFF6366F1).withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 8))]),
-              child: Row(children: [
-                Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), borderRadius: BorderRadius.circular(12)), child: const Text('📅', style: TextStyle(fontSize: 20))),
+      appBar: AppBar(backgroundColor: const Color(0xFF1E293B), leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: (){ if (Navigator.canPop(context)) { Navigator.pop(context); } else { Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => PosScreen())); } }), title: const Text('Agenda Premium', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)), actions: [IconButton(icon: const Icon(Icons.refresh, color: Colors.white54), onPressed: (){ _loadData(); _loadDaysWithCounts(); })]),
+      body: _isLoading ? const Center(child: CircularProgressIndicator(color: Color(0xFF6366F1))) : SingleChildScrollView(padding: const EdgeInsets.all(12), child: Column(children: [
+        _buildPremiumCalendarCompact(),
+        const SizedBox(height: 16),
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Text('Citas ${DateFormat('dd MMM yyyy', 'es').format(_selectedDate)} (${_appointments.length})', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+          TextButton.icon(onPressed: ()=> _showAppointmentDialog(), icon: const Icon(Icons.add, size: 14, color: Color(0xFF6366F1)), label: const Text('Nueva', style: TextStyle(fontSize: 11, color: Color(0xFF6366F1)))),
+        ]),
+        const SizedBox(height: 8),
+        // ✅ CARDS PREMIUM RESTAURADAS COMO ANTES (bonitas, no miniBtn)
+        ..._appointments.map((appointment){
+          return Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(14), border: Border.all(color: appointment.status=='cancelled'? Colors.red.withOpacity(0.3): Colors.white10)),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: _getStatusColor(appointment.status).withOpacity(0.18), shape: BoxShape.circle), child: Icon(Icons.event, size: 20, color: _getStatusColor(appointment.status))),
                 const SizedBox(width: 12),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(DateFormat('EEEE, dd MMM', 'es').format(_selectedDate), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)), Text('${_appointments.length} citas este día • $totalCitas mes • ${_daysWithCounts.length} días con citas', style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 11))])),
-                Container(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), decoration: BoxDecoration(color: const Color(0xFF6366F1), borderRadius: BorderRadius.circular(20)), child: const Row(children: [Icon(Icons.calendar_month_rounded, size: 14, color: Colors.white), SizedBox(width: 4), Text('Calendario', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11))])),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(appointment.clientName ?? 'Sin cliente', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white)),
+                  const SizedBox(height: 2),
+                  Text('${appointment.serviceName ?? 'Sin servicio'} · ${appointment.barberName ?? 'Sin barbero'}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: Colors.white54)),
+                  const SizedBox(height: 4),
+                  if ((appointment.clientPhone ?? '').isNotEmpty) Material(color: Colors.transparent, child: InkWell(onTap: () => _sendWhatsAppNotification(appointment, type: 'confirmed'), borderRadius: BorderRadius.circular(6), child: Padding(padding: const EdgeInsets.symmetric(vertical: 2), child: Row(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.phone_rounded, size: 12, color: Color(0xFF10B981)), const SizedBox(width: 4), Text(appointment.clientPhone!, style: const TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.w600)), const SizedBox(width: 6), const Icon(Icons.chat_rounded, size: 11, color: Colors.white38)])))),
+                  if ((appointment.clientPhone ?? '').isEmpty) const Row(children: [Icon(Icons.phone_disabled_rounded, size: 12, color: Colors.orange), SizedBox(width: 4), Text('Sin telefono - agregalo en Editar', style: TextStyle(color: Colors.orange, fontSize: 10))]),
+                  if (!_clients.any((c) => c.remoteId == appointment.clientId || (c.name.trim().toLowerCase() == (appointment.clientName ?? '').trim().toLowerCase() && (c.phone ?? '').trim() == (appointment.clientPhone ?? '').trim()))) Padding(padding: const EdgeInsets.only(top: 4), child: Material(color: Colors.transparent, child: InkWell(onTap: () => _addAsClient(appointment), borderRadius: BorderRadius.circular(20), child: Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.18), borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFF6366F1).withOpacity(0.4))), child: const Text('+ Agregar como cliente', style: TextStyle(color: Color(0xFF818CF8), fontSize: 10, fontWeight: FontWeight.bold)))))),
+                  const SizedBox(height: 4),
+                  Row(children: [
+                    Icon(Icons.schedule, size: 12, color: Colors.white38),
+                    const SizedBox(width: 4),
+                    Text('${appointment.appointmentDate.hour.toString().padLeft(2,'0')}:${appointment.appointmentDate.minute.toString().padLeft(2,'0')}', style: const TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.w600)),
+                    const SizedBox(width: 12),
+                    Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), decoration: BoxDecoration(color: _getStatusColor(appointment.status).withOpacity(0.18), borderRadius: BorderRadius.circular(10)), child: Text(_getStatusText(appointment.status), style: TextStyle(color: _getStatusColor(appointment.status), fontWeight: FontWeight.bold, fontSize: 10))),
+                  ]),
+                  if (appointment.notes != null && appointment.notes!.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Row(children: [Icon(Icons.notes, size: 12, color: Colors.white30), const SizedBox(width: 4), Expanded(child: Text(appointment.notes!, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white38, fontSize: 10)))]),
+                  ],
+                ])),
               ]),
-            ),
-          ),
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator(color: Color(0xFF6366F1)))
-                : _appointments.isEmpty
-                    ? const Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Text('📅', style: TextStyle(fontSize: 64)), SizedBox(height: 16), Text('No hay citas este día', style: TextStyle(color: Colors.white54, fontSize: 16)), SizedBox(height: 8), Text('Toca Calendario para ver días con puntito naranja', style: TextStyle(color: Colors.white24, fontSize: 12))]))
-                    : ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        itemCount: _appointments.length,
-                        itemBuilder: (context, index) {
-                          final appointment = _appointments[index];
-                          return AnimatedBuilder(
-                            animation: _mainController,
-                            builder: (context, child) {
-                              final delay = index * 0.06;
-                              final anim = Tween<double>(begin: 0, end: 1).animate(CurvedAnimation(parent: _mainController, curve: Interval(delay, 0.6 + delay, curve: Curves.easeOutCubic)));
-                              return FadeTransition(opacity: anim, child: SlideTransition(position: Tween<Offset>(begin: const Offset(0, 0.1), end: Offset.zero).animate(anim), child: child));
-                            },
-                            child: Container(
-                              margin: const EdgeInsets.only(bottom: 12),
-                              decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(18), border: Border.all(color: Colors.white.withOpacity(0.05)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 4))]),
-                              child: Padding(
-                                padding: const EdgeInsets.all(16),
-                                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                  Row(children: [
-                                    Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: _getStatusColor(appointment.status).withOpacity(0.15), shape: BoxShape.circle, border: Border.all(color: _getStatusColor(appointment.status).withOpacity(0.3))), child: Icon(Icons.event_rounded, size: 20, color: _getStatusColor(appointment.status))),
-                                    const SizedBox(width: 12),
-                                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(appointment.clientName ?? 'Sin cliente', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.white), maxLines: 1, overflow: TextOverflow.ellipsis), const SizedBox(height: 2), Text('${appointment.serviceName ?? 'Servicio'} • ${appointment.barberName ?? 'Barbero'}', style: const TextStyle(fontSize: 12, color: Colors.white54), maxLines: 1, overflow: TextOverflow.ellipsis)])),
-                                    Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: _getStatusColor(appointment.status).withOpacity(0.15), borderRadius: BorderRadius.circular(20), border: Border.all(color: _getStatusColor(appointment.status).withOpacity(0.3))), child: Text(_getStatusText(appointment.status), style: TextStyle(color: _getStatusColor(appointment.status), fontWeight: FontWeight.bold, fontSize: 10))),
-                                  ]),
-                                  const SizedBox(height: 12),
-                                  Row(children: [
-                                    Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(color: const Color(0xFF0F172A), borderRadius: BorderRadius.circular(10)), child: Row(children: [const Icon(Icons.schedule_rounded, size: 14, color: Colors.white54), const SizedBox(width: 4), Text('${appointment.appointmentDate.hour.toString().padLeft(2, '0')}:${appointment.appointmentDate.minute.toString().padLeft(2, '0')}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13))])),
-                                    if (appointment.notes != null && appointment.notes!.isNotEmpty) ...[const SizedBox(width: 8), Expanded(child: Text(appointment.notes!, style: const TextStyle(color: Colors.white38, fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis))],
-                                  ]),
-                                  const SizedBox(height: 12),
-                                  Wrap(spacing: 8, runSpacing: 8, children: [
-                                    if (appointment.status == 'pending') _ActionButton(icon: Icons.check_circle_rounded, label: 'Confirmar', color: const Color(0xFF3B82F6), onPressed: () => _updateAppointmentStatus(appointment, 'confirmed')),
-                                    if (appointment.status == 'confirmed' || appointment.status == 'pending') _ActionButton(icon: Icons.play_circle_rounded, label: 'Proceso', color: const Color(0xFF8B5CF6), onPressed: () => _updateAppointmentStatus(appointment, 'in_progress')),
-                                    if (appointment.status != 'completed' && appointment.status != 'cancelled') ...[
-                                      _ActionButton(icon: Icons.task_alt_rounded, label: 'Completar', color: const Color(0xFF10B981), onPressed: () => _updateAppointmentStatus(appointment, 'completed')),
-                                      _ActionButton(icon: Icons.cancel_rounded, label: 'Cancelar', color: const Color(0xFFEF4444), onPressed: () => _deleteAppointment(appointment)),
-                                    ],
-                                    _ActionButton(icon: Icons.edit_rounded, label: 'Editar', color: Colors.white54, onPressed: () => _showAppointmentDialog(appointment: appointment)),
-                                  ]),
-                                ]),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-          ),
-        ],
-      ),
-      floatingActionButton: Container(decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF818CF8)]), borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: const Color(0xFF6366F1).withOpacity(0.4), blurRadius: 12, offset: const Offset(0, 6))]), child: FloatingActionButton(onPressed: () => _showAppointmentDialog(), backgroundColor: Colors.transparent, elevation: 0, child: const Icon(Icons.add_rounded, color: Colors.white, size: 28))),
+              const SizedBox(height: 12),
+              if (_parseAbono(appointment.notes) != null) Padding(padding: const EdgeInsets.only(bottom: 8), child: Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: (_parseAbono(appointment.notes)!['paid'] as bool) ? const Color(0xFF10B981).withOpacity(0.15) : const Color(0xFFF59E0B).withOpacity(0.15), borderRadius: BorderRadius.circular(20)), child: Text('💰 ${_abonoLine(appointment.notes)}', style: TextStyle(color: (_parseAbono(appointment.notes)!['paid'] as bool) ? const Color(0xFF10B981) : const Color(0xFFF59E0B), fontSize: 10, fontWeight: FontWeight.bold)))),
+              Wrap(spacing: 8, runSpacing: 8, children: [
+                if (appointment.status == 'pending')
+                  _ActionButton(icon: Icons.check_circle, label: 'Confirmar', color: Colors.blue, onPressed: () => _updateAppointmentStatus(appointment, 'confirmed')),
+                if (appointment.status == 'confirmed')
+                  _ActionButton(icon: Icons.undo, label: 'Volver a Pendiente', color: Colors.orange, onPressed: () => _updateAppointmentStatus(appointment, 'pending')),
+                if (appointment.status == 'confirmed' || appointment.status == 'pending')
+                  _ActionButton(icon: Icons.play_circle, label: 'En proceso', color: Colors.purple, onPressed: () => _updateAppointmentStatus(appointment, 'in_progress')),
+                if (appointment.status != 'completed' && appointment.status != 'cancelled') ...[
+                  _ActionButton(icon: Icons.task_alt, label: 'Completar', color: Colors.green, onPressed: () => _updateAppointmentStatus(appointment, 'completed')),
+                  _ActionButton(icon: Icons.cancel, label: 'Cancelar', color: Colors.red, onPressed: () => _deleteAppointment(appointment)),
+                ],
+                if (appointment.status == 'cancelled')
+                  _ActionButton(icon: Icons.restore, label: 'Reagendar', color: Colors.green, onPressed: () => _showAppointmentDialog(existing: appointment)),
+                _ActionButton(icon: Icons.edit, label: 'Editar', color: Colors.grey, onPressed: () => _showAppointmentDialog(existing: appointment)),
+                if (appointment.status == 'cancelled')
+                  Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(color: Colors.red.withOpacity(0.12), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.red.withOpacity(0.3))), child: const Text('Cancelada', style: TextStyle(color: Colors.redAccent, fontSize: 10, fontWeight: FontWeight.bold))),
+              ]),
+            ]),
+          );
+        }),
+        if(_appointments.isEmpty) Container(padding: const EdgeInsets.all(24), decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(14)), child: Column(children: [Icon(Icons.event_busy, color: Colors.white12, size: 36), const SizedBox(height: 8), const Text('Sin citas para este día', style: TextStyle(color: Colors.white38, fontSize: 12)), const SizedBox(height: 8), ElevatedButton.icon(onPressed: ()=> _showAppointmentDialog(), icon: const Icon(Icons.add, size: 14), label: const Text('Nueva cita', style: TextStyle(fontSize: 11)), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6366F1)))])),
+      ])),
+      floatingActionButton: FloatingActionButton(onPressed: ()=> _showAppointmentDialog(), backgroundColor: const Color(0xFF6366F1), child: const Icon(Icons.add, color: Colors.white)),
     );
   }
 }
@@ -332,14 +524,11 @@ class _ActionButton extends StatelessWidget {
   const _ActionButton({required this.icon, required this.label, required this.color, required this.onPressed});
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onPressed,
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(color: color.withOpacity(0.15), borderRadius: BorderRadius.circular(10), border: Border.all(color: color.withOpacity(0.3))),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(icon, size: 14, color: color), const SizedBox(width: 6), Text(label, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold))]),
-      ),
+    return OutlinedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 16, color: color),
+      label: Text(label, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold)),
+      style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), side: BorderSide(color: color.withOpacity(0.4)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
     );
   }
 }

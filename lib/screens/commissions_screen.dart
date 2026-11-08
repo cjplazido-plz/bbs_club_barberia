@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import '../services/settings_service.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 
 class CommissionsScreen extends StatefulWidget {
   @override
@@ -15,6 +18,11 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
   List<Map<String, dynamic>> _commissions = [];
   double _totalCommissions = 0;
   double _totalSales = 0;
+  String _selectedBarberId = 'all'; // 'all' = todos, si no = barber_id
+  List<Map<String, dynamic>> get _filteredCommissions => _selectedBarberId == 'all' ? _commissions : _commissions.where((b) => (b['barber_id']?.toString() ?? '') == _selectedBarberId).toList();
+  double get _filteredSales => _filteredCommissions.fold(0.0, (s, b) => s + (b['total_sales'] as double));
+  double get _filteredCommissionsTotal => _filteredCommissions.fold(0.0, (s, b) => s + (b['total_commission'] as double));
+  int get _filteredServices => _filteredCommissions.fold(0, (s, b) => s + (b['services_count'] as int));
 
   @override
   void initState() {
@@ -70,6 +78,96 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
       print('Error comisiones: $e');
       setState(() { _isLoading = false; });
     }
+  }
+
+  // ===== COMPROBANTE DE PAGO DE COMISION - 80mm =====
+  void _showComprobanteDialog(Map<String, dynamic> barber) {
+    final name = barber['barber_name'] as String;
+    final sales = barber['total_sales'] as double;
+    final commission = barber['total_commission'] as double;
+    final count = barber['services_count'] as int;
+    final rate = sales > 0 ? (commission / sales * 100) : 0.0;
+    final period = "${DateFormat('dd/MM/yyyy').format(_startDate)} - ${DateFormat('dd/MM/yyyy').format(_endDate)}";
+    final folio = 'COM-${DateTime.now().millisecondsSinceEpoch}';
+    showDialog(context: context, builder: (ctx) => Dialog(
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      child: Container(
+        width: 340,
+        padding: const EdgeInsets.all(20),
+        child: SingleChildScrollView(
+          child: Column(children: [
+            Text((SettingsService.shopName.isNotEmpty ? SettingsService.shopName : 'BBS CLUB').toUpperCase(), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black)),
+            const Text('COMPROBANTE DE PAGO', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.2, color: Colors.black54)),
+            const Text('Comisión de Barbero', style: TextStyle(fontSize: 10, color: Colors.black54)),
+            const SizedBox(height: 10),
+            const Divider(color: Colors.black26, height: 1),
+            const SizedBox(height: 10),
+            _comprobanteRow('Folio:', folio),
+            _comprobanteRow('Fecha:', DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())),
+            _comprobanteRow('Periodo:', period),
+            const SizedBox(height: 10),
+            const Divider(color: Colors.black26, height: 1),
+            const SizedBox(height: 10),
+            _comprobanteRow('Barbero:', name),
+            _comprobanteRow('Servicios:', '$count servicios'),
+            _comprobanteRow('Ventas:', SettingsService.formatCurrency(sales)),
+            _comprobanteRow('% Comisión:', '${rate.toStringAsFixed(1)}%'),
+            const SizedBox(height: 10),
+            Container(width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12), decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(8)), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('TOTAL A PAGAR', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)), Text(SettingsService.formatCurrency(commission), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18))])),
+            const SizedBox(height: 18),
+            Row(children: const [Expanded(child: Column(children: [Divider(color: Colors.black54), SizedBox(height: 4), Text('Firma Barbero', style: TextStyle(fontSize: 10, color: Colors.black54))])), SizedBox(width: 16), Expanded(child: Column(children: [Divider(color: Colors.black54), SizedBox(height: 4), Text('Firma Admin', style: TextStyle(fontSize: 10, color: Colors.black54))]))]),
+            const SizedBox(height: 6),
+            Text('Recibí conforme ${SettingsService.formatCurrency(commission)} por comisiones del periodo.', style: const TextStyle(fontSize: 9, color: Colors.black54), textAlign: TextAlign.center),
+            const SizedBox(height: 16),
+            Row(children: [
+              Expanded(child: OutlinedButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar'))),
+              const SizedBox(width: 10),
+              Expanded(child: ElevatedButton.icon(onPressed: () { Navigator.pop(ctx); _printComprobante(barber, folio, period); }, icon: const Icon(Icons.print_rounded, size: 16), label: const Text('Imprimir', style: TextStyle(fontWeight: FontWeight.bold)), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981)))),
+            ]),
+          ]),
+        ),
+      ),
+    ));
+  }
+
+  Widget _comprobanteRow(String label, String value) {
+    return Padding(padding: const EdgeInsets.symmetric(vertical: 3), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(label, style: const TextStyle(fontSize: 11, color: Colors.black54)), Flexible(child: Text(value, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black), textAlign: TextAlign.right))]));
+  }
+
+  Future<void> _printComprobante(Map<String, dynamic> barber, String folio, String period) async {
+    final name = barber['barber_name'] as String;
+    final sales = barber['total_sales'] as double;
+    final commission = barber['total_commission'] as double;
+    final count = barber['services_count'] as int;
+    final rate = sales > 0 ? (commission / sales * 100) : 0.0;
+    final pdf = pw.Document();
+    pdf.addPage(pw.Page(
+      pageFormat: const PdfPageFormat(80 * PdfPageFormat.mm, double.infinity, marginLeft: 2 * PdfPageFormat.mm, marginRight: 2 * PdfPageFormat.mm, marginTop: 3 * PdfPageFormat.mm, marginBottom: 3 * PdfPageFormat.mm),
+      build: (_) => pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.center, children: [
+        pw.Text((SettingsService.shopName.isNotEmpty ? SettingsService.shopName : 'BBS CLUB').toUpperCase(), style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold), textAlign: pw.TextAlign.center),
+        pw.Text('COMPROBANTE DE PAGO', style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
+        pw.Text('Comisión de Barbero', style: const pw.TextStyle(fontSize: 9)),
+        pw.Divider(thickness: 1, borderStyle: pw.BorderStyle.dashed),
+        pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Folio:', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)), pw.Text(folio, style: const pw.TextStyle(fontSize: 9))]),
+        pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Fecha:', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)), pw.Text(DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now()), style: const pw.TextStyle(fontSize: 10))]),
+        pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Periodo:', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)), pw.Text(period, style: const pw.TextStyle(fontSize: 9))]),
+        pw.Divider(thickness: 1, borderStyle: pw.BorderStyle.dashed),
+        pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Barbero:', style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)), pw.Text(name, style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold))]),
+        pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Servicios:', style: const pw.TextStyle(fontSize: 10)), pw.Text('$count servicios', style: const pw.TextStyle(fontSize: 10))]),
+        pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Ventas:', style: const pw.TextStyle(fontSize: 10)), pw.Text(SettingsService.formatCurrency(sales), style: const pw.TextStyle(fontSize: 10))]),
+        pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('% Comisión:', style: const pw.TextStyle(fontSize: 10)), pw.Text('${rate.toStringAsFixed(1)}%', style: const pw.TextStyle(fontSize: 10))]),
+        pw.SizedBox(height: 3 * PdfPageFormat.mm),
+        pw.Container(padding: pw.EdgeInsets.symmetric(vertical: 3 * PdfPageFormat.mm, horizontal: 3 * PdfPageFormat.mm), decoration: pw.BoxDecoration(border: pw.Border.all(width: 1)), child: pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('TOTAL A PAGAR', style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold)), pw.Text(SettingsService.formatCurrency(commission), style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold))])),
+        pw.SizedBox(height: 6 * PdfPageFormat.mm),
+        pw.Row(children: [pw.Expanded(child: pw.Column(children: [pw.Divider(), pw.Text('Firma Barbero', style: const pw.TextStyle(fontSize: 9), textAlign: pw.TextAlign.center)])), pw.SizedBox(width: 4 * PdfPageFormat.mm), pw.Expanded(child: pw.Column(children: [pw.Divider(), pw.Text('Firma Admin', style: const pw.TextStyle(fontSize: 9), textAlign: pw.TextAlign.center)]))]),
+        pw.SizedBox(height: 3 * PdfPageFormat.mm),
+        pw.Text('Recibí conforme ${SettingsService.formatCurrency(commission)} por comisiones del periodo.', style: const pw.TextStyle(fontSize: 8), textAlign: pw.TextAlign.center),
+        pw.SizedBox(height: 2 * PdfPageFormat.mm),
+        pw.Text('¡Gracias!', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold), textAlign: pw.TextAlign.center),
+      ]),
+    ));
+    await Printing.layoutPdf(onLayout: (f) async => pdf.save(), name: 'Comprobante-Comision-$name.pdf');
   }
 
   Future<void> _selectDateRange() async {
@@ -149,6 +247,22 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
     }
   }
 
+  Widget _buildBarberFilterChip(String id, String label) {
+    final selected = _selectedBarberId == id;
+    return Padding(
+      padding: const EdgeInsets.only(right: 6),
+      child: FilterChip(
+        label: Text(label, style: TextStyle(color: selected ? Colors.white : Colors.white70, fontSize: 11, fontWeight: selected ? FontWeight.bold : FontWeight.normal)),
+        selected: selected,
+        onSelected: (_) => setState(() => _selectedBarberId = id),
+        backgroundColor: const Color(0xFF0F172A),
+        selectedColor: const Color(0xFF6366F1),
+        checkmarkColor: Colors.white,
+        side: BorderSide(color: selected ? const Color(0xFF6366F1) : Colors.white10),
+      ),
+    );
+  }
+
   Widget _buildFilterChip(String label, String period) {
     final isSelected = _isPeriodSelected(period);
     return FilterChip(
@@ -164,9 +278,9 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
 
   Widget _buildSummaryCards() {
     return Row(children: [
-      Expanded(child: _summaryCard('Total Ventas', SettingsService.formatCurrency(_totalSales), '💰', const Color(0xFF3B82F6))),
+      Expanded(child: _summaryCard('Total Ventas', SettingsService.formatCurrency(_filteredSales), '💰', const Color(0xFF3B82F6))),
       const SizedBox(width: 12),
-      Expanded(child: _summaryCard('Comisiones', SettingsService.formatCurrency(_totalCommissions), '💸', const Color(0xFF10B981))),
+      Expanded(child: _summaryCard('Comisiones', SettingsService.formatCurrency(_filteredCommissionsTotal), '💸', const Color(0xFF10B981))),
     ]);
   }
 
@@ -208,6 +322,8 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('Ventas', style: TextStyle(fontSize: 10, color: Colors.white38)), const SizedBox(height: 2), Text(SettingsService.formatCurrency(totalSales), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white))]),
           Column(crossAxisAlignment: CrossAxisAlignment.end, children: [const Text('Comision a pagar', style: TextStyle(fontSize: 10, color: Colors.white38)), const SizedBox(height: 2), Text(SettingsService.formatCurrency(totalCommission), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF10B981)))]),
         ]),
+        const SizedBox(height: 12),
+        SizedBox(width: double.infinity, height: 40, child: ElevatedButton.icon(onPressed: () => _showComprobanteDialog(barber), icon: const Icon(Icons.print_rounded, size: 16), label: const Text('🖨️ Imprimir comprobante para pagar', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))))),
       ]),
     );
   }
@@ -241,12 +357,63 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
             Wrap(spacing: 8, runSpacing: 8, children: [_buildFilterChip('Hoy', 'today'), _buildFilterChip('Esta semana', 'week'), _buildFilterChip('Este mes', 'month'), _buildFilterChip('Mes anterior', 'last_month'), _buildFilterChip('Ultimos 30 dias', 'last_30')]),
           ]),
         ),
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white.withOpacity(0.05))),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              const Text('💈 Filtrar por barbero', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+              const Spacer(),
+              if (_selectedBarberId != 'all') TextButton(onPressed: () => setState(() => _selectedBarberId = 'all'), child: const Text('Limpiar ✕', style: TextStyle(color: Colors.white54, fontSize: 11))),
+            ]),
+            const SizedBox(height: 8),
+            Container(padding: const EdgeInsets.symmetric(horizontal: 10), decoration: BoxDecoration(color: const Color(0xFF0F172A), borderRadius: BorderRadius.circular(10)), child: DropdownButtonHideUnderline(child: DropdownButton<String>(
+              value: _selectedBarberId,
+              dropdownColor: const Color(0xFF1E293B),
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+              isExpanded: true,
+              items: [
+                const DropdownMenuItem(value: 'all', child: Text('👥 Todos los barberos')),
+                ..._commissions.map((b) => DropdownMenuItem(value: b['barber_id'].toString(), child: Text('💈 ${b['barber_name']}  •  ${SettingsService.formatCurrency(b['total_commission'] as double)}'))),
+              ],
+              onChanged: (v) => setState(() => _selectedBarberId = v ?? 'all'),
+            ))),
+            const SizedBox(height: 8),
+            SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(children: [
+              _buildBarberFilterChip('all', 'Todos'),
+              ..._commissions.map((b) => _buildBarberFilterChip(b['barber_id'].toString(), b['barber_name'] as String)),
+            ])),
+            if (_selectedBarberId != 'all' && _filteredCommissions.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              SizedBox(width: double.infinity, child: ElevatedButton.icon(onPressed: () => _showComprobanteDialog(_filteredCommissions.first), icon: const Icon(Icons.print_rounded, size: 16), label: Text('🖨️ Imprimir comprobante de ${_filteredCommissions.first['barber_name']}  •  ${SettingsService.formatCurrency(_filteredCommissionsTotal)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6366F1), padding: const EdgeInsets.symmetric(vertical: 10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))))),
+            ],
+          ]),
+        ),
+        const SizedBox(height: 12),
         Expanded(
           child: _isLoading
               ? const Center(child: CircularProgressIndicator(color: Color(0xFF6366F1)))
               : _commissions.isEmpty
                   ? const Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Text('💰', style: TextStyle(fontSize: 56)), SizedBox(height: 12), Text('No hay comisiones en este periodo', style: TextStyle(color: Colors.white54, fontSize: 14))]))
-                  : ListView(padding: const EdgeInsets.symmetric(horizontal: 16), children: [_buildSummaryCards(), const SizedBox(height: 16), const Text('Detalle por Barbero', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)), const SizedBox(height: 10), ..._commissions.asMap().entries.map((e) => _buildBarberCard(e.value, e.key + 1))]),
+                  : _filteredCommissions.isEmpty
+                      ? const Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Text('🔍', style: TextStyle(fontSize: 40)), SizedBox(height: 8), Text('Sin comisiones para este barbero en este periodo', style: TextStyle(color: Colors.white54, fontSize: 13))]))
+                      : SingleChildScrollView(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            _buildSummaryCards(),
+                            const SizedBox(height: 16),
+                            Row(children: [
+                              const Text('Detalle por Barbero', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                              const Spacer(),
+                              Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.15), borderRadius: BorderRadius.circular(12)), child: Text('Mostrando ${_filteredCommissions.length} de ${_commissions.length} barberos', style: const TextStyle(color: Color(0xFF818CF8), fontSize: 11, fontWeight: FontWeight.bold))),
+                            ]),
+                            const SizedBox(height: 10),
+                            // FIX: mostrar TODOS - Column en vez de ListView anidado, asi no se corta el ultimo (Carlos)
+                            ..._filteredCommissions.asMap().entries.map((e) => _buildBarberCard(e.value, e.key + 1)),
+                            const SizedBox(height: 20),
+                          ]),
+                        ),
         ),
       ]),
     );

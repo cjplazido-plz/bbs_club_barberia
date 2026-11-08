@@ -121,7 +121,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(title, style: const TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
           const SizedBox(height: 2),
-          Text(value, style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold, foreground: Paint()..color = Colors.white), maxLines: 1, overflow: TextOverflow.ellipsis),
+          Text(value, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
         ])
       ]),
     );

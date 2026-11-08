@@ -1,10 +1,11 @@
+// lib/services/settings_service.dart - ROBUSTO - FIX para "Algunos valores no se pudieron guardar" image_7d4ab2.png
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SettingsService {
-  static String shopName = 'BBS CLUB F.C';
-  static String shopRif = '77.123.456-7';
-  static String shopAddress = 'LOS BIGOTES 1313 - LOMAS TURBO';
-  static String shopPhone = '+56 99 9 9 9 9 9 9 9';
+  static String shopName = 'BBS CLUB';
+  static String shopRif = '76.123.456-7';
+  static String shopAddress = 'Manuel Montt #460, local 6 - Coronel';
+  static String shopPhone = '+569 6106 9670';
   static String shopEmail = '';
   static String shopLogoUrl = '';
   static String ticketLogoUrl = '';
@@ -12,76 +13,15 @@ class SettingsService {
   static String currencyCode = 'CLP';
   static String ticketHeader = 'BBS CLUB F.C';
   static String ticketFooter = '¡Gracias por su visita!';
-
-  static String formatCurrency(double amount) {
-    final formatted = amount.toStringAsFixed(0);
-    final buffer = StringBuffer();
-    for (int i = 0; i < formatted.length; i++) {
-      if (i > 0 && (formatted.length - i) % 3 == 0) {
-        buffer.write('.');
-      }
-      buffer.write(formatted[i]);
-    }
-    return '$currencySymbol${buffer.toString()}';
-  }
+  static String currencyFormat = 'es-CL';
 
   static Future<void> loadSettings() async {
-  try {
-    print('🔄 Cargando configuración desde Supabase...');
-    
-    // ✅ OBTENER LA FILA MÁS RECIENTE
-    final response = await Supabase.instance.client
-    .from('settings')
-    .select('*')
-    .order('updated_at', ascending: false)
-    .limit(1)
-    .maybeSingle();
-
-    if (response != null) {
-      shopName = response['shop_name'] ?? shopName;
-      shopRif = response['shop_rif'] ?? shopRif;
-      shopAddress = response['shop_address'] ?? shopAddress;
-      shopPhone = response['shop_phone'] ?? shopPhone;
-      shopEmail = response['shop_email'] ?? shopEmail;
-      shopLogoUrl = response['shop_logo_url'] ?? shopLogoUrl;
-      ticketLogoUrl = response['ticket_logo_url'] ?? '';
-      currencySymbol = response['currency_symbol'] ?? currencySymbol;
-      currencyCode = response['currency_code'] ?? currencyCode;
-      ticketHeader = response['ticket_header'] ?? ticketHeader;
-      ticketFooter = response['ticket_footer'] ?? ticketFooter;
-      
-      print('✅ Configuración cargada');
-      print('🖼️ Logo URL: $shopLogoUrl');
-      print('🖨️ Ticket Logo URL: $ticketLogoUrl');
-    } else {
-      print('⚠️ No hay configuración en Supabase');
-    }
-  } catch (e) {
-    print('❌ Error al cargar configuración: $e');
-  }
-}
-
-  static Future<bool> updateMultiple(Map<String, String> values) async {
     try {
-      print('🔄 Guardando configuración...');
-      final existing = await Supabase.instance.client
-          .from('settings')
-          .select('id')
-          .limit(1)
-          .maybeSingle();
-
-      if (existing != null) {
-        await Supabase.instance.client
-            .from('settings')
-            .update(values)
-            .eq('id', existing['id']);
-      } else {
-        await Supabase.instance.client
-            .from('settings')
-            .insert(values);
-      }
-
-      values.forEach((key, value) {
+      final data = await Supabase.instance.client.from('settings').select('*');
+      for (var row in data as List) {
+        final key = row['key']?.toString() ?? '';
+        final value = row['value']?.toString() ?? row['val']?.toString() ?? '';
+        if (value.isEmpty) continue;
         switch (key) {
           case 'shop_name': shopName = value; break;
           case 'shop_rif': shopRif = value; break;
@@ -95,13 +35,60 @@ class SettingsService {
           case 'ticket_header': ticketHeader = value; break;
           case 'ticket_footer': ticketFooter = value; break;
         }
-      });
-
-      print('✅ Configuración guardada');
-      return true;
+      }
+      // Fallback desde ticket_config si settings vacio
+      try {
+        final tc = await Supabase.instance.client.from('settings').select('*').eq('key', 'ticket_config').maybeSingle();
+        if (tc != null && tc['value'] != null) {
+          final v = Map<String, dynamic>.from(tc['value'] as Map);
+          if (shopName == 'BBS CLUB' && v['nombre_negocio'] != null) shopName = v['nombre_negocio'];
+          if (v['logo_url'] != null && ticketLogoUrl.isEmpty) ticketLogoUrl = v['logo_url'];
+        }
+      } catch (_) {}
     } catch (e) {
-      print('❌ Error al guardar: $e');
-      return false;
+      print('Settings load $e');
     }
+  }
+
+  static Future<bool> updateMultiple(Map<String, String> values) async {
+    bool allOk = true;
+    for (var entry in values.entries) {
+      try {
+        await Supabase.instance.client.from('settings').upsert({
+          'key': entry.key,
+          'value': entry.value,
+          'updated_at': DateTime.now().toIso8601String(),
+        }, onConflict: 'key');
+        // actualizar cache local
+        switch (entry.key) {
+          case 'shop_name': shopName = entry.value; break;
+          case 'shop_rif': shopRif = entry.value; break;
+          case 'shop_address': shopAddress = entry.value; break;
+          case 'shop_phone': shopPhone = entry.value; break;
+          case 'shop_email': shopEmail = entry.value; break;
+          case 'shop_logo_url': shopLogoUrl = entry.value; break;
+          case 'ticket_logo_url': ticketLogoUrl = entry.value; break;
+          case 'currency_symbol': currencySymbol = entry.value; break;
+          case 'currency_code': currencyCode = entry.value; break;
+          case 'ticket_header': ticketHeader = entry.value; break;
+          case 'ticket_footer': ticketFooter = entry.value; break;
+        }
+      } catch (e) {
+        print('Settings upsert fail ${entry.key}: $e');
+        allOk = false;
+        // no retornamos false inmediato, seguimos con los demas
+      }
+    }
+    return allOk;
+  }
+
+  static String formatCurrency(double amount) {
+    final fmt = amount.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.');
+    return '\$ $fmt';
+  }
+
+  static Future<bool> updateSingle(String key, String value) async {
+    final r = await updateMultiple({key: value});
+    return r;
   }
 }
