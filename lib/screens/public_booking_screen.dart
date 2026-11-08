@@ -231,9 +231,9 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
       final timeStr = DateFormat('HH:mm').format(dateTime);
       final barberName = _barbers.isNotEmpty ? (_barbers.first['name'] as String? ?? 'Sin asignar') : 'Sin asignar';
       final abonoTxt = _depositMethod == 'Transferencia'
-          ? '\n\n💰 Abono: ${SettingsService.formatCurrency(_depositAmount)} por Transferencia - ${_depositAlreadyTransferred ? 'Cliente dice que ya transfirio, verificar comprobante' : 'Pendiente - cliente avisara por WhatsApp'}'
-          : '\n\n💰 Abono: Pagara en el local';
-      final rawMsg = 'Hola! Nueva reserva en BBS Club Barberia.\n\n👤 Cliente: ${_nameController.text.trim()}\n📱 Telefono: ${_phoneController.text.trim()}\n📅 Fecha: $dateStr\n⏰ Hora: $timeStr\n✂️ Servicio: $services\n💈 Barbero: $barberName\n💰 Total: ${SettingsService.formatCurrency(_totalPrice)}$abonoTxt';
+          ? '\n\n\u{1F4B0} Abono: ${SettingsService.formatCurrency(_depositAmount)} por Transferencia - ${_depositAlreadyTransferred ? 'Cliente dice que ya transfirio, verificar comprobante' : 'Pendiente - cliente avisara por WhatsApp'}'
+          : '\n\n\u{1F4B0} Abono: Pagara en el local';
+      final rawMsg = 'Hola! Nueva reserva en BBS Club Barberia.\n\n\u{1F464} Cliente: ${_nameController.text.trim()}\n\u{1F4F1} Telefono: ${_phoneController.text.trim()}\n\u{1F4C5} Fecha: $dateStr\n\u{23F0} Hora: $timeStr\n\u{2702} Servicio: $services\n\u{1F488} Barbero: $barberName\n\u{1F4B0} Total: ${SettingsService.formatCurrency(_totalPrice)}$abonoTxt';
       final url = Uri.parse("https://wa.me/$phone?text=${Uri.encodeComponent(rawMsg)}");
       if (await canLaunchUrl(url)) await launchUrl(url, mode: LaunchMode.externalApplication);
     } catch (_) {}
