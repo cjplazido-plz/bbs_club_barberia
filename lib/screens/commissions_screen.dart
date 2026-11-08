@@ -335,7 +335,7 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
       backgroundColor: const Color(0xFF0F172A),
       appBar: AppBar(
         leading: IconButton(icon: const Icon(Icons.arrow_back_rounded, color: Colors.white), onPressed: () => Navigator.pop(context)),
-        title: const Text('Comisiones Premium', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text('Comisiones Premium', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17))),
         backgroundColor: const Color(0xFF1E293B),
         foregroundColor: Colors.white,
         elevation: 0,
@@ -386,7 +386,7 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
             ])),
             if (_selectedBarberId != 'all' && _filteredCommissions.isNotEmpty) ...[
               const SizedBox(height: 10),
-              SizedBox(width: double.infinity, child: ElevatedButton.icon(onPressed: () => _showComprobanteDialog(_filteredCommissions.first), icon: const Icon(Icons.print_rounded, size: 16), label: Text('🖨️ Imprimir comprobante de ${_filteredCommissions.first['barber_name']}  •  ${SettingsService.formatCurrency(_filteredCommissionsTotal)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6366F1), padding: const EdgeInsets.symmetric(vertical: 10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))))),
+              SizedBox(width: double.infinity, child: ElevatedButton(onPressed: () => _showComprobanteDialog(_filteredCommissions.first), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6366F1), padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.print_rounded, size: 16, color: Colors.white), const SizedBox(width: 8), Expanded(child: Column(mainAxisSize: MainAxisSize.min, children: [Text('Imprimir comprobante de ${_filteredCommissions.first['barber_name']}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis), Text(SettingsService.formatCurrency(_filteredCommissionsTotal), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Colors.white), textAlign: TextAlign.center)]))]))),
             ],
           ]),
         ),
@@ -396,24 +396,7 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
               ? const Center(child: CircularProgressIndicator(color: Color(0xFF6366F1)))
               : _commissions.isEmpty
                   ? const Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Text('💰', style: TextStyle(fontSize: 56)), SizedBox(height: 12), Text('No hay comisiones en este periodo', style: TextStyle(color: Colors.white54, fontSize: 14))]))
-                  : _filteredCommissions.isEmpty
-                      ? const Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Text('🔍', style: TextStyle(fontSize: 40)), SizedBox(height: 8), Text('Sin comisiones para este barbero en este periodo', style: TextStyle(color: Colors.white54, fontSize: 13))]))
-                      : SingleChildScrollView(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            _buildSummaryCards(),
-                            const SizedBox(height: 16),
-                            Row(children: [
-                              const Text('Detalle por Barbero', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
-                              const Spacer(),
-                              Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.15), borderRadius: BorderRadius.circular(12)), child: Text('Mostrando ${_filteredCommissions.length} de ${_commissions.length} barberos', style: const TextStyle(color: Color(0xFF818CF8), fontSize: 11, fontWeight: FontWeight.bold))),
-                            ]),
-                            const SizedBox(height: 10),
-                            // FIX: mostrar TODOS - Column en vez de ListView anidado, asi no se corta el ultimo (Carlos)
-                            ..._filteredCommissions.asMap().entries.map((e) => _buildBarberCard(e.value, e.key + 1)),
-                            const SizedBox(height: 20),
-                          ]),
-                        ),
+                  : ListView(padding: const EdgeInsets.symmetric(horizontal: 16), children: [_buildSummaryCards(), const SizedBox(height: 16), const Text('Detalle por Barbero', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)), const SizedBox(height: 10), ..._filteredCommissions.asMap().entries.map((e) => _buildBarberCard(e.value, e.key + 1))]),
         ),
       ]),
     );
