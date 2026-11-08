@@ -323,7 +323,7 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
           Column(crossAxisAlignment: CrossAxisAlignment.end, children: [const Text('Comision a pagar', style: TextStyle(fontSize: 10, color: Colors.white38)), const SizedBox(height: 2), Text(SettingsService.formatCurrency(totalCommission), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF10B981)))]),
         ]),
         const SizedBox(height: 12),
-        SizedBox(width: double.infinity, height: 40, child: ElevatedButton.icon(onPressed: () => _showComprobanteDialog(barber), icon: const Icon(Icons.print_rounded, size: 16), label: const Text('🖨️ Imprimir comprobante para pagar', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))))),
+        SizedBox(width: double.infinity, height: 40, child: ElevatedButton.icon(onPressed: () => _showComprobanteDialog(barber), icon: const Icon(Icons.print_rounded, size: 16), label: const Text('Imprimir comprobante para pagar', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))))),
       ]),
     );
   }
@@ -335,7 +335,7 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
       backgroundColor: const Color(0xFF0F172A),
       appBar: AppBar(
         leading: IconButton(icon: const Icon(Icons.arrow_back_rounded, color: Colors.white), onPressed: () => Navigator.pop(context)),
-        title: const FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text('Comisiones Premium', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17))),
+        title: const Text('Comisiones Premium', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16), maxLines: 1, overflow: TextOverflow.ellipsis),
         backgroundColor: const Color(0xFF1E293B),
         foregroundColor: Colors.white,
         elevation: 0,
@@ -350,7 +350,7 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
             Row(children: [
               const Text('📅', style: TextStyle(fontSize: 18)),
               const SizedBox(width: 8),
-              Expanded(child: Text(dateRangeText, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white))),
+              Expanded(child: FittedBox(alignment: Alignment.centerLeft, fit: BoxFit.scaleDown, child: Text(dateRangeText, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white)))),
               Container(decoration: BoxDecoration(color: const Color(0xFF6366F1), borderRadius: BorderRadius.circular(10)), child: TextButton.icon(onPressed: _selectDateRange, icon: const Icon(Icons.calendar_month_rounded, size: 16, color: Colors.white), label: const Text('Rango', style: TextStyle(color: Colors.white, fontSize: 12)), style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6)))),
             ]),
             const SizedBox(height: 12),

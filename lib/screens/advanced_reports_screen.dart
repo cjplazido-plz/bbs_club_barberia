@@ -141,6 +141,14 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // FIX maxY: redondeado a 20k para que $100k no se monte sobre $80k. Calculo fuera del BarChart para no enredar parentesis.
+    double chartMaxY = 100;
+    if (_salesByDay.isNotEmpty) {
+      double m = 0;
+      for (final e in _salesByDay) { final v = (e['total'] as num).toDouble(); if (v > m) m = v; }
+      chartMaxY = ((m / 20000).ceil() * 20000).toDouble();
+      if (chartMaxY < 20000) chartMaxY = 20000;
+    }
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
       appBar: AppBar(backgroundColor: const Color(0xFF1E293B), title: const Text('Reportes Avanzados', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w900)), leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: ()=> Navigator.pop(context)), actions: [IconButton(icon: const Icon(Icons.picture_as_pdf, color: Colors.white70), onPressed: _exportToPDF, tooltip: 'PDF'), IconButton(icon: const Icon(Icons.table_chart, color: Colors.white70), onPressed: _exportToExcel, tooltip: 'Excel')]),
@@ -151,7 +159,7 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             const Text('Período', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
             const SizedBox(height: 8),
-            SizedBox(width: double.infinity, child: SegmentedButton<String>(showSelectedIcon: false, style: ButtonStyle(visualDensity: VisualDensity.compact, tapTargetSize: MaterialTapTargetSize.shrinkWrap), segments: const [ButtonSegment(value: 'week', label: Text('Semana', style: TextStyle(fontSize: 11))), ButtonSegment(value: 'month', label: Text('Mes', style: TextStyle(fontSize: 11))), ButtonSegment(value: 'year', label: Text('Año', style: TextStyle(fontSize: 11)))], selected: {_selectedPeriod=='custom'? 'month': _selectedPeriod}, onSelectionChanged: (Set<String> v){ _setPeriod(v.first); })),
+            SingleChildScrollView(scrollDirection: Axis.horizontal, child: SegmentedButton<String>(showSelectedIcon: false, style: ButtonStyle(visualDensity: VisualDensity.compact, tapTargetSize: MaterialTapTargetSize.shrinkWrap), segments: const [ButtonSegment(value: 'week', label: Text('Semana', style: TextStyle(fontSize: 11))), ButtonSegment(value: 'month', label: Text('Mes', style: TextStyle(fontSize: 11))), ButtonSegment(value: 'year', label: Text('Año', style: TextStyle(fontSize: 11)))], selected: {_selectedPeriod=='custom'? 'month': _selectedPeriod}, onSelectionChanged: (Set<String> v){ _setPeriod(v.first); }))),
           ]),
           const SizedBox(height: 12),
           InkWell(onTap: _pickDateRange, borderRadius: BorderRadius.circular(8), child: Container(width: double.infinity, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10), decoration: BoxDecoration(color: const Color(0xFF0F172A), borderRadius: BorderRadius.circular(8), border: Border.all(color: _selectedPeriod=='custom'? const Color(0xFF6366F1): Colors.white10)), child: Row(children: [
@@ -159,7 +167,7 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
             const SizedBox(width: 8),
             Expanded(child: FittedBox(alignment: Alignment.centerLeft, fit: BoxFit.scaleDown, child: Text('${DateFormat('dd/MM/yyyy').format(_startDate)}  →  ${DateFormat('dd/MM/yyyy').format(_endDate)}', style: TextStyle(color: _selectedPeriod=='custom'? Colors.white: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600)))),
             const SizedBox(width: 8),
-            Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.2), borderRadius: BorderRadius.circular(6)), child: Text(_selectedPeriod=='custom'? 'PERSONALIZADO':'CAMBIAR FECHAS', style: const TextStyle(color: Color(0xFF6366F1), fontSize: 9, fontWeight: FontWeight.bold))),
+            FittedBox(fit: BoxFit.scaleDown, child: Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.2), borderRadius: BorderRadius.circular(6)), child: Text(_selectedPeriod=='custom'? 'PERSONALIZADO':'CAMBIAR FECHAS', style: const TextStyle(color: Color(0xFF6366F1), fontSize: 9, fontWeight: FontWeight.bold)))),
           ]))),
         ])),
         const SizedBox(height: 16),
@@ -174,7 +182,7 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
         if (_salesByDay.isNotEmpty) ...[
           const Text('Ventas por Día', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
-          SizedBox(height: 260, child: BarChart(BarChartData(alignment: BarChartAlignment.spaceAround, maxY: _salesByDay.isEmpty? 100: (((_salesByDay.map((e)=>(e['total'] as num).toDouble()).reduce((a,b)=> a>b? a:b) / 20000).ceil() * 20000).toDouble(), barGroups: _salesByDay.asMap().entries.map((entry){ final i=entry.key; final d=entry.value; final v=(d['total'] as num).toDouble(); return BarChartGroupData(x: i, barRods: [BarChartRodData(toY: v, color: const Color(0xFF6366F1), width: 12, borderRadius: const BorderRadius.vertical(top: Radius.circular(4)))]);}).toList(), titlesData: FlTitlesData(show: true, bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, getTitlesWidget: (val, meta){ final idx=val.toInt(); if(idx>=0 && idx<_salesByDay.length) return Padding(padding: const EdgeInsets.only(top:4), child: Text(_salesByDay[idx]['day'] as String, style: const TextStyle(color: Colors.white54, fontSize: 8))); return const SizedBox.shrink();})), leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 48, interval: 20000, getTitlesWidget: (v,m){ if (v % 20000 != 0) return const SizedBox.shrink(); return Text('\$${(v/1000).toStringAsFixed(0)}k', style: const TextStyle(color: Colors.white38, fontSize: 8)); })), topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)), rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false))), gridData: FlGridData(show: true, drawVerticalLine: false, getDrawingHorizontalLine: (v)=> const FlLine(color: Colors.white10, strokeWidth: 0.4)), borderData: FlBorderData(show: false)))),
+          SizedBox(height: 280, child: BarChart(BarChartData(alignment: BarChartAlignment.spaceAround, maxY: chartMaxY, barGroups: _salesByDay.asMap().entries.map((entry){ final i=entry.key; final d=entry.value; final v=(d['total'] as num).toDouble(); return BarChartGroupData(x: i, barRods: [BarChartRodData(toY: v, color: const Color(0xFF6366F1), width: 12, borderRadius: const BorderRadius.vertical(top: Radius.circular(4)))]);}).toList(), titlesData: FlTitlesData(show: true, bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, getTitlesWidget: (val, meta){ final idx=val.toInt(); if(idx>=0 && idx<_salesByDay.length) return Padding(padding: const EdgeInsets.only(top:4), child: Text(_salesByDay[idx]['day'] as String, style: const TextStyle(color: Colors.white54, fontSize: 8))); return const SizedBox.shrink();})), leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 48, interval: 20000, getTitlesWidget: (v,m){ if (v % 20000 != 0) return const SizedBox.shrink(); return Text('\$${(v/1000).toStringAsFixed(0)}k', style: const TextStyle(color: Colors.white38, fontSize: 8)); })), topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)), rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false))), gridData: FlGridData(show: true, drawVerticalLine: false, getDrawingHorizontalLine: (v)=> const FlLine(color: Colors.white10, strokeWidth: 0.4)), borderData: FlBorderData(show: false)))),
           const SizedBox(height: 28),
         ],
         if (_salesByBarber.isNotEmpty) ...[
