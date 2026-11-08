@@ -8,8 +8,24 @@ class SettingsService {
   static String shopPhone = '+569 6106 9670';
   // WHATSAPP RESERVAS PRIVADO - NO es el de Configuracion. Solo cjplazido lo ve/edita.
   static String reservasWhatsApp = '+56972433525';
-  static bool get isOwnerCjplazido => (Supabase.instance.client.auth.currentUser?.email ?? '').toLowerCase().contains('cjplazido');
-  static bool get canSeeReservasWhatsApp => isOwnerCjplazido; // patriciosan@bbsclub.com -> false
+  // STRICT: SOLO cjplazido (Desarrollador) lo ve. NINGUN admin lo ve.
+  // Antes era 'ocultar solo patriciosan' y mostraba para todos los demas admins - eso estaba mal.
+  // Ahora es lista blanca: solo si coincide con cjplazido / Desarrollador.
+  static bool get isOwnerCjplazido {
+    final user = Supabase.instance.client.auth.currentUser;
+    final e = (user?.email ?? '').toLowerCase().trim();
+    // 1. Email exacto o contiene cjplazido
+    if (e == 'cjplazido@gmail.com' || e.contains('cjplazido')) return true;
+    // 2. Metadata de Supabase: username / nombre / rol
+    final meta = user?.userMetadata ?? {};
+    final username = (meta['username'] ?? meta['user_name'] ?? meta['name'] ?? meta['display_name'] ?? '').toString().toLowerCase();
+    if (username.contains('cjplazido')) return true;
+    final role = (meta['role'] ?? meta['rol'] ?? meta['cargo'] ?? '').toString().toLowerCase();
+    if (role.contains('desarrollador') || role.contains('developer') || role.contains('dev')) return true;
+    // 3. Si no coincide con nada de arriba, NO es cjplazido -> ningun admin lo ve
+    return false;
+  }
+  static bool get canSeeReservasWhatsApp => isOwnerCjplazido; // SOLO cjplazido / Desarrollador
   static String shopEmail = '';
   static String shopLogoUrl = '';
   static String ticketLogoUrl = '';
