@@ -1,4 +1,4 @@
-// lib/screens/appointments_screen.dart - PREMIUM FINAL - calendario compacto centrado + cards originales bonitas
+﻿// lib/screens/appointments_screen.dart - PREMIUM FINAL - calendario compacto centrado + cards originales bonitas
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -12,6 +12,7 @@ import '../repositories/barber_repository.dart';
 import '../repositories/client_repository.dart';
 import '../repositories/service_repository.dart';
 import '../services/settings_service.dart';
+import 'pos_screen.dart';
 
 class AppointmentsScreen extends StatefulWidget {
   @override

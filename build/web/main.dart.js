@@ -64525,11 +64525,11 @@ if(B.p.cJ(j,"0"))j=B.p.cG(j,1)
 if(!B.p.cJ(j,"56")&&j.length===9)j="56"+j
 i=A.dF("dd/MM/yyyy",null).cN(a.as)
 h=A.dF("HH:mm",null).cN(a.as)
-if(a0==="cancelled")g="Hola "+A.l(a.d)+", tu cita en BBS Club Barberia ha sido *CANCELADA*.\n\n\ud83d\udcc5 Fecha: "+i+"\n\u23f0 Hora: "+h+"\n\u2702\ufe0f Servicio: "+A.l(a.x)+"\n\ud83d\udc88 Barbero: "+A.l(a.r)+"\n\nSi deseas reagendar avisanos."
+if(a0==="cancelled")g="Hola "+A.l(a.d)+", tu cita en BBS Club Barberia ha sido *CANCELADA*.\n\n\ud83d\udcc5 Fecha: "+i+"\n\u23f0 Hora: "+h+"\n\u2702 Servicio: "+A.l(a.x)+"\n\ud83d\udc88 Barbero: "+A.l(a.r)+"\n\nSi deseas reagendar avisanos."
 else{c=A.l(a.d)
 k=A.l(a.x)
 f=A.l(a.r)
-g=a0==="booking"?"Hola "+c+", tu cita en BBS Club Barberia ha sido *REGISTRADA*.\n\n\ud83d\udcc5 Fecha: "+i+"\n\u23f0 Hora: "+h+"\n\u2702\ufe0f Servicio: "+k+"\n\ud83d\udc88 Barbero: "+f+"\n\nTe confirmamos pronto.":"Hola "+c+", tu cita en BBS Club Barberia ha sido *CONFIRMADA*.\n\n\ud83d\udcc5 Fecha: "+i+"\n\u23f0 Hora: "+h+"\n\u2702\ufe0f Servicio: "+k+"\n\ud83d\udc88 Barbero: "+f+"\n\n\xa1Te esperamos! \ud83d\udc4b"}e=n.a14(a.ax)
+g=a0==="booking"?"Hola "+c+", tu cita en BBS Club Barberia ha sido *REGISTRADA*.\n\n\ud83d\udcc5 Fecha: "+i+"\n\u23f0 Hora: "+h+"\n\u2702 Servicio: "+k+"\n\ud83d\udc88 Barbero: "+f+"\n\nTe confirmamos pronto.":"Hola "+c+", tu cita en BBS Club Barberia ha sido *CONFIRMADA*.\n\n\ud83d\udcc5 Fecha: "+i+"\n\u23f0 Hora: "+h+"\n\u2702 Servicio: "+k+"\n\ud83d\udc88 Barbero: "+f+"\n\n\ud83d\udc4b Te esperamos!"}e=n.a14(a.ax)
 m=A.fd("https://wa.me/"+j+"?text="+A.H8(2,e.length!==0?g+"\n\n\ud83d\udcb0 "+e:g,B.aW,!1),0,null)
 p=4
 s=9
@@ -67908,7 +67908,7 @@ if(n.ay==="Transferencia"){f=A.b2(B.n.oQ(n.gvF()*0.5))
 e=n.ch?"Cliente dice que ya transfirio, verificar comprobante":"Pendiente - cliente avisara por WhatsApp"
 c="\n\n\ud83d\udcb0 Abono: "+f+" por Transferencia - "+e}else c="\n\n\ud83d\udcb0 Abono: Pagara en el local"
 i=c
-h="Hola! Nueva reserva en BBS Club Barberia.\n\n\ud83d\udc64 Cliente: "+B.p.aP(n.Q.a.a)+"\n\ud83d\udcf1 Telefono: "+B.p.aP(n.as.a.a)+"\n\ud83d\udcc5 Fecha: "+A.l(l)+"\n\u23f0 Hora: "+A.l(k)+"\n\u2702\ufe0f Servicio: "+a1+"\n\ud83d\udc88 Barbero: "+A.l(j)+"\n\ud83d\udcb0 Total: "+A.b2(n.gvF())+A.l(i)
+h="Hola! Nueva reserva en BBS Club Barberia.\n\n\ud83d\udc64 Cliente: "+B.p.aP(n.Q.a.a)+"\n\ud83d\udcf1 Telefono: "+B.p.aP(n.as.a.a)+"\n\ud83d\udcc5 Fecha: "+A.l(l)+"\n\u23f0 Hora: "+A.l(k)+"\n\u2702 Servicio: "+a1+"\n\ud83d\udc88 Barbero: "+A.l(j)+"\n\ud83d\udcb0 Total: "+A.b2(n.gvF())+A.l(i)
 g=A.fd("https://wa.me/"+A.l(m)+"?text="+A.H8(2,h,B.aW,!1),0,null)
 s=9
 return A.q(A.bg9(g),$async$CV)
