@@ -224,7 +224,8 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
 
   Future<void> _sendConfirmationWhatsApp(DateTime dateTime, String services) async {
     try {
-      final phone = SettingsService.shopPhone.replaceAll(RegExp(r'[^0-9+]'), '');
+      // PRIVADO: WhatsApp de reservas NO es el de Configuracion. Es reservasWhatsApp (+56972433525, solo cjplazido lo ve/edita).
+      final phone = SettingsService.reservasWhatsApp.replaceAll(RegExp(r'[^0-9+]'), '');
       if (phone.isEmpty) return;
       final dateStr = DateFormat('dd/MM/yyyy').format(dateTime);
       final timeStr = DateFormat('HH:mm').format(dateTime);

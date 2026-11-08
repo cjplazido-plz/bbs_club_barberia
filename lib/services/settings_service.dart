@@ -6,6 +6,10 @@ class SettingsService {
   static String shopRif = '76.123.456-7';
   static String shopAddress = 'Manuel Montt #460, local 6 - Coronel';
   static String shopPhone = '+569 6106 9670';
+  // WHATSAPP RESERVAS PRIVADO - NO es el de Configuracion. Solo cjplazido lo ve/edita.
+  static String reservasWhatsApp = '+56972433525';
+  static bool get isOwnerCjplazido => (Supabase.instance.client.auth.currentUser?.email ?? '').toLowerCase().contains('cjplazido');
+  static bool get canSeeReservasWhatsApp => isOwnerCjplazido; // patriciosan@bbsclub.com -> false
   static String shopEmail = '';
   static String shopLogoUrl = '';
   static String ticketLogoUrl = '';
@@ -27,6 +31,7 @@ class SettingsService {
           case 'shop_rif': shopRif = value; break;
           case 'shop_address': shopAddress = value; break;
           case 'shop_phone': shopPhone = value; break;
+          case 'reservas_whatsapp': reservasWhatsApp = value; break;
           case 'shop_email': shopEmail = value; break;
           case 'shop_logo_url': shopLogoUrl = value; break;
           case 'ticket_logo_url': ticketLogoUrl = value; break;
@@ -53,6 +58,7 @@ class SettingsService {
   static Future<bool> updateMultiple(Map<String, String> values) async {
     bool allOk = true;
     for (var entry in values.entries) {
+      if (entry.key == 'reservas_whatsapp' && !isOwnerCjplazido) { print('BLOQUEADO: solo cjplazido puede editar reservas_whatsapp'); allOk = false; continue; }
       try {
         await Supabase.instance.client.from('settings').upsert({
           'key': entry.key,
@@ -65,6 +71,7 @@ class SettingsService {
           case 'shop_rif': shopRif = entry.value; break;
           case 'shop_address': shopAddress = entry.value; break;
           case 'shop_phone': shopPhone = entry.value; break;
+          case 'reservas_whatsapp': reservasWhatsApp = entry.value; break;
           case 'shop_email': shopEmail = entry.value; break;
           case 'shop_logo_url': shopLogoUrl = entry.value; break;
           case 'ticket_logo_url': ticketLogoUrl = entry.value; break;

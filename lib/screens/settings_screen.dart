@@ -19,6 +19,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _rifCtrl = TextEditingController();
   final _addressCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
+  final _reservasWhatsAppCtrl = TextEditingController(); // solo cjplazido
   final _emailCtrl = TextEditingController();
   final _shopLogoCtrl = TextEditingController();
   final _ticketLogoCtrl = TextEditingController();
@@ -53,6 +54,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _rifCtrl.text = SettingsService.shopRif.isNotEmpty ? SettingsService.shopRif : TicketConfigService.rut;
       _addressCtrl.text = SettingsService.shopAddress.isNotEmpty ? SettingsService.shopAddress : TicketConfigService.direccion;
       _phoneCtrl.text = SettingsService.shopPhone.isNotEmpty ? SettingsService.shopPhone : TicketConfigService.telefono;
+      if (SettingsService.canSeeReservasWhatsApp) _reservasWhatsAppCtrl.text = SettingsService.reservasWhatsApp;
       _emailCtrl.text = SettingsService.shopEmail;
       // App = COLOR jpeg (WhatsApp Image...), Ticket = B/N bmp (LOGOTICKET.bmp) - NO mezclar
       _shopLogoCtrl.text = SettingsService.shopLogoUrl.isNotEmpty ? SettingsService.shopLogoUrl : TicketConfigService.appLogoUrl;
@@ -85,6 +87,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         'currency_code': _currencyCodeCtrl.text.trim(),
         'ticket_header': _ticketHeaderCtrl.text.trim(),
         'ticket_footer': _ticketFooterCtrl.text.trim(),
+        if (SettingsService.canSeeReservasWhatsApp) 'reservas_whatsapp': _reservasWhatsAppCtrl.text.trim(),
       });
       // FIX: logo_url = App COLOR, logo_url_ticket = Ticket B/N, encabezado separado de nombre
       final ok2 = await TicketConfigService.save({
@@ -142,7 +145,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   void dispose() {
-    _shopNameCtrl.dispose(); _rifCtrl.dispose(); _addressCtrl.dispose(); _phoneCtrl.dispose(); _emailCtrl.dispose(); _shopLogoCtrl.dispose(); _ticketLogoCtrl.dispose(); _currencySymbolCtrl.dispose(); _currencyCodeCtrl.dispose(); _ticketHeaderCtrl.dispose(); _ticketFooterCtrl.dispose(); _prefijoCtrl.dispose(); _folioCtrl.dispose();
+    _shopNameCtrl.dispose(); _rifCtrl.dispose(); _addressCtrl.dispose(); _phoneCtrl.dispose(); _reservasWhatsAppCtrl.dispose(); _emailCtrl.dispose(); _shopLogoCtrl.dispose(); _ticketLogoCtrl.dispose(); _currencySymbolCtrl.dispose(); _currencyCodeCtrl.dispose(); _ticketHeaderCtrl.dispose(); _ticketFooterCtrl.dispose(); _prefijoCtrl.dispose(); _folioCtrl.dispose();
     super.dispose();
   }
 
@@ -173,6 +176,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _row2(_field('RUT *', _rifCtrl, icon: Icons.badge_rounded, required: true, hint: '77.000000-0'), _field('Telefono', _phoneCtrl, icon: Icons.phone_rounded, hint: '+56 9 6106 9670')),
             _field('Email', _emailCtrl, icon: Icons.email_rounded, hint: 'contacto@bbsclub.cl'),
             _field('Direccion', _addressCtrl, icon: Icons.location_on_rounded, hint: 'Manuel Montt #460, local 6 - Coronel'),
+            // WHATSAPP RESERVAS PRIVADO - solo cjplazido lo ve. patriciosan NO lo ve ni lo edita.
+            ... (SettingsService.canSeeReservasWhatsApp ? [
+              const SizedBox(height: 10),
+              Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.08), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFF10B981).withOpacity(0.3))), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Row(children: [Icon(Icons.lock, size: 14, color: Color(0xFF10B981)), SizedBox(width: 6), Text('WhatsApp Reservas - SOLO TU cjplazido', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold))]),
+                const SizedBox(height: 4),
+                const Text('Este numero recibe las confirmaciones de reservas de la web. NO es el de Configuracion. Patricio NO lo ve ni lo puede editar.', style: TextStyle(color: Colors.white54, fontSize: 10)),
+                const SizedBox(height: 8),
+                _field('WhatsApp Reservas', _reservasWhatsAppCtrl, icon: Icons.phone_rounded, hint: '+56972433525'),
+              ])),
+            ] : []),
             const SizedBox(height: 14),
             // 02 Moneda
             _section(number: '02', icon: Icons.attach_money_rounded, color: _emerald, title: 'Moneda', subtitle: 'Simbolo y codigo que se muestran en precios y ticket'),
