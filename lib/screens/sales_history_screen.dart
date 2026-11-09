@@ -7,7 +7,6 @@ import 'package:printing/printing.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import '../services/settings_service.dart';
-import '../services/ticket_config_service.dart';
 
 class SalesHistoryScreen extends StatefulWidget {
   @override
@@ -19,6 +18,25 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
   List<Map<String, dynamic>> _transactions = [];
   DateTime _startDate = DateTime.now().subtract(const Duration(days: 7));
   DateTime _endDate = DateTime.now();
+  // FILTROS HISTORIAL
+  String _searchQuery = '';
+  String _filterBarber = 'all';
+  String _filterMethod = 'all';
+  String _filterStatus = 'all';
+  List<Map<String, dynamic>> get _filteredTransactions {
+    var list = _transactions;
+    if (_filterBarber != 'all') list = list.where((tr) => (tr['barber_name'] ?? '').toString() == _filterBarber).toList();
+    if (_filterMethod != 'all') list = list.where((tr) => (tr['payment_method'] ?? '').toString() == _filterMethod).toList();
+    if (_filterStatus != 'all') list = list.where((tr) => (tr['status'] ?? 'completed').toString() == _filterStatus).toList();
+    if (_searchQuery.trim().isNotEmpty) {
+      final q = _searchQuery.trim().toLowerCase();
+      list = list.where((tr) => (tr['id'] ?? '').toString().toLowerCase().contains(q) || (tr['barber_name'] ?? '').toString().toLowerCase().contains(q) || (tr['cashier_name'] ?? '').toString().toLowerCase().contains(q) || _formatPayment(tr['payment_method']?.toString()).toLowerCase().contains(q)).toList();
+    }
+    return list;
+  }
+  List<String> get _allBarbersHist { final s = <String>{}; for (final tr in _transactions) { final b = (tr['barber_name'] ?? '').toString(); if (b.isNotEmpty) s.add(b); } final l = s.toList()..sort(); return l; }
+  double get _filteredTotal => _filteredTransactions.fold(0.0, (s, tr) => s + ((tr['total'] as num?)?.toDouble() ?? 0.0));
+  void _clearHistFilters() { setState(() { _searchQuery = ''; _filterBarber = 'all'; _filterMethod = 'all'; _filterStatus = 'all'; }); }
   late AnimationController _ctrl;
 
   @override
@@ -58,7 +76,6 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
       case 'transfer': return 'Transferencia';
       case 'debito': return 'Débito';
       case 'mixto': return 'Mixto';
-      case 'mixed': return 'Mixto';
       default: return p ?? 'Efectivo';
     }
   }
@@ -170,31 +187,8 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
     );
   }
 
-  String _shortFolioHist(dynamic id) { var s = (id ?? '').toString().replaceAll('-', ''); if (s.startsWith('V')) s = s.substring(1); if (s.length > 6) s = s.substring(s.length - 6); return 'V-$s'; }
-  // ===== MOVIMIENTO DE CAJA - para que Cuadratura lo vea =====
-  // Anulación y Cambio de Pago son INFORMATIVOS (afectaCaja=false) porque:
-  // - Anulada: Reports ya excluye las cancelled/anuladas del Total, no se vuelve a restar
-  // - Cambio Pago: la venta ya cambió de método, Reports recalcula solo
-  Future<void> _registrarCashMovement({required String tipo, required String categoria, required double monto, required String metodo, String folio = '', String motivo = '', bool afectaCaja = false}) async {
-    try {
-      await Supabase.instance.client.from('cash_movements').insert({'tipo': tipo, 'categoria': categoria, 'monto': monto, 'metodo': metodo, 'folio': folio, 'motivo': motivo, 'afecta_caja': afectaCaja, 'created_at': DateTime.now().toIso8601String()});
-    } catch (_) { /* si no existe tabla, no rompe la anulación / cambio */ }
-  }
-
-  String _normalizePago(String? raw) {
-    final v = (raw ?? 'cash').toString().toLowerCase().trim();
-    if (v == 'mixed' || v == 'mixto') return 'mixed';
-    if (v == 'cash' || v == 'efectivo') return 'cash';
-    if (v == 'transfer' || v == 'transferencia') return 'transfer';
-    if (v == 'card' || v == 'tarjeta') return 'card';
-    if (v == 'debito' || v == 'debit' || v == 'debito ') return 'debito';
-    return 'cash';
-  }
-
   Future<void> _showEditPaymentDialog(Map<String, dynamic> transaction) async {
-    // FIX ASSERTION image_e27feb: valor guardado 'mixed' (POS/Supabase) no estaba en items ('mixto') -> Dropdown exigia exactamente 1 item con ese value y explotaba.
-    // Se normaliza 'mixto' -> 'mixed' y los items usan 'mixed'.
-    String selected = _normalizePago(transaction['payment_method']?.toString());
+    String selected = transaction['payment_method']?.toString() ?? 'cash';
     await showDialog(context: context, builder: (c) => AlertDialog(
       backgroundColor: const Color(0xFF1E293B),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -209,7 +203,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
           DropdownMenuItem(value: 'transfer', child: Text('Transferencia')),
           DropdownMenuItem(value: 'card', child: Text('Tarjeta')),
           DropdownMenuItem(value: 'debito', child: Text('Débito')),
-          DropdownMenuItem(value: 'mixed', child: Text('Mixto')),
+          DropdownMenuItem(value: 'mixto', child: Text('Mixto')),
         ],
         onChanged: (v) => setSt(() => selected = v!),
       )),
@@ -218,15 +212,9 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
         Container(decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF818CF8)]), borderRadius: BorderRadius.circular(10)), child: ElevatedButton(onPressed: () async {
           Navigator.pop(c);
           try {
-            final viejo = (transaction['payment_method'] ?? 'cash').toString();
-            final total = (transaction['total'] as num?)?.toDouble() ?? 0;
             await Supabase.instance.client.from('transactions').update({'payment_method': selected}).eq('id', transaction['id']);
-            if (viejo != selected) {
-              await _registrarCashMovement(tipo: 'salida', categoria: 'Cambio de Pago', monto: total, metodo: viejo, folio: 'Venta #${_shortFolioHist(transaction['id'])}', motivo: 'Desde Historial: ${_formatPayment(viejo)} -> ${_formatPayment(selected)}', afectaCaja: false);
-              await _registrarCashMovement(tipo: 'entrada', categoria: 'Cambio de Pago', monto: total, metodo: selected, folio: 'Venta #${_shortFolioHist(transaction['id'])}', motivo: 'Desde Historial: ${_formatPayment(viejo)} -> ${_formatPayment(selected)}', afectaCaja: false);
-            }
             await _loadTransactions();
-            if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(viejo != selected ? '✅ Pago actualizado + registrado en Cuadratura (informativo)' : '✅ Pago actualizado'), backgroundColor: const Color(0xFF10B981)));
+            if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('✅ Pago actualizado'), backgroundColor: Color(0xFF10B981)));
           } catch (e) {
             if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ $e'), backgroundColor: Colors.red));
           }
@@ -258,15 +246,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
           }
           Navigator.pop(c);
           try {
-            // FIX AL ANULAR 400: si no existen cancel_reason / cancelled_at, el update completo falla.
-            // Se intenta completo, y si da 400 se reintenta solo con status (que si existe).
-            try {
-              await Supabase.instance.client.from('transactions').update({'status': 'cancelled', 'cancel_reason': motivoCtrl.text.trim(), 'cancelled_at': DateTime.now().toIso8601String()}).eq('id', transaction['id']);
-            } catch (_) {
-              await Supabase.instance.client.from('transactions').update({'status': 'cancelled'}).eq('id', transaction['id']);
-            }
-            // Registrar en Cuadratura: informativo, Reports ya excluye cancelled del total
-            await _registrarCashMovement(tipo: 'salida', categoria: 'Anulación Venta', monto: (transaction['total'] as num?)?.toDouble() ?? 0, metodo: (transaction['payment_method'] ?? 'cash').toString(), folio: 'Venta #${_shortFolioHist(transaction['id'])}', motivo: motivoCtrl.text.trim(), afectaCaja: false);
+            await Supabase.instance.client.from('transactions').update({'status': 'cancelled', 'cancel_reason': motivoCtrl.text.trim(), 'cancelled_at': DateTime.now().toIso8601String()}).eq('id', transaction['id']);
             if (devolverStock) {
               for (final item in items) {
                 if (item['item_type'] == 'product' && item['product_id'] != null) {
@@ -289,33 +269,22 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
     )));
   }
 
-  // TICKET COMO EL CON LOGO: logo REAL (jpeg de Supabase, sin rectangulo fake) + datos de TicketConfigService (no F.C / BIGOTES) + Pago Mixto
+  // FIX BUILD: sin SettingsService.getLogoUrl etc - usa texto fijo para compilar siempre
   Future<void> _printTicket(Map<String, dynamic> transaction, List<Map<String, dynamic>> items) async {
     try {
-      // Encabezado = el de Vercel (Configuracion > Encabezado del Ticket = BBS CLUB F.C). Si la config trae 'encabezado', ese manda; si no, nombreNegocio.
-      final cfg = TicketConfigService.config;
-      final encabezado = (cfg['encabezado'] ?? cfg['encabezado_ticket'] ?? cfg['nombre_local'] ?? '').toString();
-      final businessName = encabezado.isNotEmpty ? encabezado : (TicketConfigService.nombreNegocio.isNotEmpty ? TicketConfigService.nombreNegocio : 'BBS CLUB F.C');
-      final businessAddress = TicketConfigService.direccion.isNotEmpty ? TicketConfigService.direccion : 'Manuel Montt #460, local 6 - Coronel';
-      final businessPhone = TicketConfigService.telefono.isNotEmpty ? 'Tel: ${TicketConfigService.telefono}' : 'Tel: +569 6106 9670';
-      // LOGO TICKET = LOGOTICKET.bmp (el de Vercel / Configuracion > Logo URL Ticket), NO el jpeg de App (WhatsApp Image...).
-      // El .bmp si lo decodifica el package image de networkImage, por eso NO se filtra por extension.
-      // Si el .bmp falla en PDF, se intenta con el jpeg de App como fallback.
-      pw.ImageProvider? logoProvider;
-      final ticketLogo = TicketConfigService.ticketLogoUrl.isNotEmpty ? TicketConfigService.ticketLogoUrl : SettingsService.ticketLogoUrl;
-      final appLogo = TicketConfigService.logoUrl.isNotEmpty ? TicketConfigService.logoUrl : SettingsService.shopLogoUrl;
-      if (ticketLogo.isNotEmpty) {
-        try { logoProvider = await networkImage(ticketLogo); } catch (_) { logoProvider = null; }
-      }
-      if (logoProvider == null && appLogo.isNotEmpty) {
-        try { logoProvider = await networkImage(appLogo); } catch (_) { logoProvider = null; }
-      }
+      const businessName = 'BBS CLUB';
+      const businessAddress = 'Manuel Montt #460, local 6 - Coronel';
+      const businessPhone = 'Tel: +569 6106 9670';
 
       final pdf = pw.Document();
       pdf.addPage(pw.Page(
         pageFormat: PdfPageFormat(80 * PdfPageFormat.mm, double.infinity, marginAll: 4 * PdfPageFormat.mm),
         build: (_) => pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.center, children: [
-          if (logoProvider != null) pw.Container(width: 55 * PdfPageFormat.mm, child: pw.Image(logoProvider, fit: pw.BoxFit.contain)) else pw.Text('BBS CLUB', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14)),
+          pw.Container(
+            decoration: pw.BoxDecoration(border: pw.Border.all(width: 2)),
+            padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            child: pw.Text('BBSCLUB\'\nBARBERIA', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 12), textAlign: pw.TextAlign.center),
+          ),
           pw.SizedBox(height: 6),
           pw.Text(businessName, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11)),
           pw.Text(businessAddress, style: const pw.TextStyle(fontSize: 7), textAlign: pw.TextAlign.center),
@@ -333,12 +302,12 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
           pw.SizedBox(height: 4),
           pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Pago:', style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold)), pw.Text(_formatPayment(transaction['payment_method']?.toString()), style: const pw.TextStyle(fontSize: 7))]),
           pw.SizedBox(height: 10),
-          pw.Text('Gracias por su visita! (Reimpresion)', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold), textAlign: pw.TextAlign.center),
+          pw.Text('¡Gracias por su visita!', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold), textAlign: pw.TextAlign.center),
         ]),
       ));
       await Printing.layoutPdf(onLayout: (_) async => pdf.save(), name: 'Ticket', format: PdfPageFormat(80 * PdfPageFormat.mm, double.infinity));
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error $e'), backgroundColor: Colors.red));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ $e'), backgroundColor: Colors.red));
     }
   }
 
@@ -379,16 +348,39 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
             Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.2), borderRadius: BorderRadius.circular(20)), child: Text('${_transactions.length} ventas', style: const TextStyle(color: Color(0xFF818CF8), fontSize: 11, fontWeight: FontWeight.bold))),
           ]),
         ),
+        // FILTROS HISTORIAL: buscador + barbero + metodo + estado
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 12),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withOpacity(0.06))),
+          child: Column(children: [
+            TextField(onChanged: (v) => setState(() => _searchQuery = v), style: const TextStyle(color: Colors.white, fontSize: 13), decoration: InputDecoration(hintText: 'Buscar folio, barbero, cajero...', hintStyle: const TextStyle(color: Colors.white38, fontSize: 12), prefixIcon: const Icon(Icons.search_rounded, color: Colors.white38, size: 18), filled: true, fillColor: const Color(0xFF0F172A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none), contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10))),
+            const SizedBox(height: 10),
+            Row(children: [
+              Expanded(child: DropdownButtonFormField<String>(value: _filterBarber, dropdownColor: const Color(0xFF1E293B), style: const TextStyle(color: Colors.white, fontSize: 12), decoration: InputDecoration(labelText: 'Barbero', labelStyle: const TextStyle(color: Colors.white54, fontSize: 11), filled: true, fillColor: const Color(0xFF0F172A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)), contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8)), items: [const DropdownMenuItem(value: 'all', child: Text('Todos')), ..._allBarbersHist.map((b) => DropdownMenuItem(value: b, child: Text(b)))], onChanged: (v) => setState(() => _filterBarber = v ?? 'all'))),
+              const SizedBox(width: 8),
+              Expanded(child: DropdownButtonFormField<String>(value: _filterMethod, dropdownColor: const Color(0xFF1E293B), style: const TextStyle(color: Colors.white, fontSize: 12), decoration: InputDecoration(labelText: 'Método', labelStyle: const TextStyle(color: Colors.white54, fontSize: 11), filled: true, fillColor: const Color(0xFF0F172A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)), contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8)), items: const [DropdownMenuItem(value: 'all', child: Text('Todos')), DropdownMenuItem(value: 'cash', child: Text('Efectivo')), DropdownMenuItem(value: 'transfer', child: Text('Transferencia')), DropdownMenuItem(value: 'card', child: Text('Tarjeta')), DropdownMenuItem(value: 'debito', child: Text('Débito')), DropdownMenuItem(value: 'mixto', child: Text('Mixto'))], onChanged: (v) => setState(() => _filterMethod = v ?? 'all'))),
+            ]),
+            const SizedBox(height: 10),
+            Row(children: [
+              Expanded(child: DropdownButtonFormField<String>(value: _filterStatus, dropdownColor: const Color(0xFF1E293B), style: const TextStyle(color: Colors.white, fontSize: 12), decoration: InputDecoration(labelText: 'Estado', labelStyle: const TextStyle(color: Colors.white54, fontSize: 11), filled: true, fillColor: const Color(0xFF0F172A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)), contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8)), items: const [DropdownMenuItem(value: 'all', child: Text('Todos')), DropdownMenuItem(value: 'completed', child: Text('Completadas')), DropdownMenuItem(value: 'cancelled', child: Text('Anuladas'))], onChanged: (v) => setState(() => _filterStatus = v ?? 'all'))),
+              const SizedBox(width: 8),
+              Expanded(child: Container(padding: const EdgeInsets.symmetric(vertical: 12), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.15), borderRadius: BorderRadius.circular(10)), child: Text('${_filteredTransactions.length} de ${_transactions.length} • ${SettingsService.formatCurrency(_filteredTotal)}', style: const TextStyle(color: Color(0xFF818CF8), fontSize: 11, fontWeight: FontWeight.bold), textAlign: TextAlign.center))),
+            ]),
+            if (_searchQuery.isNotEmpty || _filterBarber != 'all' || _filterMethod != 'all' || _filterStatus != 'all') Padding(padding: const EdgeInsets.only(top: 10), child: GestureDetector(onTap: _clearHistFilters, child: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), decoration: BoxDecoration(color: Colors.red.withOpacity(0.15), borderRadius: BorderRadius.circular(20)), child: const Text('Limpiar filtros ✕', style: TextStyle(color: Colors.redAccent, fontSize: 11, fontWeight: FontWeight.bold))))),
+          ]),
+        ),
+        const SizedBox(height: 8),
         Expanded(
           child: _isLoading
               ? const Center(child: CircularProgressIndicator(color: Color(0xFF6366F1)))
-              : _transactions.isEmpty
+              : _filteredTransactions.isEmpty
                   ? const Center(child: Text('No hay ventas', style: TextStyle(color: Colors.white38)))
                   : ListView.builder(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
-                      itemCount: _transactions.length,
+                      itemCount: _filteredTransactions.length,
                       itemBuilder: (c, i) {
-                        final t = _transactions[i];
+                        final t = _filteredTransactions[i];
                         final isCancelled = t['status'] == 'cancelled';
                         return AnimatedBuilder(
                           animation: _ctrl,
@@ -401,12 +393,11 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
                             margin: const EdgeInsets.only(bottom: 8),
                             decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(14), border: Border.all(color: isCancelled ? Colors.red.withOpacity(0.2) : Colors.white.withOpacity(0.05))),
                             child: ListTile(
-                              tileColor: Colors.transparent,
                               onTap: () => _showTransactionDetail(t),
                               contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                               leading: Container(width: 38, height: 38, decoration: BoxDecoration(color: isCancelled ? Colors.red.withOpacity(0.15) : const Color(0xFF6366F1).withOpacity(0.15), shape: BoxShape.circle), child: Icon(isCancelled ? Icons.cancel_rounded : Icons.receipt_rounded, size: 18, color: isCancelled ? Colors.redAccent : const Color(0xFF818CF8))),
                               title: Text(DateFormat('dd/MM/yyyy HH:mm').format(DateTime.parse(t['created_at'])), style: TextStyle(fontWeight: FontWeight.bold, color: isCancelled ? Colors.white54 : Colors.white, fontSize: 13, decoration: isCancelled ? TextDecoration.lineThrough : null)),
-                              subtitle: Text('${_formatPayment(t['payment_method']?.toString())} • ${t['cashier_name'] ?? ''}', style: const TextStyle(color: Colors.white38, fontSize: 11)),
+                              subtitle: Text('${_formatPayment(t['payment_method']?.toString())} • ${t['barber_name'] ?? ''} • ${t['cashier_name'] ?? ''}', style: const TextStyle(color: Colors.white38, fontSize: 11)),
                               trailing: Text(SettingsService.formatCurrency((t['total'] as num).toDouble()), style: TextStyle(color: isCancelled ? Colors.white38 : const Color(0xFF10B981), fontWeight: FontWeight.w900, fontSize: 14, decoration: isCancelled ? TextDecoration.lineThrough : null)),
                             ),
                           ),
