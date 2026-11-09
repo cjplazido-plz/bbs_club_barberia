@@ -27,12 +27,12 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
   final _notesController = TextEditingController();
 
   // EDITAR AQUI TUS DATOS DE TRANSFERENCIA - salen en la reserva publica
-  static const String _bankName = 'Banco Estado';
-  static const String _bankAccountType = 'Cuenta RUT';
-  static const String _bankAccountNumber = '12.345.678-9';
-  static const String _bankRut = '12.345.678-9';
-  static const String _bankHolder = 'BBS Club Barberia';
-  static const String _bankEmail = 'bbsclub@gmail.com';
+  static const String _bankName = 'Mercado Pago';
+  static const String _bankAccountType = 'Cuenta Vista';
+  static const String _bankAccountNumber = '1012592635';
+  static const String _bankRut = '14.212.434-3';
+  static const String _bankHolder = 'Patricio Sánchez';
+  //static const String _bankEmail = 'bbsclub@gmail.com';
 
   String _depositMethod = 'Transferencia'; // Transferencia | En local
   bool _depositAlreadyTransferred = false;
@@ -374,7 +374,7 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
               Text('N° Cuenta: $_bankAccountNumber', style: const TextStyle(color: Colors.white70, fontSize: 11)),
               Text('RUT: $_bankRut', style: const TextStyle(color: Colors.white70, fontSize: 11)),
               Text('Titular: $_bankHolder', style: const TextStyle(color: Colors.white70, fontSize: 11)),
-              Text('Email: $_bankEmail', style: const TextStyle(color: Colors.white70, fontSize: 11)),
+              // Email oculto a pedido - si queres mostrarlo, descomenta _bankEmail arriba y esta linea
               const SizedBox(height: 6),
               const Text('Edita estos datos arriba en el archivo (EDITAR AQUI TUS DATOS DE TRANSFERENCIA).', style: TextStyle(color: Colors.white38, fontSize: 9)),
             ])),
