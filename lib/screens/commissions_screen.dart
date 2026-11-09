@@ -380,11 +380,7 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
               onChanged: (v) => setState(() => _selectedBarberId = v ?? 'all'),
             ))),
             const SizedBox(height: 8),
-            // FIX: Wrap en vez de scroll horizontal - asi TODOS los barberos se ven, ninguno queda cortado a la derecha / debajo
-            Wrap(spacing: 8, runSpacing: 8, children: [
-              _buildBarberFilterChip('all', 'Todos'),
-              ..._commissions.map((b) => _buildBarberFilterChip(b['barber_id'].toString(), b['barber_name'] as String)),
-            ]),
+            // Chips de barberos sacados - se filtra solo con el desplegable 'Todos los barberos' de arriba
             if (_selectedBarberId != 'all' && _filteredCommissions.isNotEmpty) ...[
               const SizedBox(height: 10),
               SizedBox(width: double.infinity, child: ElevatedButton(onPressed: () => _showComprobanteDialog(_filteredCommissions.first), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6366F1), padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.print_rounded, size: 16, color: Colors.white), const SizedBox(width: 8), Expanded(child: Column(mainAxisSize: MainAxisSize.min, children: [Text('Imprimir comprobante de ${_filteredCommissions.first['barber_name']}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis), Text(SettingsService.formatCurrency(_filteredCommissionsTotal), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Colors.white), textAlign: TextAlign.center)]))]))),
