@@ -24,24 +24,10 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
   final _emailController = TextEditingController();
   final _notesController = TextEditingController();
 
-  // EDITAR AQUI TUS DATOS DE TRANSFERENCIA - salen en la reserva publica
-  static const String _bankName = 'Banco Estado';
-  static const String _bankAccountType = 'Cuenta RUT';
-  static const String _bankAccountNumber = '12.345.678-9';
-  static const String _bankRut = '12.345.678-9';
-  static const String _bankHolder = 'BBS Club Barberia';
-  static const String _bankEmail = 'bbsclub@gmail.com';
-
-  String _depositMethod = 'Transferencia'; // Transferencia | En local
-  bool _depositAlreadyTransferred = false;
-  double get _depositAmount => (_totalPrice * 0.5).roundToDouble();
-
-  final List<String> _availableTimes = [
-    '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
-    '12:00', '12:30', '14:00', '14:30', '15:00', '15:30',
-    '16:00', '16:30', '17:00', '17:30', '18:00', '18:30',
-    '19:00', '19:30', '20:00',
-  ];
+  // Horario salon: 11:00 a 19:00 cada 30 min - ultimo inicio 18:30
+  final List<String> _availableTimes = ['11:00','11:30','12:00','12:30','13:00','13:30','14:00','14:30','15:00','15:30','16:00','16:30','17:00','17:30','18:00','18:30'];
+  Set<String> _blockedTimes = {};
+  String _blockedMotivo = 'No disponible';
 
   @override
   void initState() {
@@ -89,7 +75,15 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
       final startOfDay = DateTime(date.year, date.month, date.day);
       final endOfDay = startOfDay.add(const Duration(days: 1));
       final appointments = await Supabase.instance.client.from('appointments').select('*').gte('appointment_date', startOfDay.toIso8601String()).lt('appointment_date', endOfDay.toIso8601String()).neq('status', 'cancelled');
-      setState(() { _existingAppointments = List<Map<String, dynamic>>.from(appointments); });
+      // Bloqueadas por admin ese dia
+      Set<String> blocked = {};
+      String motivo = 'No disponible';
+      try {
+        final fechaStr = DateFormat('yyyy-MM-dd').format(date);
+        final bl = await Supabase.instance.client.from('blocked_slots').select('hora, motivo').eq('fecha', fechaStr);
+        for (final r in (bl as List)) { blocked.add((r['hora'] ?? '').toString()); if ((r['motivo'] ?? '').toString().isNotEmpty) motivo = (r['motivo'] ?? '').toString(); }
+      } catch (_) {}
+      setState(() { _existingAppointments = List<Map<String, dynamic>>.from(appointments); _blockedTimes = blocked; _blockedMotivo = motivo; if (_selectedTime != null && _blockedTimes.contains(_selectedTime)) _selectedTime = null; });
     } catch (e) {
       print('Error citas: $e');
     }
@@ -115,51 +109,44 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ $msg'), backgroundColor: Colors.red));
   }
 
-  // Crear o actualizar cliente desde Reservar Cita - ROBUSTO
-  // Por que fallaba antes: buscaba eq('phone', '+56 9 1234...') exacto, con un espacio distinto no lo encontraba y duplicaba.
-  // Y el insert con total_visits / total_spent / is_active fallaba si la tabla clients no tiene esas columnas -> client_id quedaba null y en Agenda salia "Sin telefono / Agregar como cliente".
-  String _digits(String p) => p.replaceAll(RegExp(r'[^0-9]'), '');
-  String _normPhone(String p) {
-    var d = _digits(p);
-    if (d.startsWith('56') && d.length == 11) d = d.substring(2);
-    if (d.length == 9) return '+56 $d';
-    if (d.length == 11 && d.startsWith('56')) return '+56 ${d.substring(2)}';
-    return p.trim();
-  }
-
+  // ✅ NUEVO: Crear o actualizar cliente automáticamente
   Future<String?> _ensureClientExists(String name, String phone, String email) async {
-    final normalizedPhone = _normPhone(phone);
-    final digits = _digits(phone);
-    final nameLower = name.trim().toLowerCase();
     try {
-      // Buscar en Dart por digitos (sin espacios) o por nombre - no por eq exacto
-      final all = await Supabase.instance.client.from('clients').select('id, name, phone, email').limit(10000);
-      final list = List<Map<String, dynamic>>.from(all);
-      Map<String, dynamic>? found;
-      for (final c in list) {
-        final cDigits = _digits((c['phone'] ?? '').toString());
-        final cName = (c['name'] ?? '').toString().trim().toLowerCase();
-        if (digits.isNotEmpty && cDigits.isNotEmpty && cDigits == digits) { found = c; break; }
-        if (cDigits.isNotEmpty && digits.isNotEmpty && cDigits.endsWith(digits.substring(digits.length - 9)) && digits.length >= 9) { found = c; break; }
-      }
-      found ??= list.where((c) => (c['name'] ?? '').toString().trim().toLowerCase() == nameLower).isNotEmpty ? list.firstWhere((c) => (c['name'] ?? '').toString().trim().toLowerCase() == nameLower) : null;
-      if (found != null) {
-        final clientId = found['id'].toString();
-        try { await Supabase.instance.client.from('clients').update({'name': name.trim(), 'phone': normalizedPhone, if (email.isNotEmpty) 'email': email.trim()}).eq('id', clientId); } catch (_) {}
-        print('Cliente existente actualizado: $name - $normalizedPhone -> $clientId');
+      final normalizedPhone = phone.trim();
+      // Buscar cliente existente por teléfono
+      final existing = await Supabase.instance.client.from('clients').select('id, phone, total_visits').eq('phone', normalizedPhone).limit(1);
+      
+      if (existing.isNotEmpty) {
+        final clientId = existing.first['id'] as String;
+        // Actualizar datos si hay email nuevo y visitas
+        await Supabase.instance.client.from('clients').update({
+          'name': name,
+          'email': email.isNotEmpty ? email : existing.first['email'],
+          'updated_at': DateTime.now().toIso8601String(),
+        }).eq('id', clientId);
+        print('✅ Cliente existente actualizado: $name - $phone');
         return clientId;
+      } else {
+        // Crear nuevo cliente
+        final newId = 'client-${DateTime.now().millisecondsSinceEpoch}';
+        await Supabase.instance.client.from('clients').insert({
+          'id': newId,
+          'name': name,
+          'phone': normalizedPhone,
+          'email': email.isNotEmpty ? email : null,
+          'notes': 'Creado desde reserva web el ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}',
+          'total_visits': 0,
+          'total_spent': 0,
+          'is_active': true,
+          'created_at': DateTime.now().toIso8601String(),
+          'updated_at': DateTime.now().toIso8601String(),
+        });
+        print('✅ Nuevo cliente creado: $name - $phone - $newId');
+        return newId;
       }
-      // Crear nuevo - intento completo, si falla por columnas que no existen, intento minimo (solo id/name/phone/email/notes)
-      final newId = 'client-${DateTime.now().millisecondsSinceEpoch}';
-      try {
-        await Supabase.instance.client.from('clients').insert({'id': newId, 'name': name.trim(), 'phone': normalizedPhone, 'email': email.isNotEmpty ? email.trim() : null, 'notes': 'Creado desde reserva web el ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}', 'total_visits': 0, 'total_spent': 0, 'is_active': true, 'created_at': DateTime.now().toIso8601String(), 'updated_at': DateTime.now().toIso8601String()});
-      } catch (_) {
-        await Supabase.instance.client.from('clients').insert({'id': newId, 'name': name.trim(), 'phone': normalizedPhone, 'email': email.isNotEmpty ? email.trim() : null, 'notes': 'Creado desde reserva web el ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}'});
-      }
-      print('Nuevo cliente creado: $name - $normalizedPhone - $newId');
-      return newId;
     } catch (e) {
-      print('Error al crear/actualizar cliente (no bloquea reserva): $e');
+      print('⚠️ Error al crear/actualizar cliente (no bloquea reserva): $e');
+      // No bloquea la reserva si falla el cliente, sigue con null
       return null;
     }
   }
@@ -167,16 +154,15 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
   Future<void> _submitBooking() async {
     if (_selectedServiceIds.isEmpty) { _showError('Selecciona al menos un servicio'); return; }
     if (_selectedTime == null) { _showError('Selecciona un horario'); return; }
+    if (_blockedTimes.contains(_selectedTime)) { _showError('Esa hora esta bloqueada por el salon ($_blockedMotivo)'); return; }
     if (_nameController.text.trim().isEmpty) { _showError('Ingresa tu nombre'); return; }
-    final phoneRaw = _phoneController.text.trim();
-    if (phoneRaw == '+56' || _digits(phoneRaw).length < 9) { _showError('Ingresa tu telefono completo'); return; }
-    final phoneClean = _normPhone(phoneRaw);
+    final phoneClean = _phoneController.text.trim();
+    if (phoneClean == '+56' || phoneClean.length < 8) { _showError('Ingresa tu telefono completo'); return; }
 
     setState(() { _isSubmitting = true; });
     try {
-      // PASO 1: Crear/actualizar cliente automaticamente - si falla, reintentar con minimo
-      var clientId = await _ensureClientExists(_nameController.text.trim(), phoneClean, _emailController.text.trim());
-      clientId ??= await _ensureClientExists(_nameController.text.trim(), phoneClean, _emailController.text.trim());
+      // ✅ PASO 1: Crear/actualizar cliente automáticamente
+      final clientId = await _ensureClientExists(_nameController.text.trim(), phoneClean, _emailController.text.trim());
 
       final barber = _barbers.isNotEmpty ? _barbers.first : null;
       final parts = _selectedTime!.split(':');
@@ -199,19 +185,14 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
         'service_price': _totalPrice,
         'appointment_date': appointmentDateTime.toIso8601String(),
         'status': 'pending',
-        'notes': (() {
-          final base = _notesController.text.trim();
-          if (_depositMethod != 'Transferencia') return base.isEmpty ? null : base;
-          final tag = '[Abono: ${_depositAmount.toStringAsFixed(0)} | Transferencia | Pendiente]';
-          return base.isEmpty ? tag : '$base $tag';
-        })(),
+        'notes': _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
         'source': 'web_booking',
       });
 
       await _sendConfirmationWhatsApp(appointmentDateTime, serviceNames);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('✅ Reserva enviada. ${_nameController.text.trim()} quedo guardado como cliente ($phoneClean)'), backgroundColor: Colors.green));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('✅ Reserva enviada y cliente guardado'), backgroundColor: Colors.green));
         setState(() { _selectedServiceIds.clear(); _selectedTime = null; _nameController.clear(); _phoneController.text = '+56 '; _emailController.clear(); _notesController.clear(); });
         await _loadAppointmentsForDate(_selectedDate);
       }
@@ -224,17 +205,11 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
 
   Future<void> _sendConfirmationWhatsApp(DateTime dateTime, String services) async {
     try {
-      // PRIVADO: WhatsApp de reservas NO es el de Configuracion. Es reservasWhatsApp (+56972433525, solo cjplazido lo ve/edita).
-      final phone = SettingsService.reservasWhatsApp.replaceAll(RegExp(r'[^0-9+]'), '');
+      final phone = SettingsService.shopPhone.replaceAll(RegExp(r'[^0-9+]'), '');
       if (phone.isEmpty) return;
-      final dateStr = DateFormat('dd/MM/yyyy').format(dateTime);
-      final timeStr = DateFormat('HH:mm').format(dateTime);
-      final barberName = _barbers.isNotEmpty ? (_barbers.first['name'] as String? ?? 'Sin asignar') : 'Sin asignar';
-      final abonoTxt = _depositMethod == 'Transferencia'
-          ? '\n\n\u{1F4B0} Abono: ${SettingsService.formatCurrency(_depositAmount)} por Transferencia - ${_depositAlreadyTransferred ? 'Cliente dice que ya transfirio, verificar comprobante' : 'Pendiente - cliente avisara por WhatsApp'}'
-          : '\n\n\u{1F4B0} Abono: Pagara en el local';
-      final rawMsg = 'Hola! Nueva reserva en BBS Club Barberia.\n\n\u{1F464} Cliente: ${_nameController.text.trim()}\n\u{1F4F1} Telefono: ${_phoneController.text.trim()}\n\u{1F4C5} Fecha: $dateStr\n\u{23F0} Hora: $timeStr\n\u{2702} Servicio: $services\n\u{1F488} Barbero: $barberName\n\u{1F4B0} Total: ${SettingsService.formatCurrency(_totalPrice)}$abonoTxt';
-      final url = Uri.parse("https://wa.me/$phone?text=${Uri.encodeComponent(rawMsg)}");
+      final formattedDate = DateFormat('EEEE dd/MM/yyyy HH:mm', 'es').format(dateTime);
+      final message = "Hola! Nueva reserva:%0A%0A👤 ${_nameController.text}%0A📱 ${_phoneController.text}%0A✂️ $services%0A📅 $formattedDate%0A💰 ${SettingsService.formatCurrency(_totalPrice)}";
+      final url = Uri.parse("https://wa.me/$phone?text=$message");
       if (await canLaunchUrl(url)) await launchUrl(url, mode: LaunchMode.externalApplication);
     } catch (_) {}
   }
@@ -263,7 +238,8 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width < 600;
     final occupiedCount = _occupiedTimes.length;
-    final availableCount = _availableTimes.length - occupiedCount;
+    final blockedCount = _blockedTimes.length;
+    final availableCount = _availableTimes.length - occupiedCount - blockedCount;
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
       appBar: AppBar(backgroundColor: const Color(0xFF1E293B), title: const Text('📅 Reservar Cita', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)), centerTitle: true, foregroundColor: Colors.white, elevation: 0),
@@ -298,16 +274,21 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
             _legendDot(Colors.white, 'Disponible'),
             const SizedBox(width: 12),
             _legendDot(Colors.red.withOpacity(0.4), 'Ocupado'),
+            const SizedBox(width: 12),
+            _legendDot(Colors.orange, 'Bloqueado'),
           ]),
           const SizedBox(height: 8),
-          Text('📊 $availableCount disponibles • $occupiedCount ocupados', style: const TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.w600)),
+          Text('📊 $availableCount disponibles • $occupiedCount ocupados • $blockedCount bloqueados', style: const TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.w600)),
           if (_occupiedTimes.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 6), child: Text('⛔ Ocupados: ${_occupiedTimes.join(', ')}', style: const TextStyle(color: Colors.redAccent, fontSize: 11, fontWeight: FontWeight.w500))),
+          if (_blockedTimes.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 6), child: Text('🔒 Bloqueadas por el salon ($_blockedMotivo): ${_blockedTimes.join(', ')}', style: const TextStyle(color: Colors.orange, fontSize: 11, fontWeight: FontWeight.w500))),
         ])),
         const SizedBox(height: 12),
         Wrap(spacing: 8, runSpacing: 8, children: _availableTimes.map((time) {
           final isOccupied = _occupiedTimes.contains(time);
+          final isBlocked = _blockedTimes.contains(time);
+          final isDisabled = isOccupied || isBlocked;
           final isSelected = _selectedTime == time;
-          return InkWell(onTap: isOccupied ? null : () => setState(() => _selectedTime = time), child: Container(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10), decoration: BoxDecoration(color: isOccupied ? Colors.red.withOpacity(0.12) : isSelected ? const Color(0xFF6366F1) : const Color(0xFF1E293B), borderRadius: BorderRadius.circular(10), border: Border.all(color: isOccupied ? Colors.red.withOpacity(0.3) : isSelected ? const Color(0xFF6366F1) : Colors.white10, width: isSelected ? 2 : 1)), child: Text(time, style: TextStyle(color: isOccupied ? Colors.redAccent.withOpacity(0.7) : isSelected ? Colors.white : Colors.white70, fontWeight: FontWeight.bold, fontSize: 13, decoration: isOccupied ? TextDecoration.lineThrough : null))));
+          return InkWell(onTap: isDisabled ? null : () => setState(() => _selectedTime = time), child: Container(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10), decoration: BoxDecoration(color: isBlocked ? Colors.orange.withOpacity(0.15) : isOccupied ? Colors.red.withOpacity(0.12) : isSelected ? const Color(0xFF6366F1) : const Color(0xFF1E293B), borderRadius: BorderRadius.circular(10), border: Border.all(color: isBlocked ? Colors.orange : isOccupied ? Colors.red.withOpacity(0.3) : isSelected ? const Color(0xFF6366F1) : Colors.white10, width: isSelected ? 2 : 1)), child: Text(isBlocked ? '🔒 $time' : time, style: TextStyle(color: isBlocked ? Colors.orange : isOccupied ? Colors.redAccent.withOpacity(0.7) : isSelected ? Colors.white : Colors.white70, fontWeight: FontWeight.bold, fontSize: 13, decoration: isDisabled ? TextDecoration.lineThrough : null))));
         }).toList()),
 
         const SizedBox(height: 20),
@@ -317,7 +298,7 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
         TextField(controller: _nameController, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500), decoration: _dec('Nombre completo *', '')),
         const SizedBox(height: 14),
         _fieldLabel('📱', 'Telefono con +56', true),
-        TextField(controller: _phoneController, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold), decoration: _dec('Ej: +56 9 1234 5678', '').copyWith(hintText: '9 1234 5678'), keyboardType: TextInputType.phone),
+        TextField(controller: _phoneController, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold), decoration: _dec('Ej: +56 9 1234 5678', '').copyWith(hintText: '+56 9 XXXX XXXX', prefixIcon: Container(margin: const EdgeInsets.all(8), padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.2), borderRadius: BorderRadius.circular(8)), child: const Text('🇨🇱 +56', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)))), keyboardType: TextInputType.phone),
         const SizedBox(height: 14),
         _fieldLabel('✉️', 'Email (opcional)', false),
         TextField(controller: _emailController, style: const TextStyle(color: Colors.white, fontSize: 14), decoration: _dec('Email (opcional)', ''), keyboardType: TextInputType.emailAddress),
@@ -325,35 +306,6 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
         _fieldLabel('📝', 'Notas (opcional)', false),
         TextField(controller: _notesController, style: const TextStyle(color: Colors.white, fontSize: 14), decoration: _dec('Notas (opcional)', ''), maxLines: 3),
 
-        const SizedBox(height: 20),
-        _buildSectionTitle('5️⃣ Abono / Anticipo'),
-        const SizedBox(height: 8),
-        Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: const Color(0xFFF59E0B).withOpacity(0.08), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.3))), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [const Icon(Icons.payments, size: 16, color: Color(0xFFF59E0B)), const SizedBox(width: 8), const Expanded(child: Text('Para confirmar tu cita, abona el 50% por transferencia', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)))]),
-          const SizedBox(height: 8),
-          if (_selectedServiceIds.isNotEmpty) Text('Total: ${SettingsService.formatCurrency(_totalPrice)}  •  Abono sugerido: ${SettingsService.formatCurrency(_depositAmount)}', style: const TextStyle(color: Colors.white70, fontSize: 12)),
-          if (_selectedServiceIds.isEmpty) const Text('Selecciona un servicio para ver el abono.', style: TextStyle(color: Colors.white54, fontSize: 11)),
-          const SizedBox(height: 10),
-          DropdownButtonFormField<String>(value: _depositMethod, dropdownColor: const Color(0xFF1E293B), style: const TextStyle(color: Colors.white, fontSize: 13), decoration: InputDecoration(labelText: 'Como vas a pagar el abono?', labelStyle: const TextStyle(color: Colors.white54), filled: true, fillColor: const Color(0xFF0F172A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))), items: const [DropdownMenuItem(value: 'Transferencia', child: Text('Transferencia (recomendado)', style: TextStyle(fontSize: 13))), DropdownMenuItem(value: 'En local', child: Text('Pagare en el local', style: TextStyle(fontSize: 13)))], onChanged: (v)=> setState(()=> _depositMethod = v ?? 'Transferencia')),
-          if (_depositMethod == 'Transferencia') Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const SizedBox(height: 10),
-            Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: const Color(0xFF0F172A), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.white10)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('Datos para transferir:', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 6),
-              Text('Banco: $_bankName', style: const TextStyle(color: Colors.white70, fontSize: 11)),
-              Text('Tipo: $_bankAccountType', style: const TextStyle(color: Colors.white70, fontSize: 11)),
-              Text('N° Cuenta: $_bankAccountNumber', style: const TextStyle(color: Colors.white70, fontSize: 11)),
-              Text('RUT: $_bankRut', style: const TextStyle(color: Colors.white70, fontSize: 11)),
-              Text('Titular: $_bankHolder', style: const TextStyle(color: Colors.white70, fontSize: 11)),
-              Text('Email: $_bankEmail', style: const TextStyle(color: Colors.white70, fontSize: 11)),
-              const SizedBox(height: 6),
-              const Text('Edita estos datos arriba en el archivo (EDITAR AQUI TUS DATOS DE TRANSFERENCIA).', style: TextStyle(color: Colors.white38, fontSize: 9)),
-            ])),
-            const SizedBox(height: 8),
-            CheckboxListTile(dense: true, value: _depositAlreadyTransferred, activeColor: const Color(0xFF10B981), title: const Text('Ya transferi, enviare comprobante por WhatsApp', style: TextStyle(color: Colors.white, fontSize: 12)), subtitle: const Text('Tu cita quedara Pendiente hasta que verifiquemos la transferencia en Agenda.', style: TextStyle(color: Colors.white54, fontSize: 10)), onChanged: (v)=> setState(()=> _depositAlreadyTransferred = v ?? false)),
-          ]),
-          if (_depositMethod == 'En local') const Padding(padding: EdgeInsets.only(top: 8), child: Text('Pagara el total en el local. Tu cita quedara Pendiente hasta que la confirmemos.', style: TextStyle(color: Colors.white54, fontSize: 11))),
-        ])),
         const SizedBox(height: 24),
         SizedBox(width: double.infinity, height: 54, child: Container(decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF818CF8)]), borderRadius: BorderRadius.circular(14), boxShadow: [BoxShadow(color: const Color(0xFF6366F1).withOpacity(0.4), blurRadius: 16, offset: const Offset(0,6))]), child: ElevatedButton(onPressed: _isSubmitting ? null : _submitBooking, style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, shadowColor: Colors.transparent, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))), child: _isSubmitting ? const Row(mainAxisAlignment: MainAxisAlignment.center, children: [SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)), SizedBox(width: 12), Text('Enviando...', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white))]) : const Text('✅ CONFIRMAR RESERVA', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 0.5))))),
 

@@ -1,4 +1,4 @@
-﻿// lib/screens/appointments_screen.dart - PREMIUM FINAL - calendario compacto centrado + cards originales bonitas
+// lib/screens/appointments_screen.dart - PREMIUM FINAL - calendario compacto centrado + cards originales bonitas
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -13,6 +13,7 @@ import '../repositories/client_repository.dart';
 import '../repositories/service_repository.dart';
 import '../services/settings_service.dart';
 import 'pos_screen.dart';
+import 'blocked_hours_screen.dart';
 
 class AppointmentsScreen extends StatefulWidget {
   @override
@@ -60,6 +61,12 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
       _services = uniqueServices.values.toList();
       _isLoading = false;
     });
+  }
+
+  Future<void> _syncAppointments() async {
+    await _loadData();
+    await _loadDaysWithCounts();
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sincronizado'), backgroundColor: Color(0xFF10B981)));
   }
 
   Future<void> _loadDaysWithCounts() async {
@@ -446,7 +453,51 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     final isDark = true;
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
-      appBar: AppBar(backgroundColor: const Color(0xFF1E293B), leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: (){ if (Navigator.canPop(context)) { Navigator.pop(context); } else { Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => PosScreen())); } }), title: const Text('Agenda Premium', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)), actions: [IconButton(icon: const Icon(Icons.refresh, color: Colors.white54), onPressed: (){ _loadData(); _loadDaysWithCounts(); })]),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF1E293B),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () {
+            if (Navigator.canPop(context)) {
+              Navigator.pop(context);
+            } else {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (_) => PosScreen()),
+              );
+            }
+          },
+        ),
+        title: const Text('Agenda', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.lock_clock_rounded, color: Colors.white),
+            tooltip: 'Bloquear Horas',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => BlockedHoursScreen()),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Colors.white54),
+            tooltip: 'Actualizar',
+            onPressed: () {
+              _loadData();
+              _loadDaysWithCounts();
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.sync),
+            tooltip: 'Sincronizar',
+            onPressed: _syncAppointments,
+          ),
+        ],
+      ),
+
+   
+
       body: _isLoading ? const Center(child: CircularProgressIndicator(color: Color(0xFF6366F1))) : SingleChildScrollView(padding: const EdgeInsets.all(12), child: Column(children: [
         _buildPremiumCalendarCompact(),
         const SizedBox(height: 16),
