@@ -354,7 +354,7 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
               Container(decoration: BoxDecoration(color: const Color(0xFF6366F1), borderRadius: BorderRadius.circular(10)), child: TextButton.icon(onPressed: _selectDateRange, icon: const Icon(Icons.calendar_month_rounded, size: 16, color: Colors.white), label: const Text('Rango', style: TextStyle(color: Colors.white, fontSize: 12)), style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6)))),
             ]),
             const SizedBox(height: 12),
-            Wrap(spacing: 8, runSpacing: 8, children: [_buildFilterChip('Hoy', 'today'), _buildFilterChip('Esta semana', 'week'), _buildFilterChip('Este mes', 'month'), _buildFilterChip('Mes anterior', 'last_month'), _buildFilterChip('Ultimos 30 dias', 'last_30')]),
+            Wrap(spacing: 8, runSpacing: 8, children: [_buildFilterChip('Hoy', 'today'), _buildFilterChip('Esta semana', 'week')]) // Solo Hoy + Esta semana + Rango (se sacaron Este mes / Mes anterior / Ultimos 30 dias),
           ]),
         ),
         Container(
