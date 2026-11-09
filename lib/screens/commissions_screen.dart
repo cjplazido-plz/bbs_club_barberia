@@ -19,6 +19,30 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
   double _totalCommissions = 0;
   double _totalSales = 0;
   String _selectedBarberId = 'all'; // 'all' = todos, si no = barber_id
+  // PAGADO: folio por barber_id para el periodo actual. Si esta aca, ya se pago y no se puede pagar 2 veces.
+  Map<String, String> _paidFolios = {};
+  // Solo administrador (cjplazido Desarrollador + patriciosan Admin) puede marcar como pagado. Barberos solo ven.
+  bool get _isAdmin {
+    final user = Supabase.instance.client.auth.currentUser;
+    final e = (user?.email ?? '').toLowerCase().trim();
+    if (e.contains('cjplazido') || e.contains('patriciosan')) return true;
+    final role = (user?.userMetadata?['role'] ?? user?.userMetadata?['rol'] ?? '').toString().toLowerCase();
+    if (role.contains('admin') || role.contains('desarrollador') || role.contains('developer')) return true;
+    return false;
+  }
+  Future<void> _loadPaidStatus() async {
+    try {
+      final ini = DateFormat('yyyy-MM-dd').format(_startDate);
+      final fin = DateFormat('yyyy-MM-dd').format(_endDate);
+      final res = await Supabase.instance.client.from('commissions_paid').select('barber_id, folio').eq('periodo_inicio', ini).eq('periodo_fin', fin);
+      final map = <String, String>{};
+      for (final r in (res as List)) { map[(r['barber_id'] ?? '').toString()] = (r['folio'] ?? '').toString(); }
+      if (mounted) setState(() => _paidFolios = map);
+    } catch (e) {
+      // Si la tabla no existe aun, queda vacio = nada pagado. No rompe la pantalla.
+      print('commissions_paid no existe o error: $e');
+    }
+  }
   List<Map<String, dynamic>> get _filteredCommissions => _selectedBarberId == 'all' ? _commissions : _commissions.where((b) => (b['barber_id']?.toString() ?? '') == _selectedBarberId).toList();
   double get _filteredSales => _filteredCommissions.fold(0.0, (s, b) => s + (b['total_sales'] as double));
   double get _filteredCommissionsTotal => _filteredCommissions.fold(0.0, (s, b) => s + (b['total_commission'] as double));
@@ -74,14 +98,63 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
         _totalSales = totalSales;
         _isLoading = false;
       });
+      await _loadPaidStatus();
     } catch (e) {
       print('Error comisiones: $e');
       setState(() { _isLoading = false; });
     }
   }
 
+  // ===== MARCAR COMO PAGADO (solo admin) -> guarda en commissions_paid + cash_movements (cuadratura) =====
+  Future<bool> _marcarPagado(Map<String, dynamic> barber, String folio, String metodo) async {
+    final name = barber['barber_name'] as String;
+    final barberId = (barber['barber_id'] ?? '').toString();
+    final commission = barber['total_commission'] as double;
+    final period = "${DateFormat('dd/MM/yyyy').format(_startDate)} - ${DateFormat('dd/MM/yyyy').format(_endDate)}";
+    final ini = DateFormat('yyyy-MM-dd').format(_startDate);
+    final fin = DateFormat('yyyy-MM-dd').format(_endDate);
+    final email = Supabase.instance.client.auth.currentUser?.email ?? '';
+    try {
+      // 1. Registro de pago (evita doble pago por unique barber_id+periodo)
+      await Supabase.instance.client.from('commissions_paid').insert({
+        'barber_id': barberId,
+        'barber_name': name,
+        'periodo_inicio': ini,
+        'periodo_fin': fin,
+        'monto': commission,
+        'folio': folio,
+        'metodo': metodo,
+        'pagado_por': email,
+      });
+      // 2. Movimiento de caja -> la cuadratura lo resta del Esperado si es Efectivo, si es Transfer no afecta caja
+      await Supabase.instance.client.from('cash_movements').insert({
+        'tipo': 'salida',
+        'categoria': 'Pago comisión',
+        'monto': commission,
+        'metodo': metodo, // 'cash' o 'transfer'
+        'folio': folio,
+        'motivo': 'Pago comisión $name - periodo $period',
+        'afecta_caja': metodo == 'cash',
+        'created_at': DateTime.now().toIso8601String(),
+      });
+      await _loadPaidStatus();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Pagado $name ${SettingsService.formatCurrency(commission)} - $folio'), backgroundColor: const Color(0xFF10B981)));
+      return true;
+    } catch (e) {
+      final msg = e.toString();
+      if (msg.contains('23505') || msg.contains('duplicate') || msg.contains('unique')) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ya estaba pagado para este periodo'), backgroundColor: Colors.orange));
+        await _loadPaidStatus();
+        return false;
+      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al guardar pago: $e'), backgroundColor: Colors.red));
+      return false;
+    }
+  }
+
   // ===== COMPROBANTE DE PAGO DE COMISION - 80mm =====
   void _showComprobanteDialog(Map<String, dynamic> barber) {
+    String metodoPago = 'cash';
     final name = barber['barber_name'] as String;
     final sales = barber['total_sales'] as double;
     final commission = barber['total_commission'] as double;
@@ -120,6 +193,29 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
             const SizedBox(height: 6),
             Text('Recibí conforme ${SettingsService.formatCurrency(commission)} por comisiones del periodo.', style: const TextStyle(fontSize: 9, color: Colors.black54), textAlign: TextAlign.center),
             const SizedBox(height: 16),
+            // Si ya esta pagado, mostrar badge. Si no, solo admin puede marcar como pagado.
+            if (_paidFolios.containsKey((barber['barber_id'] ?? '').toString())) ...[
+              Container(width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 8), decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.12), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFF10B981))), child: Text('✅ YA PAGADO - Folio ${_paidFolios[(barber['barber_id'] ?? '').toString()]}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF10B981)), textAlign: TextAlign.center)),
+              const SizedBox(height: 10),
+            ],
+            if (!_paidFolios.containsKey((barber['barber_id'] ?? '').toString()) && _isAdmin) ...[
+              StatefulBuilder(builder: (ctx2, setStateDialog) {
+                return Column(children: [
+                  const Text('Método de pago:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black54)),
+                  const SizedBox(height: 6),
+                  SegmentedButton<String>(showSelectedIcon: false, segments: const [ButtonSegment(value: 'cash', label: Text('Efectivo', style: TextStyle(fontSize: 11))), ButtonSegment(value: 'transfer', label: Text('Transferencia', style: TextStyle(fontSize: 11)))], selected: {metodoPago}, onSelectionChanged: (v) { setStateDialog(() => metodoPago = v.first); }),
+                  const SizedBox(height: 4),
+                  Text(metodoPago == 'cash' ? 'Efectivo SI resta de caja en cuadratura.' : 'Transferencia NO resta de caja (no sale de caja).', style: const TextStyle(fontSize: 9, color: Colors.black54), textAlign: TextAlign.center),
+                  const SizedBox(height: 10),
+                  SizedBox(width: double.infinity, child: ElevatedButton.icon(onPressed: () async { final ok = await _marcarPagado(barber, folio, metodoPago); if (ok) { if (context.mounted) Navigator.pop(ctx); _printComprobante(barber, folio, period); } }, icon: const Icon(Icons.check_circle_rounded, size: 16), label: const Text('Marcar como Pagado + Imprimir', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6366F1), padding: const EdgeInsets.symmetric(vertical: 12)))),
+                  const SizedBox(height: 8),
+                ]);
+              }),
+            ],
+            if (!_paidFolios.containsKey((barber['barber_id'] ?? '').toString()) && !_isAdmin) ...[
+              const Text('Solo administrador puede marcar como pagado.', style: TextStyle(fontSize: 10, color: Colors.black54), textAlign: TextAlign.center),
+              const SizedBox(height: 10),
+            ],
             Row(children: [
               Expanded(child: OutlinedButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar'))),
               const SizedBox(width: 10),
@@ -323,7 +419,9 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
           Column(crossAxisAlignment: CrossAxisAlignment.end, children: [const Text('Comision a pagar', style: TextStyle(fontSize: 10, color: Colors.white38)), const SizedBox(height: 2), Text(SettingsService.formatCurrency(totalCommission), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF10B981)))]),
         ]),
         const SizedBox(height: 12),
-        SizedBox(width: double.infinity, height: 40, child: ElevatedButton.icon(onPressed: () => _showComprobanteDialog(barber), icon: const Icon(Icons.print_rounded, size: 16), label: const Text('Imprimir comprobante para pagar', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))))),
+        if (_paidFolios.containsKey((barber['barber_id'] ?? '').toString())) Container(width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 8), decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.12), borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFF10B981))), child: Text('✅ PAGADO - ${_paidFolios[(barber['barber_id'] ?? '').toString()]}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF10B981)), textAlign: TextAlign.center)),
+        const SizedBox(height: 8),
+        SizedBox(width: double.infinity, height: 40, child: ElevatedButton.icon(onPressed: () => _showComprobanteDialog(barber), icon: const Icon(Icons.print_rounded, size: 16), label: Text(_paidFolios.containsKey((barber['barber_id'] ?? '').toString()) ? 'Ver comprobante (ya pagado)' : (_isAdmin ? 'Imprimir comprobante para pagar' : 'Ver comprobante'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)), style: ElevatedButton.styleFrom(backgroundColor: _paidFolios.containsKey((barber['barber_id'] ?? '').toString()) ? Colors.white24 : const Color(0xFF10B981), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))))),
       ]),
     );
   }
