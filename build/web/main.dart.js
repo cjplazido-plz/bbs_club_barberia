@@ -70965,45 +70965,45 @@ $0(){A.b6(this.a,!1).bD(null)
 return null},
 $S:0}
 A.bf7.prototype={
-$0(){var s=0,r=A.y(t.H),q,p=2,o=[],n=this,m,l,k,j,i,h,g,f,e,d,c,b,a
-var $async$$0=A.z(function(a0,a1){if(a0===1){o.push(a1)
-s=p}for(;;)switch(s){case 0:c=B.p.aO(n.c.a.a)
-b=B.p.aO(n.d.a.a)
-if(J.bs(c)===0||J.bs(b)===0){n.e.a3(t.J).f.dA(B.btp)
+$0(){var s=0,r=A.y(t.H),q,p=2,o=[],n=this,m,l,k,j,i,h,g,f,e,d,c,b
+var $async$$0=A.z(function(a,a0){if(a===1){o.push(a0)
+s=p}for(;;)switch(s){case 0:d=B.p.aO(n.c.a.a)
+c=B.p.aO(n.d.a.a)
+if(J.bs(d)===0||J.bs(c)===0){n.e.a3(t.J).f.dA(B.btp)
 s=1
-break}j=A.eW(B.p.aO(n.f.a.a))
-m=j==null?0:j
+break}k=A.eW(B.p.aO(n.f.a.a))
+m=k==null?0:k
 p=4
-i=n.r
-h=n.w
-g=n.a
-s=i?7:9
+j=n.r
+i=n.w
+h=n.a
+s=j?7:9
 break
-case 7:f=$.cc().b
-f===$&&A.a()
-e=t.z
+case 7:g=$.cc().b
+g===$&&A.a()
+f=t.z
 s=10
-return A.p(f.c9("profiles").ds(0,A.a7(["full_name",b,"phone",B.p.aO(h.a.a),"role",g.a,"commission_rate",m,"updated_at",new A.aZ(Date.now(),0,!1).dc()],e,e)).eV("id",J.h(n.x,"id")),$async$$0)
+return A.p(g.c9("profiles").ds(0,A.a7(["full_name",c,"phone",B.p.aO(i.a.a),"role",h.a,"commission_rate",m,"updated_at",new A.aZ(Date.now(),0,!1).dc()],f,f)).eV("id",J.h(n.x,"id")),$async$$0)
 case 10:s=8
 break
-case 9:l="user-"+Date.now()
-f=$.cc().b
-f===$&&A.a()
+case 9:Date.now()
+g=$.cc().b
+g===$&&A.a()
 s=11
-return A.p(f.c9("profiles").h6(0,A.a7(["id",l,"email",c,"full_name",b,"phone",B.p.aO(h.a.a),"role",g.a,"commission_rate",m,"created_at",new A.aZ(Date.now(),0,!1).dc(),"updated_at",new A.aZ(Date.now(),0,!1).dc()],t.N,t.K)),$async$$0)
-case 11:case 8:h=n.e
-if(h.e!=null)A.b6(h,!1).bD(null)
-g=n.b
+return A.p(g.c9("profiles").h6(0,A.a7(["email",d,"full_name",c,"phone",B.p.aO(i.a.a),"role",h.a,"commission_rate",m,"created_at",new A.aZ(Date.now(),0,!1).dc(),"updated_at",new A.aZ(Date.now(),0,!1).dc()],t.N,t.K)),$async$$0)
+case 11:case 8:i=n.e
+if(i.e!=null)A.b6(i,!1).bD(null)
+h=n.b
 s=12
-return A.p(g.yp(),$async$$0)
-case 12:if(g.c!=null){h=h.a3(t.J).f
-h.dA(A.fE(null,null,null,B.fc,null,B.W,null,A.E(i?"\u2705 Usuario actualizado":"\u2705 Usuario creado",null,null,null,null,null,null,null,null),null,B.b5,null,null,null,null,null,null,null,null,null,null))}p=2
+return A.p(h.yp(),$async$$0)
+case 12:if(h.c!=null){i=i.a3(t.J).f
+i.dA(A.fE(null,null,null,B.fc,null,B.W,null,A.E(j?"\u2705 Usuario actualizado":"\u2705 Usuario creado",null,null,null,null,null,null,null,null),null,B.b5,null,null,null,null,null,null,null,null,null,null))}p=2
 s=6
 break
 case 4:p=3
-a=o.pop()
-k=A.ac(a)
-if(n.b.c!=null)n.e.a3(t.J).f.dA(A.fE(null,null,null,B.a4,null,B.W,null,A.E("\u274c Error: "+A.k(k),null,null,null,null,null,null,null,null),null,B.b5,null,null,null,null,null,null,null,null,null,null))
+b=o.pop()
+l=A.ac(b)
+if(n.b.c!=null)n.e.a3(t.J).f.dA(A.fE(null,null,null,B.a4,null,B.W,null,A.E("\u274c Error: "+A.k(l),null,null,null,null,null,null,null,null),null,B.b5,null,null,null,null,null,null,null,null,null,null))
 s=6
 break
 case 3:s=2
