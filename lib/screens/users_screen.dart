@@ -56,7 +56,10 @@ class _UsersScreenState extends State<UsersScreen> with TickerProviderStateMixin
       try {
         await Supabase.instance.client.from('profiles').delete().eq('id', userId);
         await _loadUsers();
-      } catch (e) {}
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('✅ Usuario eliminado'), backgroundColor: Colors.green));
+      } catch (e) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ Error: $e'), backgroundColor: Colors.red));
+      }
     }
   }
 
@@ -65,6 +68,7 @@ class _UsersScreenState extends State<UsersScreen> with TickerProviderStateMixin
     final nameCtrl = TextEditingController(text: user?['full_name'] ?? '');
     final phoneCtrl = TextEditingController(text: user?['phone'] ?? '');
     final commCtrl = TextEditingController(text: '${user?['commission_rate'] ?? 0.0}');
+    final passCtrl = TextEditingController();
     String selectedRole = user?['role'] ?? 'cashier';
     final isEditing = user != null;
 
@@ -83,6 +87,12 @@ class _UsersScreenState extends State<UsersScreen> with TickerProviderStateMixin
               const SizedBox(height: 12),
               _field(phoneCtrl, 'Teléfono', Icons.phone_rounded, keyboardType: TextInputType.phone),
               const SizedBox(height: 12),
+              if (!isEditing) ...[
+                _field(passCtrl, 'Contraseña (para crear en Auth)', Icons.lock_rounded, obscure: true),
+                const SizedBox(height: 6),
+                const Text('Después creá este email en Supabase > Authentication > Add user con esa contraseña para que pueda entrar.', style: TextStyle(color: Colors.white38, fontSize: 10)),
+                const SizedBox(height: 12),
+              ],
               DropdownButtonFormField<String>(value: selectedRole, dropdownColor: const Color(0xFF1E293B), style: const TextStyle(color: Colors.white), decoration: InputDecoration(labelText: 'Rol', labelStyle: const TextStyle(color: Colors.white54, fontSize: 13), filled: true, fillColor: const Color(0xFF0F172A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))), items: const [DropdownMenuItem(value: 'admin', child: Text('Administrador')), DropdownMenuItem(value: 'cashier', child: Text('Cajero')), DropdownMenuItem(value: 'barber', child: Text('Barbero'))], onChanged: (v) => setDialogState(() => selectedRole = v!)),
               const SizedBox(height: 12),
               _field(commCtrl, '% Comisión', Icons.percent_rounded, keyboardType: TextInputType.number),
@@ -90,18 +100,55 @@ class _UsersScreenState extends State<UsersScreen> with TickerProviderStateMixin
           ),
           actions: [
             TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar', style: TextStyle(color: Colors.grey))),
-            Container(decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF818CF8)]), borderRadius: BorderRadius.circular(10)), child: ElevatedButton(onPressed: () async { Navigator.pop(context); }, style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, shadowColor: Colors.transparent), child: const Text('Guardar', style: TextStyle(fontWeight: FontWeight.bold)))),
+            Container(decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF818CF8)]), borderRadius: BorderRadius.circular(10)), child: ElevatedButton(onPressed: () async {
+              final email = emailCtrl.text.trim();
+              final name = nameCtrl.text.trim();
+              if (email.isEmpty || name.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('❌ Email y nombre son obligatorios'), backgroundColor: Colors.red));
+                return;
+              }
+              final comm = double.tryParse(commCtrl.text.trim()) ?? 0.0;
+              try {
+                if (isEditing) {
+                  await Supabase.instance.client.from('profiles').update({
+                    'full_name': name,
+                    'phone': phoneCtrl.text.trim(),
+                    'role': selectedRole,
+                    'commission_rate': comm,
+                    'updated_at': DateTime.now().toIso8601String(),
+                  }).eq('id', user!['id']);
+                } else {
+                  final newId = 'user-${DateTime.now().millisecondsSinceEpoch}';
+                  await Supabase.instance.client.from('profiles').insert({
+                    'id': newId,
+                    'email': email,
+                    'full_name': name,
+                    'phone': phoneCtrl.text.trim(),
+                    'role': selectedRole,
+                    'commission_rate': comm,
+                    'created_at': DateTime.now().toIso8601String(),
+                    'updated_at': DateTime.now().toIso8601String(),
+                  });
+                }
+                if (context.mounted) Navigator.pop(context);
+                await _loadUsers();
+                if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(isEditing ? '✅ Usuario actualizado' : '✅ Usuario creado'), backgroundColor: Colors.green));
+              } catch (e) {
+                if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ Error: $e'), backgroundColor: Colors.red));
+              }
+            }, style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, shadowColor: Colors.transparent), child: const Text('Guardar', style: TextStyle(fontWeight: FontWeight.bold)))),
           ],
         ),
       ),
     );
   }
 
-  Widget _field(TextEditingController c, String label, IconData icon, {TextInputType? keyboardType, bool enabled = true}) {
+  Widget _field(TextEditingController c, String label, IconData icon, {TextInputType? keyboardType, bool enabled = true, bool obscure = false}) {
     return TextField(
       controller: c,
       enabled: enabled,
       keyboardType: keyboardType,
+      obscureText: obscure,
       style: const TextStyle(color: Colors.white, fontSize: 13),
       decoration: InputDecoration(
         labelText: label,
