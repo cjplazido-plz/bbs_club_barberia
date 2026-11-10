@@ -1,4 +1,4 @@
-// lib/screens/appointments_screen.dart - PREMIUM FINAL - calendario compacto centrado + cards originales bonitas
+﻿// lib/screens/appointments_screen.dart - PREMIUM FINAL - calendario compacto centrado + cards originales bonitas
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -39,6 +39,25 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     super.initState();
     _loadData();
     _loadDaysWithCounts();
+  }
+
+  Future<void> _syncAppointments() async {
+    // Muestra un indicador de carga o un SnackBar de confirmación
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sincronizando citas...')),
+      );
+    }
+    
+    // Vuelve a cargar los datos y los contadores del calendario
+    await _loadData();
+    await _loadDaysWithCounts();
+    
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Citas sincronizadas'), backgroundColor: Colors.green),
+      );
+    }
   }
 
   Future<void> _loadData() async {
@@ -90,11 +109,11 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     final timeStr = DateFormat('HH:mm').format(appointment.appointmentDate);
     String msg;
     if (type == 'cancelled') {
-      msg = 'Hola ${appointment.clientName}, tu cita en BBS Club Barberia ha sido *CANCELADA*.\n\n📅 Fecha: $dateStr\n⏰ Hora: $timeStr\n✂️ Servicio: ${appointment.serviceName}\n💈 Barbero: ${appointment.barberName}\n\nSi deseas reagendar avisanos.';
+      msg = 'Hola ${appointment.clientName}, tu cita en BBS Club Barberia ha sido *CANCELADA*.\n\n\u{1F4C5} Fecha: $dateStr\n\u{23F0} Hora: $timeStr\n\u{2702} Servicio: ${appointment.serviceName}\n\u{1F488} Barbero: ${appointment.barberName}\n\nSi deseas reagendar avisanos.';
     } else if (type == 'booking') {
-      msg = 'Hola ${appointment.clientName}, tu cita en BBS Club Barberia ha sido *REGISTRADA*.\n\n📅 Fecha: $dateStr\n⏰ Hora: $timeStr\n✂️ Servicio: ${appointment.serviceName}\n💈 Barbero: ${appointment.barberName}\n\nTe confirmamos pronto.';
+      msg = 'Hola ${appointment.clientName}, tu cita en BBS Club Barberia ha sido *REGISTRADA*.\n\n\u{1F4C5} Fecha: $dateStr\n\u{23F0} Hora: $timeStr\n\u{2702} Servicio: ${appointment.serviceName}\n\u{1F488} Barbero: ${appointment.barberName}\n\nTe confirmamos pronto.';
     } else {
-      msg = 'Hola ${appointment.clientName}, tu cita en BBS Club Barberia ha sido *CONFIRMADA*.\n\n📅 Fecha: $dateStr\n⏰ Hora: $timeStr\n✂️ Servicio: ${appointment.serviceName}\n💈 Barbero: ${appointment.barberName}\n\n¡Te esperamos! 👋';
+      msg = 'Hola ${appointment.clientName}, tu cita en BBS Club Barberia ha sido *CONFIRMADA*.\n\n\u{1F4C5} Fecha: $dateStr\n\u{23F0} Hora: $timeStr\n\u{2702} Servicio: ${appointment.serviceName}\n\u{1F488} Barbero: ${appointment.barberName}\n\n\u{1F44B} Te esperamos!';
     }
     final abonoTxt = _abonoLine(appointment.notes);
     if (abonoTxt.isNotEmpty) msg = '$msg\n\n💰 $abonoTxt';
@@ -447,8 +466,14 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     final isDark = true;
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
-appBar: AppBar(backgroundColor: const Color(0xFF1E293B),leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: () { if (Navigator.canPop(context)) { Navigator.pop(context); } else { Navigator.pushReplacement( context, MaterialPageRoute(builder: (_) => PosScreen()),);}},),title: const Text('Agenda', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),actions: [ IconButton(icon: const Icon(Icons.lock_clock_rounded, color: Colors.white), tooltip: 'Bloquear Horas', onPressed: () { Navigator.push( context, MaterialPageRoute(builder: (_) => BlockedHoursScreen()),);},), IconButton( icon: const Icon(Icons.sync), tooltip: 'Sincronizar', onPressed: _syncAppointments,), ],),
- [IconButton(icon: const Icon(Icons.refresh, color: Colors.white54), onPressed: (){ _loadData(); _loadDaysWithCounts(); })]),
+appBar: AppBar(
+  backgroundColor: const Color(0xFF1E293B),
+leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: () { if (Navigator.canPop(context)) { Navigator.pop(context); } else { Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => PosScreen())); } }),
+  title: const Text('Agenda', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+  actions: [
+     IconButton(icon: const Icon(Icons.lock_clock_rounded, color: Colors.white), tooltip: 'Bloquear Horas', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (_) => BlockedHoursScreen()));}),
+     IconButton(icon: const Icon(Icons.sync), tooltip: 'Sincronizar', onPressed: _syncAppointments),
+     IconButton(icon: const Icon(Icons.refresh, color: Colors.white54), onPressed: (){ _loadData(); _loadDaysWithCounts();})]),
       body: _isLoading ? const Center(child: CircularProgressIndicator(color: Color(0xFF6366F1))) : SingleChildScrollView(padding: const EdgeInsets.all(12), child: Column(children: [
         _buildPremiumCalendarCompact(),
         const SizedBox(height: 16),
