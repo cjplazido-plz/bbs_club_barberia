@@ -442,7 +442,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
 
   void _showMobileMenu() {
     showModalBottomSheet(context: context, isScrollControlled: true, shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), backgroundColor: const Color(0xFF1E293B), builder: (context) => DraggableScrollableSheet(initialChildSize: 0.9, minChildSize: 0.5, maxChildSize: 0.95, expand: false, builder: (context, scrollController) => SingleChildScrollView(controller: scrollController, child: Column(children: [
-      Container(padding: const EdgeInsets.all(20), decoration: const BoxDecoration(color: Color(0xFF6366F1), borderRadius: BorderRadius.vertical(top: Radius.circular(20))), child: Row(children: const [Text('☰', style: TextStyle(fontSize: 28, color: Colors.white)), SizedBox(width: 12), Text('Menú  •  Rol: ${(_myRole ?? currentUserRole).toString()}',, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white))])),
+      Container(padding: const EdgeInsets.all(20), decoration: const BoxDecoration(color: Color(0xFF6366F1), borderRadius: BorderRadius.vertical(top: Radius.circular(20))), child: Row(children: [const Text('☰', style: TextStyle(fontSize: 28, color: Colors.white)), const SizedBox(width: 12), Text('Menú  •  Rol: ${(_myRole ?? currentUserRole).toString()}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white))])),
       Column(children: [
         // Menú por permisos - no solo admin. Barbero no ve Usuarios/Roles/Config, Cajero ve cierre/historial pero no edita.
         if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewReports))
