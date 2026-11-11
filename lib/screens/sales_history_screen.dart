@@ -1,4 +1,3 @@
-// lib/screens/sales_history_screen.dart - BUILD FIX para barberflow - Solo tocar = ver, imprime 80mm, edita pago, anula
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -7,6 +6,8 @@ import 'package:printing/printing.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import '../services/settings_service.dart';
+import '../main.dart'; 
+import '../services/role_permissions.dart'; 
 
 class SalesHistoryScreen extends StatefulWidget {
   @override
@@ -18,11 +19,11 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
   List<Map<String, dynamic>> _transactions = [];
   DateTime _startDate = DateTime.now().subtract(const Duration(days: 7));
   DateTime _endDate = DateTime.now();
-  // FILTROS HISTORIAL
   String _searchQuery = '';
   String _filterBarber = 'all';
   String _filterMethod = 'all';
   String _filterStatus = 'all';
+  
   List<Map<String, dynamic>> get _filteredTransactions {
     var list = _transactions;
     if (_filterBarber != 'all') list = list.where((tr) => (tr['barber_name'] ?? '').toString() == _filterBarber).toList();
@@ -34,6 +35,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
     }
     return list;
   }
+  
   List<String> get _allBarbersHist { final s = <String>{}; for (final tr in _transactions) { final b = (tr['barber_name'] ?? '').toString(); if (b.isNotEmpty) s.add(b); } final l = s.toList()..sort(); return l; }
   double get _filteredTotal => _filteredTransactions.fold(0.0, (s, tr) => s + ((tr['total'] as num?)?.toDouble() ?? 0.0));
   void _clearHistFilters() { setState(() { _searchQuery = ''; _filterBarber = 'all'; _filterMethod = 'all'; _filterStatus = 'all'; }); }
@@ -75,7 +77,8 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
       case 'card': return 'Tarjeta';
       case 'transfer': return 'Transferencia';
       case 'debito': return 'Débito';
-      case 'mixto': return 'Mixto';
+      case 'mixto':
+      case 'mixed': return 'Mixto';
       default: return p ?? 'Efectivo';
     }
   }
@@ -154,12 +157,16 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
                 ]),
               ),
               const SizedBox(height: 20),
-              Row(children: [
-                Expanded(child: OutlinedButton.icon(onPressed: () { Navigator.pop(context); _showEditPaymentDialog(transaction); }, icon: const Icon(Icons.edit_rounded, size: 16, color: Color(0xFF818CF8)), label: const Text('Editar Pago', style: TextStyle(color: Color(0xFF818CF8), fontSize: 12, fontWeight: FontWeight.bold)), style: OutlinedButton.styleFrom(side: const BorderSide(color: Color(0xFF6366F1)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 13)))),
-                const SizedBox(width: 8),
-                Expanded(child: OutlinedButton.icon(onPressed: transaction['status'] == 'cancelled' ? null : () { Navigator.pop(context); _showAnularDialog(transaction, items); }, icon: const Icon(Icons.cancel_rounded, size: 16, color: Colors.redAccent), label: const Text('Anular', style: TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.bold)), style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.redAccent), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 13)))),
-              ]),
-              const SizedBox(height: 10),
+              
+              if (RolePermissions.isAdmin(currentUserRole)) ...[
+                Row(children: [
+                  Expanded(child: OutlinedButton.icon(onPressed: () { Navigator.pop(context); _showEditPaymentDialog(transaction); }, icon: const Icon(Icons.edit_rounded, size: 16, color: Color(0xFF818CF8)), label: const Text('Editar Pago', style: TextStyle(color: Color(0xFF818CF8), fontSize: 12, fontWeight: FontWeight.bold)), style: OutlinedButton.styleFrom(side: const BorderSide(color: Color(0xFF6366F1)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 13)))),
+                  const SizedBox(width: 8),
+                  Expanded(child: OutlinedButton.icon(onPressed: transaction['status'] == 'cancelled' ? null : () { Navigator.pop(context); _showAnularDialog(transaction, items); }, icon: const Icon(Icons.cancel_rounded, size: 16, color: Colors.redAccent), label: const Text('Anular', style: TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.bold)), style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.redAccent), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 13)))),
+                ]),
+                const SizedBox(height: 10),
+              ],
+              
               Row(children: [
                 Expanded(child: OutlinedButton.icon(onPressed: () => _printTicket(transaction, items), icon: const Icon(Icons.print_rounded, size: 18, color: Colors.white70), label: const Text('Imprimir 80mm', style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold)), style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.white24), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 14)))),
                 const SizedBox(width: 10),
@@ -189,6 +196,8 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
 
   Future<void> _showEditPaymentDialog(Map<String, dynamic> transaction) async {
     String selected = transaction['payment_method']?.toString() ?? 'cash';
+    if (selected == 'mixed') selected = 'mixto';
+
     await showDialog(context: context, builder: (c) => AlertDialog(
       backgroundColor: const Color(0xFF1E293B),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -235,7 +244,10 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
         const SizedBox(height: 14),
         TextField(controller: motivoCtrl, style: const TextStyle(color: Colors.white, fontSize: 13), maxLines: 2, decoration: InputDecoration(labelText: 'Motivo *', labelStyle: const TextStyle(color: Colors.white54, fontSize: 12), filled: true, fillColor: const Color(0xFF0F172A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
         const SizedBox(height: 10),
-        CheckboxListTile(value: devolverStock, onChanged: (v) => setSt(() => devolverStock = v!), title: const Text('Devolver stock', style: TextStyle(color: Colors.white70, fontSize: 12)), activeColor: const Color(0xFF10B981), contentPadding: EdgeInsets.zero, controlAffinity: ListTileControlAffinity.leading),
+        Material(
+          type: MaterialType.transparency,
+          child: CheckboxListTile(value: devolverStock, onChanged: (v) => setSt(() => devolverStock = v!), title: const Text('Devolver stock', style: TextStyle(color: Colors.white70, fontSize: 12)), activeColor: const Color(0xFF10B981), contentPadding: EdgeInsets.zero, controlAffinity: ListTileControlAffinity.leading),
+        ),
       ]),
       actions: [
         TextButton(onPressed: () => Navigator.pop(c), child: const Text('Cancelar', style: TextStyle(color: Colors.grey))),
@@ -269,7 +281,6 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
     )));
   }
 
-  // FIX BUILD: sin SettingsService.getLogoUrl etc - usa texto fijo para compilar siempre
   Future<void> _printTicket(Map<String, dynamic> transaction, List<Map<String, dynamic>> items) async {
     try {
       const businessName = 'BBS CLUB';
@@ -348,7 +359,6 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
             Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.2), borderRadius: BorderRadius.circular(20)), child: Text('${_transactions.length} ventas', style: const TextStyle(color: Color(0xFF818CF8), fontSize: 11, fontWeight: FontWeight.bold))),
           ]),
         ),
-        // FILTROS HISTORIAL: buscador + barbero + metodo + estado
         Container(
           margin: const EdgeInsets.symmetric(horizontal: 12),
           padding: const EdgeInsets.all(12),
@@ -392,13 +402,16 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
                           child: Container(
                             margin: const EdgeInsets.only(bottom: 8),
                             decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(14), border: Border.all(color: isCancelled ? Colors.red.withOpacity(0.2) : Colors.white.withOpacity(0.05))),
-                            child: ListTile(
-                              onTap: () => _showTransactionDetail(t),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                              leading: Container(width: 38, height: 38, decoration: BoxDecoration(color: isCancelled ? Colors.red.withOpacity(0.15) : const Color(0xFF6366F1).withOpacity(0.15), shape: BoxShape.circle), child: Icon(isCancelled ? Icons.cancel_rounded : Icons.receipt_rounded, size: 18, color: isCancelled ? Colors.redAccent : const Color(0xFF818CF8))),
-                              title: Text(DateFormat('dd/MM/yyyy HH:mm').format(DateTime.parse(t['created_at'])), style: TextStyle(fontWeight: FontWeight.bold, color: isCancelled ? Colors.white54 : Colors.white, fontSize: 13, decoration: isCancelled ? TextDecoration.lineThrough : null)),
-                              subtitle: Text('${_formatPayment(t['payment_method']?.toString())} • ${t['barber_name'] ?? ''} • ${t['cashier_name'] ?? ''}', style: const TextStyle(color: Colors.white38, fontSize: 11)),
-                              trailing: Text(SettingsService.formatCurrency((t['total'] as num).toDouble()), style: TextStyle(color: isCancelled ? Colors.white38 : const Color(0xFF10B981), fontWeight: FontWeight.w900, fontSize: 14, decoration: isCancelled ? TextDecoration.lineThrough : null)),
+                            child: Material(
+                              type: MaterialType.transparency,
+                              child: ListTile(
+                                onTap: () => _showTransactionDetail(t),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                leading: Container(width: 38, height: 38, decoration: BoxDecoration(color: isCancelled ? Colors.red.withOpacity(0.15) : const Color(0xFF6366F1).withOpacity(0.15), shape: BoxShape.circle), child: Icon(isCancelled ? Icons.cancel_rounded : Icons.receipt_rounded, size: 18, color: isCancelled ? Colors.redAccent : const Color(0xFF818CF8))),
+                                title: Text(DateFormat('dd/MM/yyyy HH:mm').format(DateTime.parse(t['created_at'])), style: TextStyle(fontWeight: FontWeight.bold, color: isCancelled ? Colors.white54 : Colors.white, fontSize: 13, decoration: isCancelled ? TextDecoration.lineThrough : null)),
+                                subtitle: Text('${_formatPayment(t['payment_method']?.toString())} • ${t['barber_name'] ?? ''} • ${t['cashier_name'] ?? ''}', style: const TextStyle(color: Colors.white38, fontSize: 11)),
+                                trailing: Text(SettingsService.formatCurrency((t['total'] as num).toDouble()), style: TextStyle(color: isCancelled ? Colors.white38 : const Color(0xFF10B981), fontWeight: FontWeight.w900, fontSize: 14, decoration: isCancelled ? TextDecoration.lineThrough : null)),
+                              ),
                             ),
                           ),
                         );

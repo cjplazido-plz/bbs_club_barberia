@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../models/local_service.dart';
 import '../repositories/service_repository.dart';
 import '../services/settings_service.dart';
+import '../main.dart';
+import '../services/role_permissions.dart';
 
 class ServicesScreen extends StatefulWidget {
   @override
@@ -136,6 +138,8 @@ class _ServicesScreenState extends State<ServicesScreen> with TickerProviderStat
 
   @override
   Widget build(BuildContext context) {
+    final isAdmin = RolePermissions.isAdmin(currentUserRole);
+
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
       appBar: AppBar(
@@ -164,27 +168,30 @@ class _ServicesScreenState extends State<ServicesScreen> with TickerProviderStat
                       child: Container(
                         margin: const EdgeInsets.only(bottom: 12),
                         decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withOpacity(0.06)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.25), blurRadius: 12, offset: const Offset(0, 4))]),
-                        child: ListTile(
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                          leading: Container(width: 44, height: 44, decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.15), shape: BoxShape.circle, border: Border.all(color: const Color(0xFF6366F1).withOpacity(0.25))), child: const Icon(Icons.content_cut_rounded, size: 20, color: Color(0xFF818CF8))),
-                          title: Text(s.name, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 14)),
-                          subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            const SizedBox(height: 4),
-                            Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.15), borderRadius: BorderRadius.circular(20)), child: Text(SettingsService.formatCurrency(s.price), style: const TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold))),
-                            const SizedBox(height: 4),
-                            Row(children: [const Icon(Icons.timer_outlined, size: 12, color: Colors.white38), const SizedBox(width: 4), Text('${s.durationMinutes} min | ${s.commissionValue.toInt()}%', style: const TextStyle(color: Colors.white38, fontSize: 11))]),
-                          ]),
-                          trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                            Container(decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.12), borderRadius: BorderRadius.circular(10)), child: IconButton(icon: const Icon(Icons.edit_rounded, size: 18, color: Color(0xFF818CF8)), onPressed: () => _showServiceDialog(service: s))),
-                            const SizedBox(width: 6),
-                            Container(decoration: BoxDecoration(color: Colors.red.withOpacity(0.12), borderRadius: BorderRadius.circular(10)), child: IconButton(icon: const Icon(Icons.delete_rounded, size: 18, color: Color(0xFFEF4444)), onPressed: () => _deleteService(s))),
-                          ]),
+                        child: Material(
+                          type: MaterialType.transparency,
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            leading: Container(width: 44, height: 44, decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.15), shape: BoxShape.circle, border: Border.all(color: const Color(0xFF6366F1).withOpacity(0.25))), child: const Icon(Icons.content_cut_rounded, size: 20, color: Color(0xFF818CF8))),
+                            title: Text(s.name, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 14)),
+                            subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              const SizedBox(height: 4),
+                              Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.15), borderRadius: BorderRadius.circular(20)), child: Text(SettingsService.formatCurrency(s.price), style: const TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold))),
+                              const SizedBox(height: 4),
+                              Row(children: [const Icon(Icons.timer_outlined, size: 12, color: Colors.white38), const SizedBox(width: 4), Text('${s.durationMinutes} min | ${s.commissionValue.toInt()}%', style: const TextStyle(color: Colors.white38, fontSize: 11))]),
+                            ]),
+                            trailing: isAdmin ? Row(mainAxisSize: MainAxisSize.min, children: [
+                              Container(decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.12), borderRadius: BorderRadius.circular(10)), child: IconButton(icon: const Icon(Icons.edit_rounded, size: 18, color: Color(0xFF818CF8)), onPressed: () => _showServiceDialog(service: s))),
+                              const SizedBox(width: 6),
+                              Container(decoration: BoxDecoration(color: Colors.red.withOpacity(0.12), borderRadius: BorderRadius.circular(10)), child: IconButton(icon: const Icon(Icons.delete_rounded, size: 18, color: Color(0xFFEF4444)), onPressed: () => _deleteService(s))),
+                            ]) : null,
+                          ),
                         ),
                       ),
                     );
                   },
                 ),
-      floatingActionButton: Container(decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF818CF8)]), borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: const Color(0xFF6366F1).withOpacity(0.4), blurRadius: 12, offset: const Offset(0, 6))]), child: FloatingActionButton(onPressed: () => _showServiceDialog(), backgroundColor: Colors.transparent, elevation: 0, child: const Icon(Icons.add_rounded, color: Colors.white, size: 28))),
+      floatingActionButton: isAdmin ? Container(decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF818CF8)]), borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: const Color(0xFF6366F1).withOpacity(0.4), blurRadius: 12, offset: const Offset(0, 6))]), child: FloatingActionButton(onPressed: () => _showServiceDialog(), backgroundColor: Colors.transparent, elevation: 0, child: const Icon(Icons.add_rounded, color: Colors.white, size: 28))) : null,
     );
   }
 }

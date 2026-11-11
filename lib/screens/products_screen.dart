@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../models/local_product.dart';
 import '../repositories/product_repository.dart';
 import '../services/settings_service.dart';
+import '../main.dart';
+import '../services/role_permissions.dart';
 
 class ProductsScreen extends StatefulWidget {
   @override
@@ -99,15 +101,34 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isAdmin = RolePermissions.isAdmin(currentUserRole);
+
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
       appBar: AppBar(leading: IconButton(icon: const Icon(Icons.arrow_back_rounded, color: Colors.white), onPressed: () => Navigator.pop(context)), title: const Text('Productos Premium', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)), backgroundColor: const Color(0xFF1E293B), foregroundColor: Colors.white, elevation: 0),
       body: _isLoading ? const Center(child: CircularProgressIndicator(color: Color(0xFF6366F1))) : _products.isEmpty ? const Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Text('📦', style: TextStyle(fontSize: 64)), SizedBox(height: 16), Text('No hay productos registrados', style: TextStyle(color: Colors.white54, fontSize: 15))])) : ListView.builder(padding: const EdgeInsets.all(16), itemCount: _products.length, itemBuilder: (context, index) {
         final product = _products[index];
         final isLowStock = product.stock <= product.minStock;
-        return Container(margin: const EdgeInsets.only(bottom: 12), decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withOpacity(0.05)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 12, offset: const Offset(0,4))]), child: ListTile(contentPadding: const EdgeInsets.all(14), leading: Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: isLowStock ? Colors.red.withOpacity(0.15) : const Color(0xFFF59E0B).withOpacity(0.15), shape: BoxShape.circle, border: Border.all(color: isLowStock ? Colors.red.withOpacity(0.3) : const Color(0xFFF59E0B).withOpacity(0.3))), child: const Text('🛍️', style: TextStyle(fontSize: 18))), title: Text(product.name, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 14)), subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [if (product.description != null && product.description!.isNotEmpty) Text(product.description!, style: const TextStyle(color: Colors.white54, fontSize: 12)), const SizedBox(height: 3), Text('💰 ${SettingsService.formatCurrency(product.price)}', style: const TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.bold, fontSize: 13)), const SizedBox(height: 2), Text('📦 Stock: ${product.stock} (min: ${product.minStock})', style: TextStyle(color: isLowStock ? Colors.redAccent : Colors.white38, fontSize: 11, fontWeight: FontWeight.w600))]), trailing: Row(mainAxisSize: MainAxisSize.min, children: [Container(decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(10)), child: IconButton(icon: const Text('✏️', style: TextStyle(fontSize: 16)), onPressed: () => _showProductDialog(product: product))), const SizedBox(width: 6), Container(decoration: BoxDecoration(color: Colors.red.withOpacity(0.1), borderRadius: BorderRadius.circular(10)), child: IconButton(icon: const Text('🗑️', style: TextStyle(fontSize: 16)), onPressed: () => _deleteProduct(product)))])));
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12), 
+          decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withOpacity(0.05)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 12, offset: const Offset(0,4))]), 
+          child: Material(
+            type: MaterialType.transparency,
+            child: ListTile(
+              contentPadding: const EdgeInsets.all(14), 
+              leading: Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: isLowStock ? Colors.red.withOpacity(0.15) : const Color(0xFFF59E0B).withOpacity(0.15), shape: BoxShape.circle, border: Border.all(color: isLowStock ? Colors.red.withOpacity(0.3) : const Color(0xFFF59E0B).withOpacity(0.3))), child: const Text('🛍️', style: TextStyle(fontSize: 18))), 
+              title: Text(product.name, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 14)), 
+              subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [if (product.description != null && product.description!.isNotEmpty) Text(product.description!, style: const TextStyle(color: Colors.white54, fontSize: 12)), const SizedBox(height: 3), Text('💰 ${SettingsService.formatCurrency(product.price)}', style: const TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.bold, fontSize: 13)), const SizedBox(height: 2), Text('📦 Stock: ${product.stock} (min: ${product.minStock})', style: TextStyle(color: isLowStock ? Colors.redAccent : Colors.white38, fontSize: 11, fontWeight: FontWeight.w600))]), 
+              trailing: isAdmin ? Row(mainAxisSize: MainAxisSize.min, children: [
+                Container(decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(10)), child: IconButton(icon: const Text('✏️', style: TextStyle(fontSize: 16)), onPressed: () => _showProductDialog(product: product))), 
+                const SizedBox(width: 6), 
+                Container(decoration: BoxDecoration(color: Colors.red.withOpacity(0.1), borderRadius: BorderRadius.circular(10)), child: IconButton(icon: const Text('🗑️', style: TextStyle(fontSize: 16)), onPressed: () => _deleteProduct(product)))
+              ]) : null
+            )
+          )
+        );
       }),
-      floatingActionButton: Container(decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF818CF8)]), borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: const Color(0xFF6366F1).withOpacity(0.4), blurRadius: 12, offset: const Offset(0,6))]), child: FloatingActionButton(onPressed: () => _showProductDialog(), backgroundColor: Colors.transparent, elevation: 0, child: const Icon(Icons.add_rounded, color: Colors.white, size: 28))),
+      floatingActionButton: isAdmin ? Container(decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF818CF8)]), borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: const Color(0xFF6366F1).withOpacity(0.4), blurRadius: 12, offset: const Offset(0,6))]), child: FloatingActionButton(onPressed: () => _showProductDialog(), backgroundColor: Colors.transparent, elevation: 0, child: const Icon(Icons.add_rounded, color: Colors.white, size: 28))) : null,
     );
   }
 }

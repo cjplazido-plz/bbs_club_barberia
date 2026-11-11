@@ -81,7 +81,8 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       try {
         if (userEmail.toLowerCase()==developerEmail.toLowerCase()) { role='admin'; userName='Desarrollador (Acceso Total)'; }
         else if (userEmail.isNotEmpty) {
-          final profile = await Supabase.instance.client.from('profiles').select().eq('email', userEmail).maybeSingle();
+          // Usar el ID de la sesión del usuario es más seguro
+          final profile = await Supabase.instance.client.from('profiles').select().eq('id', res.user!.id).maybeSingle();
           if (profile!=null) { role=profile['role']??'admin'; userName=profile['full_name']??profile['name']??userEmail.split('@').first; }
         }
       } catch(_){}

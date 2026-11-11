@@ -1,4 +1,4 @@
-// lib/screens/advanced_reports_screen.dart - FINAL CON FILTRO FECHAS + LOGO COLORES READY
+// lib/screens/advanced_reports_screen.dart - CON PERMISOS Y FIX LISTTILE
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -9,6 +9,8 @@ import 'package:excel/excel.dart' hide Border;
 import 'package:intl/intl.dart';
 import '../services/settings_service.dart';
 import '../services/ticket_config_service.dart';
+import '../main.dart';
+import '../services/role_permissions.dart';
 import 'dart:typed_data';
 
 class AdvancedReportsScreen extends StatefulWidget {
@@ -28,14 +30,13 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
   List<Map<String, dynamic>> _salesByBarber = [];
   List<Map<String, dynamic>> _salesByService = [];
   List<Map<String, dynamic>> _paymentMethods = [];
-  // FILTROS NUEVOS
   String _filterBarber = 'all';
   String _filterService = 'all';
   String _filterMethod = 'all';
   List<String> _allBarbers = [];
   List<String> _allServices = [];
   List<Map<String, dynamic>> _allTransactions = [];
-  List<Map<String, dynamic>> _filteredDetail = []; // detalle filtrado: servicio x barbero
+  List<Map<String, dynamic>> _filteredDetail = []; 
 
   @override
   void initState() {
@@ -64,15 +65,12 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
       final endStr = _endDate.add(const Duration(days: 1)).toIso8601String();
       final transactions = await Supabase.instance.client.from('transactions').select('*').gte('created_at', startStr).lte('created_at', endStr).eq('status', 'completed');
       var transList = List<Map<String, dynamic>>.from(transactions);
-      // Cargar barberos distintos para el dropdown (siempre de todo el periodo, no del filtrado)
       final barbersSet = <String>{};
       for (final tr in transList) { final b = (tr['barber_name'] ?? '').toString(); if (b.isNotEmpty) barbersSet.add(b); }
       _allBarbers = barbersSet.toList()..sort();
-      // Filtro barbero + metodo (sobre transacciones)
       if (_filterBarber != 'all') transList = transList.where((tr) => (tr['barber_name'] ?? '').toString() == _filterBarber).toList();
       if (_filterMethod != 'all') transList = transList.where((tr) => (tr['payment_method'] ?? '').toString() == _filterMethod).toList();
       _allTransactions = List<Map<String, dynamic>>.from(transList);
-      // Items para servicios + filtro servicio
       List<Map<String, dynamic>> itemList = [];
       Map<String, Map<String, dynamic>> transById = { for (final tr in transList) (tr['id'].toString()): tr };
       if (transList.isNotEmpty) {
@@ -82,7 +80,6 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
         for (final it in itemList) { final n = (it['service_name'] ?? it['product_name'] ?? '').toString(); if (n.isNotEmpty) svcSet.add(n); }
         _allServices = svcSet.toList()..sort();
       } else { _allServices = []; }
-      // Si hay filtro de servicio, recalcular totales SOLO con ese servicio (no el total de la venta completa)
       double totalSalesCalc;
       double totalTransCalc;
       if (_filterService != 'all') {
@@ -90,14 +87,11 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
         totalSalesCalc = filteredItems.fold(0.0, (s, it) => s + (((it['price_at_moment'] as num?)?.toDouble() ?? 0.0) * ((it['quantity'] as num?)?.toInt() ?? 1)));
         final ids = filteredItems.map((it) => it['transaction_id'].toString()).toSet();
         totalTransCalc = ids.length.toDouble();
-        // Para ventas por dia / barbero / servicio, usar solo items filtrados
         _filteredDetail = filteredItems.map((it) {
           final tr = transById[it['transaction_id'].toString()];
           return {'service': _filterService, 'barber': (it['barber_name'] ?? tr?['barber_name'] ?? 'Sin barbero').toString(), 'qty': (it['quantity'] as num?)?.toInt() ?? 1, 'total': (((it['price_at_moment'] as num?)?.toDouble() ?? 0.0) * ((it['quantity'] as num?)?.toInt() ?? 1)), 'date': tr?['created_at']};
         }).toList();
-        // Reemplazar transList por solo las que tienen ese servicio para los graficos por dia/barbero
         transList = transList.where((tr) => ids.contains(tr['id'].toString())).toList();
-        // Y recalcular salesByDay con el monto del servicio, no el total de la venta
         Map<String, double> salesByDayMapTmp = {};
         for (final it in filteredItems) {
           final tr = transById[it['transaction_id'].toString()];
@@ -122,13 +116,11 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
         _totalSales = totalSalesCalc;
         _totalTransactions = totalTransCalc;
         _averageTicket = _totalTransactions > 0 ? _totalSales / _totalTransactions : 0.0;
-        // Servicios: solo el filtrado
         final qty = filteredItems.fold<int>(0, (s, it) => s + ((it['quantity'] as num?)?.toInt() ?? 1));
         _salesByService = [{'name': _filterService, 'quantity': qty, 'total': totalSalesCalc}];
         if (mounted) setState(() => _isLoading = false);
         return;
       }
-      // Sin filtro servicio: calculo normal
       _totalSales = transList.fold(0.0, (sum, t) => sum + ((t['total'] as num?)?.toDouble() ?? 0.0));
       _totalTransactions = transList.length.toDouble();
       _averageTicket = _totalTransactions > 0 ? _totalSales / _totalTransactions : 0.0;
@@ -156,7 +148,6 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
       _paymentMethods = paymentMap.entries.map((e) => {'method': e.key, 'total': e.value}).toList();
 
       if (transList.isNotEmpty) {
-        // itemList ya cargado arriba (con barber y transaction_id)
         Map<String, Map<String, dynamic>> serviceMap = {};
         _filteredDetail = [];
         for (final item in itemList) {
@@ -166,7 +157,6 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
           if (!serviceMap.containsKey(name)) serviceMap[name] = {'name': name, 'quantity': 0, 'total': 0.0};
           serviceMap[name]!['quantity'] = (serviceMap[name]!['quantity'] as int) + qty;
           serviceMap[name]!['total'] = (serviceMap[name]!['total'] as double) + (price * qty);
-          // detalle: servicio x barbero
           final tr = transById[item['transaction_id'].toString()];
           _filteredDetail.add({'service': name, 'barber': (item['barber_name'] ?? tr?['barber_name'] ?? 'Sin barbero').toString(), 'qty': qty, 'total': price * qty, 'date': tr?['created_at']});
         }
@@ -227,7 +217,11 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // FIX maxY: redondeado a 20k para que $100k no se monte sobre $80k. Calculo fuera del BarChart para no enredar parentesis.
+    // PROTECCIÓN EXTRA: Si no tiene permisos de ver reportes, no dibuja nada
+    if (!RolePermissions.can(currentUserRole, BbsPerm.viewReports)) {
+      return const Scaffold(backgroundColor: Color(0xFF0F172A), body: Center(child: Text('No tienes permisos para ver esta sección', style: TextStyle(color: Colors.white))));
+    }
+
     double chartMaxY = 100;
     if (_salesByDay.isNotEmpty) {
       double m = 0;
@@ -239,9 +233,7 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
       backgroundColor: const Color(0xFF0F172A),
       appBar: AppBar(backgroundColor: const Color(0xFF1E293B), title: const Text('Reportes Avanzados', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w900)), leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: ()=> Navigator.pop(context)), actions: [IconButton(icon: const Icon(Icons.picture_as_pdf, color: Colors.white70), onPressed: _exportToPDF, tooltip: 'PDF'), IconButton(icon: const Icon(Icons.table_chart, color: Colors.white70), onPressed: _exportToExcel, tooltip: 'Excel')]),
       body: _isLoading ? const Center(child: CircularProgressIndicator(color: Color(0xFF6366F1))) : SingleChildScrollView(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        // FILTRO PERIODO + FECHAS CUSTOM
         Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white10)), child: Column(children: [
-          // FIX overflow: Período arriba, botones abajo a ancho completo (antes Row se cortaba Año)
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             const Text('Período', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
             const SizedBox(height: 8),
@@ -257,7 +249,6 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
           ]))),
         ])),
         const SizedBox(height: 12),
-        // FILTROS: Barbero + Servicio + Metodo
         Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white10)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
             const Icon(Icons.filter_list_rounded, size: 16, color: Color(0xFF6366F1)),
@@ -306,7 +297,19 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
         if (_salesByService.isNotEmpty) ...[
           const Text('Top Servicios/Productos', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
           const SizedBox(height: 10),
-          ..._salesByService.take(6).map((s)=> Container(margin: const EdgeInsets.only(bottom: 8), decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white10)), child: ListTile(leading: CircleAvatar(backgroundColor: const Color(0xFF6366F1).withOpacity(0.18), child: Text('${s['quantity']}', style: const TextStyle(color: Color(0xFF6366F1), fontSize: 10, fontWeight: FontWeight.bold))), title: Text(s['name'] as String, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)), subtitle: Text('Cant: ${s['quantity']}', style: const TextStyle(color: Colors.white54, fontSize: 9)), trailing: Text(SettingsService.formatCurrency((s['total'] as num).toDouble()), style: const TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.bold, fontSize: 11))))),
+          ..._salesByService.take(6).map((s)=> Container(
+            margin: const EdgeInsets.only(bottom: 8), 
+            decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white10)), 
+            child: Material(
+              type: MaterialType.transparency,
+              child: ListTile(
+                leading: CircleAvatar(backgroundColor: const Color(0xFF6366F1).withOpacity(0.18), child: Text('${s['quantity']}', style: const TextStyle(color: Color(0xFF6366F1), fontSize: 10, fontWeight: FontWeight.bold))), 
+                title: Text(s['name'] as String, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)), 
+                subtitle: Text('Cant: ${s['quantity']}', style: const TextStyle(color: Colors.white54, fontSize: 9)), 
+                trailing: Text(SettingsService.formatCurrency((s['total'] as num).toDouble()), style: const TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.bold, fontSize: 11))
+              )
+            )
+          )),
         ],
       ])),
     );

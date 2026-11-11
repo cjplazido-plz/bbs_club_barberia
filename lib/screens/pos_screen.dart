@@ -22,14 +22,14 @@ import 'reports_screen.dart';
 import 'barbers_screen.dart';
 import 'services_screen.dart';
 import 'products_screen.dart';
-import 'users_screen.dart' as users_screen; // FIX: con prefijo para que Text no choque con Flutter
+import 'users_screen.dart' as users_screen;
 import 'appointments_screen.dart';
 import 'dashboard_screen.dart';
 import 'login_screen.dart';
 import 'settings_screen.dart';
 import 'advanced_reports_screen.dart';
 import 'commissions_screen.dart';
-import 'roles_screen.dart' as roles_screen; // FIX: prefijo
+import 'roles_screen.dart' as roles_screen;
 import '../services/role_permissions.dart';
 
 class PosScreen extends StatefulWidget {
@@ -60,14 +60,13 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
   LocalClient? _selectedClient;
   LocalAppointment? _selectedAppointment;
   double _discount = 0.0;
-  String? _myRole; // rol del usuario logeado para permisos
+  String? _myRole;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _loadData();
-    // Cargar rol y permisos (si no hay tabla, usa defaults)
     RolePermissions.loadFromSupabase().then((_) async {
       final r = await RolePermissions.currentRole();
       if (mounted) setState(() => _myRole = r ?? currentUserRole);
@@ -125,13 +124,35 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
   }
 
   void _showBarberSelector(){
-    showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: const Color(0xFF1E293B), shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), builder: (c) => DraggableScrollableSheet(initialChildSize: 0.6, minChildSize: 0.4, maxChildSize: 0.85, expand: false, builder: (ctx, sc) => Column(children: [Container(padding: const EdgeInsets.all(16), decoration: const BoxDecoration(color: Color(0xFF6366F1), borderRadius: BorderRadius.vertical(top: Radius.circular(20))), child: Row(children: const [Text('💈', style: TextStyle(fontSize: 20)), SizedBox(width: 8), Text('Seleccionar Barbero', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15))])), Expanded(child: ListView.builder(controller: sc, itemCount: _barbers.length, itemBuilder: (ctx,i){final b=_barbers[i]; return ListTile(leading: CircleAvatar(backgroundColor: const Color(0xFF6366F1).withOpacity(0.15), child: Text(b.name[0].toUpperCase(), style: const TextStyle(color: Color(0xFF6366F1), fontWeight: FontWeight.bold))), title: Text(b.name, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)), subtitle: Text('Comisión ${b.commissionValue}%', style: const TextStyle(color: Colors.white54, fontSize: 11)), onTap: (){setState((){_selectedBarber=b;}); Navigator.pop(c);});}))])));
+    showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: const Color(0xFF1E293B), shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), builder: (c) => DraggableScrollableSheet(initialChildSize: 0.6, minChildSize: 0.4, maxChildSize: 0.85, expand: false, builder: (ctx, sc) => Column(children: [Container(padding: const EdgeInsets.all(16), decoration: const BoxDecoration(color: Color(0xFF6366F1), borderRadius: BorderRadius.vertical(top: Radius.circular(20))), child: Row(children: const [Text('💈', style: TextStyle(fontSize: 20)), SizedBox(width: 8), Text('Seleccionar Barbero', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15))])), Expanded(child: ListView.builder(controller: sc, itemCount: _barbers.length, itemBuilder: (ctx,i){
+      final b=_barbers[i]; 
+      return Material(
+        type: MaterialType.transparency,
+        child: ListTile(
+          leading: CircleAvatar(backgroundColor: const Color(0xFF6366F1).withOpacity(0.15), child: Text(b.name[0].toUpperCase(), style: const TextStyle(color: Color(0xFF6366F1), fontWeight: FontWeight.bold))), 
+          title: Text(b.name, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)), 
+          subtitle: Text('Comisión ${b.commissionValue}%', style: const TextStyle(color: Colors.white54, fontSize: 11)), 
+          onTap: (){setState((){_selectedBarber=b;}); Navigator.pop(c);}
+        )
+      );
+    }))])));
   }
 
   void _showClientSelector() {
     final search = TextEditingController();
     List<LocalClient> filtered = _clients;
-    showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: const Color(0xFF1E293B), shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), builder: (c) => StatefulBuilder(builder: (ctx,setModal){return DraggableScrollableSheet(initialChildSize: 0.7, minChildSize: 0.5, maxChildSize: 0.9, expand: false, builder: (ctx,sc)=>Column(children: [Container(padding: const EdgeInsets.all(16), decoration: const BoxDecoration(color: Color(0xFF6366F1), borderRadius: BorderRadius.vertical(top: Radius.circular(20))), child: Row(children: const [Text('👥', style: TextStyle(fontSize: 20)), SizedBox(width: 8), Text('Seleccionar Cliente', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15))])), Padding(padding: const EdgeInsets.all(12), child: TextField(controller: search, style: const TextStyle(color: Colors.white, fontSize: 13), decoration: InputDecoration(hintText: 'Buscar cliente...', hintStyle: const TextStyle(color: Colors.white38, fontSize: 12), prefixIcon: const Icon(Icons.search, color: Colors.white38, size: 18), filled: true, fillColor: const Color(0xFF0F172A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none), contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10)), onChanged: (q){setModal((){filtered = _clients.where((cl)=> cl.name.toLowerCase().contains(q.toLowerCase()) || (cl.phone??'').contains(q)).toList();});})), Expanded(child: ListView.builder(controller: sc, itemCount: filtered.length, itemBuilder: (ctx,i){final cl=filtered[i]; return ListTile(leading: CircleAvatar(backgroundColor: const Color(0xFF10B981).withOpacity(0.15), child: Text(cl.name[0].toUpperCase(), style: const TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.bold, fontSize: 12))), title: Text(cl.name, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)), subtitle: Text(cl.phone??'', style: const TextStyle(color: Colors.white54, fontSize: 11)), onTap: (){setState((){_selectedClient=cl;}); Navigator.pop(c);});})), Padding(padding: const EdgeInsets.all(12), child: SizedBox(width: double.infinity, child: OutlinedButton(onPressed: (){setState((){_selectedClient=null;}); Navigator.pop(c);}, child: const Text('Sin cliente', style: TextStyle(color: Colors.white70, fontSize: 12)))))]));}));
+    showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: const Color(0xFF1E293B), shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), builder: (c) => StatefulBuilder(builder: (ctx,setModal){return DraggableScrollableSheet(initialChildSize: 0.7, minChildSize: 0.5, maxChildSize: 0.9, expand: false, builder: (ctx,sc)=>Column(children: [Container(padding: const EdgeInsets.all(16), decoration: const BoxDecoration(color: Color(0xFF6366F1), borderRadius: BorderRadius.vertical(top: Radius.circular(20))), child: Row(children: const [Text('👥', style: TextStyle(fontSize: 20)), SizedBox(width: 8), Text('Seleccionar Cliente', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15))])), Padding(padding: const EdgeInsets.all(12), child: TextField(controller: search, style: const TextStyle(color: Colors.white, fontSize: 13), decoration: InputDecoration(hintText: 'Buscar cliente...', hintStyle: const TextStyle(color: Colors.white38, fontSize: 12), prefixIcon: const Icon(Icons.search, color: Colors.white38, size: 18), filled: true, fillColor: const Color(0xFF0F172A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none), contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10)), onChanged: (q){setModal((){filtered = _clients.where((cl)=> cl.name.toLowerCase().contains(q.toLowerCase()) || (cl.phone??'').contains(q)).toList();});})), Expanded(child: ListView.builder(controller: sc, itemCount: filtered.length, itemBuilder: (ctx,i){
+      final cl=filtered[i]; 
+      return Material(
+        type: MaterialType.transparency,
+        child: ListTile(
+          leading: CircleAvatar(backgroundColor: const Color(0xFF10B981).withOpacity(0.15), child: Text(cl.name[0].toUpperCase(), style: const TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.bold, fontSize: 12))), 
+          title: Text(cl.name, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)), 
+          subtitle: Text(cl.phone??'', style: const TextStyle(color: Colors.white54, fontSize: 11)), 
+          onTap: (){setState((){_selectedClient=cl;}); Navigator.pop(c);}
+        )
+      );
+    })), Padding(padding: const EdgeInsets.all(12), child: SizedBox(width: double.infinity, child: OutlinedButton(onPressed: (){setState((){_selectedClient=null;}); Navigator.pop(c);}, child: const Text('Sin cliente', style: TextStyle(color: Colors.white70, fontSize: 12)))))]));}));
   }
 
   void _showAppointmentSelector() {
@@ -140,16 +161,19 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
       _todayAppointments.isEmpty ? const Padding(padding: EdgeInsets.all(24), child: Text('No hay citas pendientes hoy', style: TextStyle(color: Colors.white54, fontSize: 13))) : ListView.builder(shrinkWrap: true, itemCount: _todayAppointments.length, itemBuilder: (ctx,i){
         final ap=_todayAppointments[i];
         final timeStr = DateFormat('HH:mm').format(ap.appointmentDate);
-        return ListTile(
-          title: Text(ap.clientName??'Cliente', style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
-          subtitle: Text('${ap.serviceName??''} - $timeStr', style: const TextStyle(color: Colors.white54, fontSize: 11)),
-          onTap: (){
-            setState((){
-              _selectedAppointment=ap;
-              _selectedClient=_clients.firstWhere((cl)=>cl.remoteId==ap.clientId, orElse: ()=> LocalClient()..name=ap.clientName??''..phone=ap.clientPhone??'');
-            });
-            Navigator.pop(c);
-          }
+        return Material(
+          type: MaterialType.transparency,
+          child: ListTile(
+            title: Text(ap.clientName??'Cliente', style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+            subtitle: Text('${ap.serviceName??''} - $timeStr', style: const TextStyle(color: Colors.white54, fontSize: 11)),
+            onTap: (){
+              setState((){
+                _selectedAppointment=ap;
+                _selectedClient=_clients.firstWhere((cl)=>cl.remoteId==ap.clientId, orElse: ()=> LocalClient()..name=ap.clientName??''..phone=ap.clientPhone??'');
+              });
+              Navigator.pop(c);
+            }
+          ),
         );
       })
     ]));
@@ -176,7 +200,6 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
     }
   }
 
-  // ===== PAGO MIXTO - FIX FOCO: controladores FUERA del build, no se recrean por tecla =====
   Future<List<Map<String, dynamic>>?> _showMixedDialog() async {
     List<Map<String, dynamic>> pagos = _mixedPayments.isNotEmpty ? List<Map<String, dynamic>>.from(_mixedPayments.map((e)=> Map<String, dynamic>.from(e))) : [
       {'method': 'cash', 'amount': (_total / 2).roundToDouble()},
@@ -185,9 +208,6 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
     if (_mixedPayments.isEmpty && pagos.length == 2) {
       pagos[1]['amount'] = _total - (pagos[0]['amount'] as double);
     }
-    // FIX FOCO: un controller + un FocusNode por fila, creados UNA vez fuera del StatefulBuilder.
-    // Antes se hacia TextEditingController(text: ...) DENTRO de List.generate en cada setSt,
-    // por eso al escribir "1" se recreaba el campo y se perdia el foco / cursor.
     final List<TextEditingController> ctrls = pagos.map((p) => TextEditingController(text: (p['amount'] as num).toStringAsFixed(0))).toList();
     final List<FocusNode> focusNodes = List.generate(pagos.length, (_) => FocusNode());
     try {
@@ -257,11 +277,9 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
                               contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                             ),
                             onTap: () {
-                              // Al tocar, seleccionar todo para reemplazar 10000 por 10000 facil sin borrar digito a digito
                               ctrl.selection = TextSelection(baseOffset: 0, extentOffset: ctrl.text.length);
                             },
                             onChanged: (v) {
-                              // Solo actualizar el monto, NO recrear controller. setSt solo redibuja el "Cuadra / Falta"
                               pagos[i]['amount'] = double.tryParse(v) ?? 0;
                               setSt(() {});
                             },
@@ -387,7 +405,15 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
   Widget _buildDesktopCart() {
     return Container(width: 360, decoration: const BoxDecoration(color: Color(0xFF1E293B), border: Border(left: BorderSide(color: Colors.white10))), child: Column(children: [
       Container(padding: const EdgeInsets.all(14), decoration: const BoxDecoration(gradient: LinearGradient(colors: [Color(0xFF312E81), Color(0xFF1E293B)]), border: Border(bottom: BorderSide(color: Colors.white10))), child: Row(children: [const Text('🛒', style: TextStyle(fontSize: 20)), const SizedBox(width: 8), Text('Carrito (${_cart.length})', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)), const Spacer(), if(_cart.isNotEmpty) InkWell(onTap: ()=>setState(()=>_cart.clear()), child: const Text('Vaciar', style: TextStyle(color: Colors.redAccent, fontSize: 11)))])),
-      Expanded(child: _cart.isEmpty ? const Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Text('🛒', style: TextStyle(fontSize: 48)), SizedBox(height: 12), Text('Carrito vacio', style: TextStyle(color: Colors.white54, fontSize: 13))])) : ListView.builder(padding: const EdgeInsets.all(10), itemCount: _cart.length, itemBuilder: (c,i){ final it=_cart[i]; return Container(margin: const EdgeInsets.only(bottom: 8), decoration: BoxDecoration(color: const Color(0xFF0F172A), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white10)), child: ListTile(dense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), title: Text(it.serviceName.isNotEmpty?it.serviceName:it.productName??'', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis), subtitle: Text('${SettingsService.formatCurrency(it.priceAtMoment)} x ${it.quantity}', style: const TextStyle(color: Colors.white54, fontSize: 10)), trailing: Row(mainAxisSize: MainAxisSize.min, children: [IconButton(icon: const Text('➖', style: TextStyle(fontSize: 12)), onPressed: ()=>_updateQuantity(i, it.quantity-1), padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 28, minHeight: 28)), Text('${it.quantity}', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)), IconButton(icon: const Text('➕', style: TextStyle(fontSize: 12)), onPressed: ()=>_updateQuantity(i, it.quantity+1), padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 28, minHeight: 28))]))); })),
+      Expanded(child: _cart.isEmpty ? const Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Text('🛒', style: TextStyle(fontSize: 48)), SizedBox(height: 12), Text('Carrito vacio', style: TextStyle(color: Colors.white54, fontSize: 13))])) : ListView.builder(padding: const EdgeInsets.all(10), itemCount: _cart.length, itemBuilder: (c,i){ 
+        final it=_cart[i]; 
+        return Container(margin: const EdgeInsets.only(bottom: 8), decoration: BoxDecoration(color: const Color(0xFF0F172A), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white10)), 
+          child: Material(
+            type: MaterialType.transparency,
+            child: ListTile(dense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), title: Text(it.serviceName.isNotEmpty?it.serviceName:it.productName??'', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis), subtitle: Text('${SettingsService.formatCurrency(it.priceAtMoment)} x ${it.quantity}', style: const TextStyle(color: Colors.white54, fontSize: 10)), trailing: Row(mainAxisSize: MainAxisSize.min, children: [IconButton(icon: const Text('➖', style: TextStyle(fontSize: 12)), onPressed: ()=>_updateQuantity(i, it.quantity-1), padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 28, minHeight: 28)), Text('${it.quantity}', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)), IconButton(icon: const Text('➕', style: TextStyle(fontSize: 12)), onPressed: ()=>_updateQuantity(i, it.quantity+1), padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 28, minHeight: 28))]))
+          )
+        ); 
+      })),
       Container(padding: const EdgeInsets.all(14), decoration: const BoxDecoration(color: Color(0xFF0F172A), border: Border(top: BorderSide(color: Colors.white10))), child: Column(children: [
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Subtotal:', style: TextStyle(color: Colors.white54, fontSize: 12)), Text(SettingsService.formatCurrency(_subtotal), style: const TextStyle(color: Colors.white, fontSize: 12))]),
         const SizedBox(height: 6),
@@ -424,7 +450,15 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
         return DraggableScrollableSheet(initialChildSize: 0.7, minChildSize: 0.5, maxChildSize: 0.9, expand: false, builder: (ctx,sc){
           return Column(children: [
             Container(padding: const EdgeInsets.all(16), decoration: const BoxDecoration(color: Color(0xFF6366F1), borderRadius: BorderRadius.vertical(top: Radius.circular(20))), child: Row(children: [Text('Carrito (${_cart.length})', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)), const Spacer(), if(_cart.isNotEmpty) TextButton(onPressed: (){ setState(()=>_cart.clear()); setModal((){}); }, child: const Text('Vaciar', style: TextStyle(color: Colors.white70, fontSize: 12)))])),
-            Expanded(child: _cart.isEmpty ? const Center(child: Text('🛒 Carrito vacio', style: TextStyle(color: Colors.white54, fontSize: 13))) : ListView.builder(controller: sc, padding: const EdgeInsets.all(12), itemCount: _cart.length, itemBuilder: (ctx,i){ final it=_cart[i]; return Container(margin: const EdgeInsets.only(bottom: 8), decoration: BoxDecoration(color: const Color(0xFF0F172A), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white10)), child: ListTile(dense: true, title: Text(it.serviceName.isNotEmpty?it.serviceName:it.productName??'', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)), subtitle: Text('${SettingsService.formatCurrency(it.priceAtMoment)} x ${it.quantity} = ${SettingsService.formatCurrency(it.priceAtMoment*it.quantity)}', style: const TextStyle(color: Colors.white54, fontSize: 10)), trailing: Row(mainAxisSize: MainAxisSize.min, children: [IconButton(icon: const Text('➖', style: TextStyle(fontSize: 12)), onPressed: (){ setState(()=> _updateQuantity(i, it.quantity-1)); setModal((){}); }, padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 28, minHeight: 28)), Text('${it.quantity}', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)), IconButton(icon: const Text('➕', style: TextStyle(fontSize: 12)), onPressed: (){ setState(()=> it.quantity++); setModal((){}); }, padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 28, minHeight: 28)), IconButton(icon: const Icon(Icons.delete_outline, size: 16, color: Colors.redAccent), onPressed: (){ setState(()=>_cart.removeAt(i)); setModal((){}); })]))); })),
+            Expanded(child: _cart.isEmpty ? const Center(child: Text('🛒 Carrito vacio', style: TextStyle(color: Colors.white54, fontSize: 13))) : ListView.builder(controller: sc, padding: const EdgeInsets.all(12), itemCount: _cart.length, itemBuilder: (ctx,i){ 
+              final it=_cart[i]; 
+              return Container(margin: const EdgeInsets.only(bottom: 8), decoration: BoxDecoration(color: const Color(0xFF0F172A), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white10)), 
+                child: Material(
+                  type: MaterialType.transparency,
+                  child: ListTile(dense: true, title: Text(it.serviceName.isNotEmpty?it.serviceName:it.productName??'', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)), subtitle: Text('${SettingsService.formatCurrency(it.priceAtMoment)} x ${it.quantity} = ${SettingsService.formatCurrency(it.priceAtMoment*it.quantity)}', style: const TextStyle(color: Colors.white54, fontSize: 10)), trailing: Row(mainAxisSize: MainAxisSize.min, children: [IconButton(icon: const Text('➖', style: TextStyle(fontSize: 12)), onPressed: (){ setState(()=> _updateQuantity(i, it.quantity-1)); setModal((){}); }, padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 28, minHeight: 28)), Text('${it.quantity}', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)), IconButton(icon: const Text('➕', style: TextStyle(fontSize: 12)), onPressed: (){ setState(()=> it.quantity++); setModal((){}); }, padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 28, minHeight: 28)), IconButton(icon: const Icon(Icons.delete_outline, size: 16, color: Colors.redAccent), onPressed: (){ setState(()=>_cart.removeAt(i)); setModal((){}); })]))
+                )
+              ); 
+            })),
             Container(padding: const EdgeInsets.all(16), decoration: const BoxDecoration(color: Color(0xFF0F172A), border: Border(top: BorderSide(color: Colors.white10))), child: Column(children: [
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Subtotal:', style: TextStyle(color: Colors.white54, fontSize: 12)), Text(SettingsService.formatCurrency(_subtotal), style: const TextStyle(color: Colors.white, fontSize: 12))]),
               const SizedBox(height: 6),
@@ -444,7 +478,6 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
     showModalBottomSheet(context: context, isScrollControlled: true, shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), backgroundColor: const Color(0xFF1E293B), builder: (context) => DraggableScrollableSheet(initialChildSize: 0.9, minChildSize: 0.5, maxChildSize: 0.95, expand: false, builder: (context, scrollController) => SingleChildScrollView(controller: scrollController, child: Column(children: [
       Container(padding: const EdgeInsets.all(20), decoration: const BoxDecoration(color: Color(0xFF6366F1), borderRadius: BorderRadius.vertical(top: Radius.circular(20))), child: Row(children: [const Text('☰', style: TextStyle(fontSize: 28, color: Colors.white)), const SizedBox(width: 12), Text('Menú  •  Rol: ${(_myRole ?? currentUserRole).toString()}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white))])),
       Column(children: [
-        // Menú por permisos - no solo admin. Barbero no ve Usuarios/Roles/Config, Cajero ve cierre/historial pero no edita.
         if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewReports))
           _buildMenuItem('📝', 'Reportes Avanzados', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => AdvancedReportsScreen())); }),
         if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewCommissions))
@@ -456,7 +489,6 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
         ],
         if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewUsers))
           _buildMenuItem('👥', 'Usuarios', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => users_screen.UsersScreen())); }),
-        // FIX: Roles siempre para Admin (isAdmin) aunque la tabla role_permissions esté incompleta. Antes solo can(manageRoles) lo ocultaba.
         if (RolePermissions.isAdmin(_myRole ?? currentUserRole) || RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.manageRoles))
           _buildMenuItem('🛡️', 'Roles', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => roles_screen.RolesScreen())); }),
         if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewAgenda))
@@ -479,7 +511,10 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
   }
 
   Widget _buildMenuItem(String icon, String text, VoidCallback onTap, {bool isLogout = false}) {
-    return ListTile(leading: Text(icon, style: const TextStyle(fontSize: 20)), title: Text(text, style: TextStyle(fontSize: 14, color: isLogout ? Colors.redAccent : Colors.white, fontWeight: FontWeight.w500)), onTap: onTap);
+    return Material(
+      type: MaterialType.transparency,
+      child: ListTile(leading: Text(icon, style: const TextStyle(fontSize: 20)), title: Text(text, style: TextStyle(fontSize: 14, color: isLogout ? Colors.redAccent : Colors.white, fontWeight: FontWeight.w500)), onTap: onTap),
+    );
   }
 
   Future<void> _handleLogout() async {

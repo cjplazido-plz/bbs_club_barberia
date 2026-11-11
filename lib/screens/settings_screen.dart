@@ -1,10 +1,10 @@
-// lib/screens/settings_screen.dart - PREMIUM ORDENADO - Colores POS + Contenido ordenado
-// Orden: 01 Datos negocio -> 02 Moneda -> 03 Logos (App COLOR / Ticket B/N + previews) -> 04 Ticket (Encabezado/Pie) -> 05 Folios e Impresion
-// Fix: Ticket logo = LOGOTICKET.bmp (no jpeg App), Encabezado = BBS CLUB F.C separado de Nombre = BBS CLUB BARBERIA, bucket sin espacios.
+// lib/screens/settings_screen.dart
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/settings_service.dart';
 import '../services/ticket_config_service.dart';
+import '../main.dart';
+import '../services/role_permissions.dart';
 
 class SettingsScreen extends StatefulWidget {
   @override
@@ -19,7 +19,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _rifCtrl = TextEditingController();
   final _addressCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
-  final _reservasWhatsAppCtrl = TextEditingController(); // solo cjplazido
+  final _reservasWhatsAppCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _shopLogoCtrl = TextEditingController();
   final _ticketLogoCtrl = TextEditingController();
@@ -32,7 +32,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _ancho = '80mm';
   bool _autoPrint = true;
 
-  // Colores premium POS
   static const _bg = Color(0xFF0F172A);
   static const _card = Color(0xFF1E293B);
   static const _input = Color(0xFF0F172A);
@@ -56,7 +55,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _phoneCtrl.text = SettingsService.shopPhone.isNotEmpty ? SettingsService.shopPhone : TicketConfigService.telefono;
       if (SettingsService.canSeeReservasWhatsApp) _reservasWhatsAppCtrl.text = SettingsService.reservasWhatsApp;
       _emailCtrl.text = SettingsService.shopEmail;
-      // App = COLOR jpeg (WhatsApp Image...), Ticket = B/N bmp (LOGOTICKET.bmp) - NO mezclar
       _shopLogoCtrl.text = SettingsService.shopLogoUrl.isNotEmpty ? SettingsService.shopLogoUrl : TicketConfigService.appLogoUrl;
       _ticketLogoCtrl.text = SettingsService.ticketLogoUrl.isNotEmpty ? SettingsService.ticketLogoUrl : TicketConfigService.ticketLogoUrl;
       _currencySymbolCtrl.text = SettingsService.currencySymbol.isNotEmpty ? SettingsService.currencySymbol : r'$';
@@ -89,7 +87,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         'ticket_footer': _ticketFooterCtrl.text.trim(),
         if (SettingsService.canSeeReservasWhatsApp) 'reservas_whatsapp': _reservasWhatsAppCtrl.text.trim(),
       });
-      // FIX: logo_url = App COLOR, logo_url_ticket = Ticket B/N, encabezado separado de nombre
       final ok2 = await TicketConfigService.save({
         'nombre_negocio': _shopNameCtrl.text.trim(),
         'nombre_local': _shopNameCtrl.text.trim(),
@@ -151,6 +148,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (!RolePermissions.isAdmin(currentUserRole)) {
+      return const Scaffold(backgroundColor: _bg, body: Center(child: Text('No tienes permisos para acceder aquí', style: TextStyle(color: Colors.white))));
+    }
+
     if (_isLoading) return const Scaffold(backgroundColor: _bg, body: Center(child: CircularProgressIndicator(color: _indigo)));
     return Scaffold(
       backgroundColor: _bg,
@@ -167,16 +168,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: Form(
           key: _formKey,
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            // Resumen superior
             _summaryCard(),
             const SizedBox(height: 14),
-            // 01 Datos
             _section(number: '01', icon: Icons.store_rounded, color: _indigo, title: 'Datos del negocio', subtitle: 'Nombre, RUT, telefono, email y direccion que salen en el ticket'),
             _field('Nombre del negocio *', _shopNameCtrl, icon: Icons.store_rounded, required: true, hint: 'BBS CLUB BARBERIA'),
             _row2(_field('RUT *', _rifCtrl, icon: Icons.badge_rounded, required: true, hint: '77.000000-0'), _field('Telefono', _phoneCtrl, icon: Icons.phone_rounded, hint: '+56 9 6106 9670')),
             _field('Email', _emailCtrl, icon: Icons.email_rounded, hint: 'contacto@bbsclub.cl'),
             _field('Direccion', _addressCtrl, icon: Icons.location_on_rounded, hint: 'Manuel Montt #460, local 6 - Coronel'),
-            // WHATSAPP RESERVAS PRIVADO - solo cjplazido lo ve. patriciosan NO lo ve ni lo edita.
             ... (SettingsService.canSeeReservasWhatsApp ? [
               const SizedBox(height: 10),
               Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.08), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFF10B981).withOpacity(0.3))), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -188,11 +186,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ])),
             ] : []),
             const SizedBox(height: 14),
-            // 02 Moneda
             _section(number: '02', icon: Icons.attach_money_rounded, color: _emerald, title: 'Moneda', subtitle: 'Simbolo y codigo que se muestran en precios y ticket'),
             _row2(_field('Simbolo Moneda *', _currencySymbolCtrl, icon: Icons.attach_money_rounded, required: true, hint: '\$'), _field('Codigo (CLP, USD)', _currencyCodeCtrl, icon: Icons.monetization_on_rounded, required: true, hint: 'CLP')),
             const SizedBox(height: 14),
-            // 03 Logos
             _section(number: '03', icon: Icons.image_rounded, color: _amber, title: 'Logos - pega URL https', subtitle: 'App a COLOR, Ticket en B/N para 80mm. Sin espacios en el bucket.'),
             _logoField(label: 'Logo URL (App) - COLOR', ctrl: _shopLogoCtrl, isTicket: false, hint: 'https://.../bbs-color.png'),
             _logoField(label: 'Logo URL (Ticket) - SALE EN TICKET 80mm B/N', ctrl: _ticketLogoCtrl, isTicket: true, hint: 'https://.../bbs-bw.png o LOGOTICKET.bmp'),
@@ -200,14 +196,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _logoPreviews(),
             _bucketWarning(),
             const SizedBox(height: 14),
-            // 04 Ticket
             _section(number: '04', icon: Icons.receipt_long_rounded, color: _violet, title: 'Personalizacion Ticket', subtitle: 'Encabezado y pie que salen arriba y abajo del ticket'),
             _field('Encabezado del Ticket', _ticketHeaderCtrl, icon: Icons.title_rounded, hint: 'BBS CLUB F.C'),
             _field('Pie de Ticket', _ticketFooterCtrl, icon: Icons.subtitles_rounded, maxLines: 2, hint: 'Gracias por su visita!'),
             const SizedBox(height: 10),
             _previewTicket(),
             const SizedBox(height: 14),
-            // 05 Folios e impresion
             _section(number: '05', icon: Icons.print_rounded, color: const Color(0xFF38BDF8), title: 'Folios e impresion', subtitle: 'Ancho del papel, prefijo, proximo folio y auto-imprimir'),
             _row2(
               DropdownButtonFormField<String>(value: _ancho, dropdownColor: _card, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600), decoration: InputDecoration(labelText: 'Ancho papel', labelStyle: const TextStyle(color: Colors.white54), filled: true, fillColor: _input, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)), contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12)), items: const [DropdownMenuItem(value: '58mm', child: Text('58mm - Seguro')), DropdownMenuItem(value: '80mm', child: Text('80mm - Ancho completo'))], onChanged: (v) => setState(() => _ancho = v!)),
@@ -317,7 +311,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _logoPreviews() {
-    // Solo 2 logos: COLOR y B/N. Sin textos, sin 3er preview (el preview grande ya esta en 04 Personalizacion Ticket).
     return Row(children: [
       Expanded(child: _previewBox(url: _shopLogoCtrl.text, isApp: true)),
       const SizedBox(width: 10),
@@ -326,7 +319,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _previewBox({required String url, required bool isApp}) {
-    // Solo el logo, sin textos (sin APP / COLOR / TICKET 80mm / B/N / EJEMPLO).
     return ClipRRect(
       borderRadius: BorderRadius.circular(14),
       child: Container(
@@ -355,7 +347,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _previewTicket() {
-    // FIX MUESTRA: antes estirado a todo el ancho -> se veia deformado (image_19bea1). Ahora centrado, ancho fijo 300 = ticket 80mm, solo para la muestra.
     return Center(
       child: Container(
         width: 300,

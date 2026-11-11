@@ -5,6 +5,8 @@ import '../services/settings_service.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import '../main.dart'; // IMPORTANTE: Para leer currentUserRole
+import '../services/role_permissions.dart'; // IMPORTANTE: Para aplicar permisos
 
 class ReportsScreen extends StatefulWidget {
   @override
@@ -16,8 +18,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
   int _dayTransactions = 0;
   Map<String, double> _barberTotals = {};
   Map<String, int> _paymentMethods = {};
-  Map<String, double> _paymentAmounts = {}; // monto por metodo: cash/card/transfer/mixed
-  Map<String, double> _mixedBreakdown = {}; // desglose de mixtos si hay tabla transaction_payments: cash/card/transfer dentro de mixtos
+  Map<String, double> _paymentAmounts = {};
+  Map<String, double> _mixedBreakdown = {};
   List<Map<String, dynamic>> _transactions = [];
   double _totalChange = 0;
   double _totalCashReceived = 0;
@@ -25,10 +27,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
   bool _isLoading = true;
   double _fondoInicial = 0;
   double _gastosDia = 0;
-  double _salidaEfectivo = 0; // efectivo que SALIO durante el dia (retiro/entrega) - SI resta en Esperado
-  double _ajusteDiferencia = 0; // sobrante sacado DESPUES del conteo con el boton - NO resta en Esperado, solo registro
-  // ===== MOVIMIENTOS DE CAJA - Entradas / Salidas especificas (universo bajo) =====
-  List<Map<String, dynamic>> _movimientos = []; // {tipo: entrada/salida, categoria, monto, metodo, folio, motivo, fecha}
+  double _salidaEfectivo = 0;
+  double _ajusteDiferencia = 0;
+  List<Map<String, dynamic>> _movimientos = [];
   int _anuladasCount = 0;
   double _anuladasTotal = 0;
   double get _entradasEfectivo => _movimientos.where((m) => m['tipo'] == 'entrada' && m['metodo'] == 'cash' && (m['afecta_caja'] == true)).fold(0.0, (s, m) => s + ((m['monto'] as num).toDouble()));
@@ -70,7 +71,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         if (status == 'anulada' || status == 'anulado' || status == 'cancelled' || status == 'cancelada' || status == 'void') {
           anuladasCount++;
           anuladasTotal += (t['total'] as num?)?.toDouble() ?? 0.0;
-          continue; // anulada NO suma a total del dia ni a caja
+          continue;
         }
         final tTotal = (t['total'] as num?)?.toDouble() ?? 0.0;
         total += tTotal;
@@ -90,7 +91,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
         paymentMethods[method] = (paymentMethods[method] ?? 0) + 1;
         paymentAmounts[method] = (paymentAmounts[method] ?? 0) + tTotal;
       }
-      // Desglose de mixtos si existe transaction_payments (no rompe si no existe)
       Map<String, double> mixedBreakdown = {};
       try {
         final mixedIds = transactions.where((t) => (t['payment_method'] ?? '') == 'mixed').map((t) => t['id']).where((id) => id != null).toList();
@@ -102,7 +102,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
           }
         }
       } catch (_) {}
-      // Movimientos guardados (si existe tabla cash_movements, si no queda en memoria)
       try {
         final movRes = await Supabase.instance.client.from('cash_movements').select('*').gte('created_at', startOfDay.toIso8601String()).lt('created_at', endOfDay.toIso8601String()).order('created_at');
         final loaded = List<Map<String, dynamic>>.from(movRes).map((m) => {
@@ -115,7 +114,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
           'afecta_caja': (m['afecta_caja'] ?? true) as bool,
           'fecha': m['created_at'],
         }).toList();
-        // Solo si hay guardados y no hay locales del mismo dia, usarlos (evita duplicar al recargar)
         if (loaded.isNotEmpty && _movimientos.isEmpty) _movimientos = loaded;
       } catch (_) {}
       setState(() {
@@ -144,15 +142,15 @@ class _ReportsScreenState extends State<ReportsScreen> {
   }
   String _iconForMethod(String m) => m == 'cash' ? '💵' : m == 'card' ? '💳' : m == 'transfer' ? '🔁' : m == 'mixed' ? '🧾' : '💳';
 
-  // ===== MOVIMIENTOS DE CAJA - Registro especifico =====
-  String _shortFolio(String folio) { if (folio.isEmpty) return ''; var s = folio.replaceAll('Venta #', '').replaceAll('Venta ', '').replaceAll('-', ''); if (s.startsWith('V')) s = s.substring(1); if (s.length > 6) s = s.substring(s.length - 6); return 'Venta #V-$s'; } // FIX: UUID 1793913821129 -> V-821129, no el UUID entero
-  String _shortId(dynamic id) { final s = (id ?? '').toString(); if (s.isEmpty) return ''; return s.length > 8 ? s.substring(0, 8) : s; } // FIX RangeError: V-1009 tiene 6 chars, no se puede substring(0,8)
+  String _shortFolio(String folio) { if (folio.isEmpty) return ''; var s = folio.replaceAll('Venta #', '').replaceAll('Venta ', '').replaceAll('-', ''); if (s.startsWith('V')) s = s.substring(1); if (s.length > 6) s = s.substring(s.length - 6); return 'Venta #V-$s'; }
+  String _shortId(dynamic id) { final s = (id ?? '').toString(); if (s.isEmpty) return ''; return s.length > 8 ? s.substring(0, 8) : s; }
+  
   Future<void> _registrarMovimiento({required String tipo, required String categoria, required double monto, required String metodo, String folio = '', String motivo = '', bool afectaCaja = true}) async {
     final mov = {'tipo': tipo, 'categoria': categoria, 'monto': monto, 'metodo': metodo, 'folio': folio, 'motivo': motivo, 'afecta_caja': afectaCaja, 'fecha': DateTime.now().toIso8601String()};
     setState(() => _movimientos.add(mov));
     try {
       await Supabase.instance.client.from('cash_movements').insert({'tipo': tipo, 'categoria': categoria, 'monto': monto, 'metodo': metodo, 'folio': folio, 'motivo': motivo, 'afecta_caja': afectaCaja, 'created_at': DateTime.now().toIso8601String()});
-    } catch (_) { /* si no existe tabla, queda solo en memoria y en cuadratura */ }
+    } catch (_) { }
     if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${tipo == 'entrada' ? 'Entrada' : 'Salida'} registrada: $categoria ${SettingsService.formatCurrency(monto)} (${_formatPaymentMethod(metodo)})'), backgroundColor: tipo == 'entrada' ? const Color(0xFF10B981) : Colors.red));
   }
 
@@ -252,7 +250,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
     )));
   }
 
-  // ===== CUADRATURA DE CAJA =====
   void _showCuadraturaDialog() {
     final fondoCtrl = TextEditingController(text: _fondoInicial.toStringAsFixed(0));
     final gastosCtrl = TextEditingController(text: _gastosDia.toStringAsFixed(0));
@@ -323,10 +320,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
               const SizedBox(height: 6),
               if (_diferencia.abs() >= 0.5) SizedBox(width: double.infinity, child: ElevatedButton.icon(
                 onPressed: () {
-                  // FIX BOTON: antes hacia _salidaEfectivo += diferencia, pero Salida ya resta en Esperado,
-                  // entonces Esperado bajaba y la Diferencia se DUPLICABA (parecia que no hacia nada).
-                  // Correcto: el sobrante se SACA del fisico, no se suma a Salida de la formula.
-                  // Contado pasa a ser = Esperado, y queda registrado en _ajusteDiferencia para el PDF.
                   if (_diferencia > 0) {
                     final d = _diferencia;
                     _ajusteDiferencia += d;
@@ -374,8 +367,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
     return Padding(padding: const EdgeInsets.symmetric(vertical: 3), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Expanded(child: Text(label, style: const TextStyle(fontSize: 11, color: Colors.black54), overflow: TextOverflow.ellipsis, maxLines: 2)), const SizedBox(width: 8), Text(value, style: TextStyle(fontSize: 11, fontWeight: bold ? FontWeight.bold : FontWeight.w600, color: Colors.black), textAlign: TextAlign.right)]));
   }
 
-  // FIX COMPILACION: antes la fila de movimientos tenia comillas simples anidadas '${m['tipo'] == 'entrada' ... ''}' y Dart daba "Expected identifier, got ''".
-  // Ahora se arma con variables y comillas dobles, sin interpolacion anidada.
   Widget _buildMovimientoCuadRow(Map<String, dynamic> m) {
     final tipo = (m["tipo"] ?? "").toString();
     final esEntrada = tipo == "entrada";
@@ -462,6 +453,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // PROTECCIÓN EXTRA: Si no tiene permisos de ver reportes, no dibuja nada
+    if (!RolePermissions.isAdmin(currentUserRole) && !RolePermissions.can(currentUserRole, BbsPerm.viewReports)) {
+      return const Scaffold(backgroundColor: Color(0xFF0F172A), body: Center(child: Text('No tienes permisos para ver esta sección', style: TextStyle(color: Colors.white))));
+    }
+
     final transaccionesText = "${_dayTransactions}";
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
@@ -511,10 +507,13 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   ..._barberTotals.entries.map((entry) => Container(
                         margin: const EdgeInsets.only(bottom: 10),
                         decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.white.withOpacity(0.05)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))]),
-                        child: ListTile(
-                          leading: CircleAvatar(backgroundColor: const Color(0xFF6366F1).withOpacity(0.15), child: Text(entry.key.isNotEmpty ? entry.key[0].toUpperCase() : '?', style: const TextStyle(color: Color(0xFF6366F1), fontWeight: FontWeight.bold))),
-                          title: Text(entry.key, style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.white, fontSize: 14)),
-                          trailing: Text(SettingsService.formatCurrency(entry.value), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF10B981))),
+                        child: Material(
+                          type: MaterialType.transparency,
+                          child: ListTile(
+                            leading: CircleAvatar(backgroundColor: const Color(0xFF6366F1).withOpacity(0.15), child: Text(entry.key.isNotEmpty ? entry.key[0].toUpperCase() : '?', style: const TextStyle(color: Color(0xFF6366F1), fontWeight: FontWeight.bold))),
+                            title: Text(entry.key, style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.white, fontSize: 14)),
+                            trailing: Text(SettingsService.formatCurrency(entry.value), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF10B981))),
+                          ),
                         ),
                       )),
                 const SizedBox(height: 24),
@@ -544,11 +543,14 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         return Container(
                           margin: const EdgeInsets.only(bottom: 10),
                           decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.white.withOpacity(0.05))),
-                          child: ListTile(
-                            leading: Text(_iconForMethod(entry.key), style: const TextStyle(fontSize: 22)),
-                            title: Text(_formatPaymentMethod(entry.key), style: const TextStyle(color: Colors.white, fontSize: 14)),
-                            subtitle: Text(SettingsService.formatCurrency(_paymentAmounts[entry.key] ?? 0), style: const TextStyle(color: Color(0xFF10B981), fontSize: 12, fontWeight: FontWeight.bold)),
-                            trailing: Text(countText, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white70)),
+                          child: Material(
+                            type: MaterialType.transparency,
+                            child: ListTile(
+                              leading: Text(_iconForMethod(entry.key), style: const TextStyle(fontSize: 22)),
+                              title: Text(_formatPaymentMethod(entry.key), style: const TextStyle(color: Colors.white, fontSize: 14)),
+                              subtitle: Text(SettingsService.formatCurrency(_paymentAmounts[entry.key] ?? 0), style: const TextStyle(color: Color(0xFF10B981), fontSize: 12, fontWeight: FontWeight.bold)),
+                              trailing: Text(countText, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white70)),
+                            ),
                           ),
                         );
                       }),

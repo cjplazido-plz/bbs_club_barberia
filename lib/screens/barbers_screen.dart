@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models/local_barber.dart';
 import '../repositories/barber_repository.dart';
+import '../main.dart';
+import '../services/role_permissions.dart';
 
 class BarbersScreen extends StatefulWidget {
   @override
@@ -89,6 +91,8 @@ class _BarbersScreenState extends State<BarbersScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isAdmin = RolePermissions.isAdmin(currentUserRole);
+    
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
       appBar: AppBar(leading: IconButton(icon: const Icon(Icons.arrow_back_rounded, color: Colors.white), onPressed: () => Navigator.pop(context)), title: const Text('Barberos Premium', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)), backgroundColor: const Color(0xFF1E293B), foregroundColor: Colors.white, elevation: 0),
@@ -96,9 +100,26 @@ class _BarbersScreenState extends State<BarbersScreen> {
         final barber = _barbers[index];
         final phoneText = barber.phone != null ? "📱 ${barber.phone}" : "";
         final commissionText = "💰 Comision: ${barber.commissionValue}%";
-        return Container(margin: const EdgeInsets.only(bottom: 12), decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withOpacity(0.05)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 12, offset: const Offset(0,4))]), child: ListTile(contentPadding: const EdgeInsets.all(14), leading: CircleAvatar(backgroundColor: const Color(0xFF6366F1).withOpacity(0.15), child: Text(barber.name.isNotEmpty ? barber.name[0].toUpperCase() : '?', style: const TextStyle(color: Color(0xFF6366F1), fontWeight: FontWeight.bold, fontSize: 14))), title: Text(barber.name, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 14)), subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [if (phoneText.isNotEmpty) Text(phoneText, style: const TextStyle(color: Colors.white70, fontSize: 12)), Text(commissionText, style: const TextStyle(color: Colors.white54, fontSize: 11))]), trailing: Row(mainAxisSize: MainAxisSize.min, children: [Container(decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(10)), child: IconButton(icon: const Text('✏️', style: TextStyle(fontSize: 16)), onPressed: () => _showBarberDialog(barber: barber))), const SizedBox(width: 6), Container(decoration: BoxDecoration(color: Colors.red.withOpacity(0.1), borderRadius: BorderRadius.circular(10)), child: IconButton(icon: const Text('🗑️', style: TextStyle(fontSize: 16)), onPressed: () => _deleteBarber(barber)))])));
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12), 
+          decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withOpacity(0.05)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 12, offset: const Offset(0,4))]), 
+          child: Material(
+            type: MaterialType.transparency,
+            child: ListTile(
+              contentPadding: const EdgeInsets.all(14), 
+              leading: CircleAvatar(backgroundColor: const Color(0xFF6366F1).withOpacity(0.15), child: Text(barber.name.isNotEmpty ? barber.name[0].toUpperCase() : '?', style: const TextStyle(color: Color(0xFF6366F1), fontWeight: FontWeight.bold, fontSize: 14))), 
+              title: Text(barber.name, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 14)), 
+              subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [if (phoneText.isNotEmpty) Text(phoneText, style: const TextStyle(color: Colors.white70, fontSize: 12)), Text(commissionText, style: const TextStyle(color: Colors.white54, fontSize: 11))]), 
+              trailing: isAdmin ? Row(mainAxisSize: MainAxisSize.min, children: [
+                Container(decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(10)), child: IconButton(icon: const Text('✏️', style: TextStyle(fontSize: 16)), onPressed: () => _showBarberDialog(barber: barber))), 
+                const SizedBox(width: 6), 
+                Container(decoration: BoxDecoration(color: Colors.red.withOpacity(0.1), borderRadius: BorderRadius.circular(10)), child: IconButton(icon: const Text('🗑️', style: TextStyle(fontSize: 16)), onPressed: () => _deleteBarber(barber)))
+              ]) : null
+            )
+          )
+        );
       }),
-      floatingActionButton: Container(decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF818CF8)]), borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: const Color(0xFF6366F1).withOpacity(0.4), blurRadius: 12, offset: const Offset(0,6))]), child: FloatingActionButton(onPressed: () => _showBarberDialog(), backgroundColor: Colors.transparent, elevation: 0, child: const Icon(Icons.add_rounded, color: Colors.white, size: 28))),
+      floatingActionButton: isAdmin ? Container(decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF818CF8)]), borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: const Color(0xFF6366F1).withOpacity(0.4), blurRadius: 12, offset: const Offset(0,6))]), child: FloatingActionButton(onPressed: () => _showBarberDialog(), backgroundColor: Colors.transparent, elevation: 0, child: const Icon(Icons.add_rounded, color: Colors.white, size: 28))) : null,
     );
   }
 }

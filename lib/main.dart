@@ -100,17 +100,45 @@ class _AuthGateState extends State<AuthGate> {
 
     // Escucha cambios de auth (login/logout) para actualizarse automático
     Supabase.instance.client.auth.onAuthStateChange.listen((data) {
-      if (mounted) setState(() {});
+      if (mounted) {
+        _init(); // Volver a cargar el perfil si cambia la sesión
+        setState(() {});
+      }
     });
   }
 
   Future<void> _init() async {
+    setState(() => _isLoading = true);
     try {
+      // 1. Recuperar sesión
       await Supabase.instance.client.auth.getSession();
-    } catch (_) {}
+      final session = Supabase.instance.client.auth.currentSession;
+      
+      if (session != null) {
+        final user = session.user;
+        currentUserEmail = user.email ?? '';
+        
+        // 2. Buscar su perfil en la base de datos para saber su ROL
+        final profile = await Supabase.instance.client
+            .from('profiles')
+            .select('role, full_name')
+            .eq('id', user.id)
+            .maybeSingle();
+
+        if (profile != null) {
+          currentUserRole = profile['role'] ?? 'cashier';
+          currentUserName = profile['full_name'] ?? '';
+        } else {
+          // Si no tiene perfil (raro), lo dejamos como cashier por seguridad
+          currentUserRole = 'cashier'; 
+        }
+      }
+    } catch (e) {
+      print('Error cargando perfil: $e');
+    }
     
     // Pequeño delay para web, asegura que localStorage cargó
-    await Future.delayed(const Duration(milliseconds: 400));
+    await Future.delayed(const Duration(milliseconds: 300));
     
     if (mounted) {
       setState(() => _isLoading = false);
@@ -119,7 +147,7 @@ class _AuthGateState extends State<AuthGate> {
 
   @override
   Widget build(BuildContext context) {
-    // PUBLICA: si la URL es /reservar, mostrar Reservar Cita aunque no haya sesion (QR para clientes)
+    // PUBLICA: si la URL es /reservar, mostrar Reservar Cita aunque no haya sesion
     final uriPath = Uri.base.path;
     if (uriPath == '/reservar' || uriPath == '/reservar/') {
       return PublicBookingScreen();
@@ -131,12 +159,9 @@ class _AuthGateState extends State<AuthGate> {
     }
 
     final session = Supabase.instance.client.auth.currentSession;
-    final user = Supabase.instance.client.auth.currentUser;
 
-    // Si hay sesion guardada, entra directo a POS (pantalla principal de trabajo).
-    // Agenda se abre desde el menu de POS, no es la pantalla inicial.
-    if (session != null && user != null) {
-      currentUserEmail = user.email ?? '';
+    // Si hay sesion guardada, entra directo a POS
+    if (session != null) {
       return PosScreen();
     }
 

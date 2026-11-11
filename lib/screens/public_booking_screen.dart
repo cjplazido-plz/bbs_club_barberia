@@ -16,7 +16,7 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
   List<Map<String, dynamic>> _services = [];
   List<Map<String, dynamic>> _barbers = [];
   List<Map<String, dynamic>> _existingAppointments = [];
-  Set<String> _blockedTimes = {}; // Horas bloqueadas por el salon en blocked_slots
+  Set<String> _blockedTimes = {}; 
 
   Set<String> _selectedServiceIds = {};
   DateTime _selectedDate = DateTime.now().add(const Duration(days: 1));
@@ -26,19 +26,16 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
   final _emailController = TextEditingController();
   final _notesController = TextEditingController();
 
-  // EDITAR AQUI TUS DATOS DE TRANSFERENCIA - salen en la reserva publica
   static const String _bankName = 'Mercado Pago';
   static const String _bankAccountType = 'Cuenta Vista';
   static const String _bankAccountNumber = '1012592635';
   static const String _bankRut = '14.212.434-3';
   static const String _bankHolder = 'Patricio Sánchez';
-  //static const String _bankEmail = 'bbsclub@gmail.com';
 
-  String _depositMethod = 'Transferencia'; // Transferencia | En local
+  String _depositMethod = 'Transferencia'; 
   bool _depositAlreadyTransferred = false;
   double get _depositAmount => (_totalPrice * 0.5).roundToDouble();
 
-  // ✅ HORARIO CORRECTO - 11:00 a 18:30 cada 30 min = 16 slots, con 13:00 y 13:30, sin 19:00
   final List<String> _availableTimes = [
     '11:00', '11:30', '12:00', '12:30',
     '13:00', '13:30', '14:00', '14:30',
@@ -92,7 +89,6 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
       final startOfDay = DateTime(date.year, date.month, date.day);
       final endOfDay = startOfDay.add(const Duration(days: 1));
       final appointments = await Supabase.instance.client.from('appointments').select('*').gte('appointment_date', startOfDay.toIso8601String()).lt('appointment_date', endOfDay.toIso8601String()).neq('status', 'cancelled');
-      // ✅ Bloqueadas por el salon para ese dia
       Set<String> blocked = {};
       try {
         final fechaStr = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
@@ -133,9 +129,6 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ $msg'), backgroundColor: Colors.red));
   }
 
-  // Crear o actualizar cliente desde Reservar Cita - ROBUSTO
-  // Por que fallaba antes: buscaba eq('phone', '+56 9 1234...') exacto, con un espacio distinto no lo encontraba y duplicaba.
-  // Y el insert con total_visits / total_spent / is_active fallaba si la tabla clients no tiene esas columnas -> client_id quedaba null y en Agenda salia "Sin telefono / Agregar como cliente".
   String _digits(String p) => p.replaceAll(RegExp(r'[^0-9]'), '');
   String _normPhone(String p) {
     var d = _digits(p);
@@ -150,7 +143,6 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
     final digits = _digits(phone);
     final nameLower = name.trim().toLowerCase();
     try {
-      // Buscar en Dart por digitos (sin espacios) o por nombre - no por eq exacto
       final all = await Supabase.instance.client.from('clients').select('id, name, phone, email').limit(10000);
       final list = List<Map<String, dynamic>>.from(all);
       Map<String, dynamic>? found;
@@ -164,20 +156,16 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
       if (found != null) {
         final clientId = found['id'].toString();
         try { await Supabase.instance.client.from('clients').update({'name': name.trim(), 'phone': normalizedPhone, if (email.isNotEmpty) 'email': email.trim()}).eq('id', clientId); } catch (_) {}
-        print('Cliente existente actualizado: $name - $normalizedPhone -> $clientId');
         return clientId;
       }
-      // Crear nuevo - intento completo, si falla por columnas que no existen, intento minimo (solo id/name/phone/email/notes)
       final newId = 'client-${DateTime.now().millisecondsSinceEpoch}';
       try {
         await Supabase.instance.client.from('clients').insert({'id': newId, 'name': name.trim(), 'phone': normalizedPhone, 'email': email.isNotEmpty ? email.trim() : null, 'notes': 'Creado desde reserva web el ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}', 'total_visits': 0, 'total_spent': 0, 'is_active': true, 'created_at': DateTime.now().toIso8601String(), 'updated_at': DateTime.now().toIso8601String()});
       } catch (_) {
         await Supabase.instance.client.from('clients').insert({'id': newId, 'name': name.trim(), 'phone': normalizedPhone, 'email': email.isNotEmpty ? email.trim() : null, 'notes': 'Creado desde reserva web el ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}'});
       }
-      print('Nuevo cliente creado: $name - $normalizedPhone - $newId');
       return newId;
     } catch (e) {
-      print('Error al crear/actualizar cliente (no bloquea reserva): $e');
       return null;
     }
   }
@@ -190,14 +178,12 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
     if (phoneRaw == '+56' || _digits(phoneRaw).length < 9) { _showError('Ingresa tu telefono completo'); return; }
     final phoneClean = _normPhone(phoneRaw);
 
-    // ✅ Doble chequeo bloqueo - por si alguien bloqueo justo ahora
     await _loadAppointmentsForDate(_selectedDate);
     if (_blockedTimes.contains(_selectedTime)) { _showError('Esa hora acaba de ser bloqueada por el salon'); return; }
     if (_occupiedTimes.contains(_selectedTime)) { _showError('Esa hora acaba de ser ocupada'); return; }
 
     setState(() { _isSubmitting = true; });
     try {
-      // PASO 1: Crear/actualizar cliente automaticamente - si falla, reintentar con minimo
       var clientId = await _ensureClientExists(_nameController.text.trim(), phoneClean, _emailController.text.trim());
       clientId ??= await _ensureClientExists(_nameController.text.trim(), phoneClean, _emailController.text.trim());
 
@@ -208,10 +194,9 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
       final selectedServices = _services.where((s) => _selectedServiceIds.contains(s['id'])).toList();
       final serviceNames = selectedServices.map((s) => s['name'] as String).join(', ');
 
-      // ✅ PASO 2: Crear cita con client_id vinculado
       await Supabase.instance.client.from('appointments').insert({
         'id': appointmentId,
-        'client_id': clientId, // ✅ Ahora sí vinculado a clientes
+        'client_id': clientId,
         'client_name': _nameController.text.trim(),
         'client_phone': phoneClean,
         'client_email': _emailController.text.trim().isEmpty ? null : _emailController.text.trim(),
@@ -247,7 +232,6 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
 
   Future<void> _sendConfirmationWhatsApp(DateTime dateTime, String services) async {
     try {
-      // PRIVADO: WhatsApp de reservas NO es el de Configuracion. Es reservasWhatsApp (+56972433525, solo cjplazido lo ve/edita).
       final phone = SettingsService.reservasWhatsApp.replaceAll(RegExp(r'[^0-9+]'), '');
       if (phone.isEmpty) return;
       final dateStr = DateFormat('dd/MM/yyyy').format(dateTime);
@@ -374,12 +358,12 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
               Text('N° Cuenta: $_bankAccountNumber', style: const TextStyle(color: Colors.white70, fontSize: 11)),
               Text('RUT: $_bankRut', style: const TextStyle(color: Colors.white70, fontSize: 11)),
               Text('Titular: $_bankHolder', style: const TextStyle(color: Colors.white70, fontSize: 11)),
-              // Email oculto a pedido - si queres mostrarlo, descomenta _bankEmail arriba y esta linea
-              const SizedBox(height: 6),
-              //const Text('Edita estos datos arriba en el archivo (EDITAR AQUI TUS DATOS DE TRANSFERENCIA).', style: TextStyle(color: Colors.white38, fontSize: 9)),
             ])),
             const SizedBox(height: 8),
-            CheckboxListTile(dense: true, value: _depositAlreadyTransferred, activeColor: const Color(0xFF10B981), title: const Text('Ya transferi, enviare comprobante por WhatsApp', style: TextStyle(color: Colors.white, fontSize: 12)), subtitle: const Text('Tu cita quedara Pendiente hasta que verifiquemos la transferencia en Agenda.', style: TextStyle(color: Colors.white54, fontSize: 10)), onChanged: (v)=> setState(()=> _depositAlreadyTransferred = v ?? false)),
+            Material(
+              type: MaterialType.transparency,
+              child: CheckboxListTile(dense: true, value: _depositAlreadyTransferred, activeColor: const Color(0xFF10B981), title: const Text('Ya transferi, enviare comprobante por WhatsApp', style: TextStyle(color: Colors.white, fontSize: 12)), subtitle: const Text('Tu cita quedara Pendiente hasta que verifiquemos la transferencia en Agenda.', style: TextStyle(color: Colors.white54, fontSize: 10)), onChanged: (v)=> setState(()=> _depositAlreadyTransferred = v ?? false)),
+            ),
           ]),
           if (_depositMethod == 'En local') const Padding(padding: EdgeInsets.only(top: 8), child: Text('Pagara el total en el local. Tu cita quedara Pendiente hasta que la confirmemos.', style: TextStyle(color: Colors.white54, fontSize: 11))),
         ])),

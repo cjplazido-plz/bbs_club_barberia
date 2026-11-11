@@ -1,5 +1,4 @@
-﻿// lib/screens/appointments_screen.dart - PREMIUM FINAL - calendario compacto centrado + cards originales bonitas
-import 'package:flutter/material.dart';
+﻿﻿import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
@@ -12,6 +11,8 @@ import '../repositories/barber_repository.dart';
 import '../repositories/client_repository.dart';
 import '../repositories/service_repository.dart';
 import '../services/settings_service.dart';
+import '../main.dart';
+import '../services/role_permissions.dart';
 import 'pos_screen.dart';
 import 'blocked_hours_screen.dart';
 
@@ -42,14 +43,12 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
   }
 
   Future<void> _syncAppointments() async {
-    // Muestra un indicador de carga o un SnackBar de confirmación
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Sincronizando citas...')),
       );
     }
     
-    // Vuelve a cargar los datos y los contadores del calendario
     await _loadData();
     await _loadDaysWithCounts();
     
@@ -66,7 +65,6 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     final barbers = await _barberRepo.getAllBarbers();
     final clients = await _clientRepo.getAllClients();
     final services = await _serviceRepo.getAllServices();
-    // deduplicar
     final uniqueBarbers = <String, LocalBarber>{};
     for (final b in barbers) { if (b.remoteId != null) uniqueBarbers[b.remoteId!] = b; }
     final uniqueClients = <String, LocalClient>{};
@@ -251,7 +249,6 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     return rows;
   }
 
-  // ✅ CALENDARIO COMPACTO CENTRADO - fix image_8dbd47
   Widget _buildPremiumCalendarCompact() {
     final daysInMonth = DateTime(_currentMonth.year, _currentMonth.month + 1, 0).day;
     final firstWeekday = DateTime(_currentMonth.year, _currentMonth.month, 1).weekday;
@@ -277,7 +274,6 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
             const SizedBox(height: 8),
             Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: const ['L','M','X','J','V','S','D'].map((d)=> SizedBox(width: 32, child: Center(child: Text(d, style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold))))).toList()),
             const SizedBox(height: 4),
-            // SIN viewport anidado: viewport + shrinkWrap dentro de SingleChildScrollView = RenderViewport no soporta intrinsic + Cannot hit test en Web. Ahora Column de Rows con celdas de tamano fijo.
             ..._buildCalendarWeeks(leadingEmpty, daysInMonth),
             const SizedBox(height: 8),
             Row(children: [
@@ -297,7 +293,6 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     );
   }
 
-  // Agrega la cita como cliente en Clientes (si no existe). Se usa desde la tarjeta y desde Editar Cita.
   Future<void> _addAsClient(LocalAppointment appointment) async {
     final name = (appointment.clientName ?? '').trim();
     final phone = (appointment.clientPhone ?? '').trim();
@@ -328,8 +323,6 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     String depositMethod = _abonoExistente?['method'] as String? ?? 'Transferencia';
     bool depositPaid = _abonoExistente?['paid'] as bool? ?? false;
     bool hasDeposit = _abonoExistente != null;
-    // TELEFONO + COMO CLIENTE: telefono editable en el menu, y opcion de crear / actualizar en Clientes
-    // FIX ASSERT DROPDOWN AL EDITAR: si la cita es de un cliente que NO esta en Clientes (ej: Plazido), su clientId no tiene item en el dropdown -> Flutter crashea "There should be exactly one item". Lo convertimos en Nuevo cliente con nombre pre-llenado.
     final _clientIds = _clients.map((c) => c.remoteId).whereType<String>().where((id) => id.isNotEmpty).toSet();
     final _barberIds = _barbers.map((b) => b.remoteId).whereType<String>().where((id) => id.isNotEmpty).toSet();
     if (selectedClientId != null && !_clientIds.contains(selectedClientId)) {
@@ -344,7 +337,6 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
       if (selectedClientId == null) return null;
       try { return _clients.firstWhere((c) => c.remoteId == selectedClientId); } catch (_) { return null; }
     }
-    // Si el cliente existe en Clientes y la cita no tenia telefono, traerlo
     if (phoneController.text.isEmpty && selectedClient() != null) phoneController.text = selectedClient()!.phone ?? '';
     double totalServ() { double t=0; for(final s in _services){ if(selectedServiceIds.contains(s.remoteId)) t+= s.price; } return t; }
 
@@ -364,19 +356,37 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
             const SizedBox(height: 8),
             TextField(controller: phoneController, keyboardType: TextInputType.phone, style: const TextStyle(color: Colors.white, fontSize: 12), decoration: InputDecoration(labelText: 'Telefono del cliente *', hintText: 'Ej: +56 9 6106 9670', hintStyle: const TextStyle(color: Colors.white24, fontSize: 11), prefixIcon: const Icon(Icons.phone_rounded, color: Colors.white38, size: 18), labelStyle: const TextStyle(color: Colors.white54), filled: true, fillColor: const Color(0xFF0F172A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)))),
             const SizedBox(height: 6),
-            Container(decoration: BoxDecoration(color: const Color(0xFF0F172A), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.white10)), child: SwitchListTile(value: saveAsClient, onChanged: (v)=> setD(()=> saveAsClient = v), activeColor: const Color(0xFF6366F1), dense: true, title: const Text('Guardar / actualizar como cliente', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)), subtitle: const Text('Si el cliente no esta en Clientes, se crea. Si ya esta, se actualiza su telefono.', style: TextStyle(color: Colors.white54, fontSize: 9)))),
+            Container(
+              decoration: BoxDecoration(color: const Color(0xFF0F172A), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.white10)), 
+              child: Material(
+                type: MaterialType.transparency,
+                child: SwitchListTile(value: saveAsClient, onChanged: (v)=> setD(()=> saveAsClient = v), activeColor: const Color(0xFF6366F1), dense: true, title: const Text('Guardar / actualizar como cliente', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)), subtitle: const Text('Si el cliente no esta en Clientes, se crea. Si ya esta, se actualiza su telefono.', style: TextStyle(color: Colors.white54, fontSize: 9)))
+              )
+            ),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(value: (_barberIds.contains(selectedBarberId) ? selectedBarberId : null), dropdownColor: const Color(0xFF1E293B), style: const TextStyle(color: Colors.white, fontSize: 12), decoration: InputDecoration(labelText: 'Barbero *', labelStyle: const TextStyle(color: Colors.white54), filled: true, fillColor: const Color(0xFF0F172A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))), items: {for (final b in _barbers) b.remoteId: b}.values.map((b)=> DropdownMenuItem(value: b.remoteId, child: Text(b.name, style: const TextStyle(fontSize: 12)))).toList(), onChanged: (v)=> setD(()=> selectedBarberId=v)),
             const SizedBox(height: 8),
             Align(alignment: Alignment.centerLeft, child: Text('Servicios * (varios)', style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.bold))),
             const SizedBox(height: 4),
-            Container(constraints: const BoxConstraints(maxHeight: 150), decoration: BoxDecoration(color: const Color(0xFF0F172A), border: Border.all(color: Colors.white10), borderRadius: BorderRadius.circular(8)), child: SingleChildScrollView(child: Material(color: Colors.transparent, child: Column(children: _services.map((s){ final checked=selectedServiceIds.contains(s.remoteId); return CheckboxListTile(dense: true, value: checked, activeColor: const Color(0xFF6366F1), title: Text(s.name, style: const TextStyle(color: Colors.white, fontSize: 11)), subtitle: Text(SettingsService.formatCurrency(s.price), style: const TextStyle(color: Colors.white38, fontSize: 9)), onChanged: (v)=> setD(()=> v==true? selectedServiceIds.add(s.remoteId!): selectedServiceIds.remove(s.remoteId))); }).toList())))),
+            Container(
+              constraints: const BoxConstraints(maxHeight: 150), 
+              decoration: BoxDecoration(color: const Color(0xFF0F172A), border: Border.all(color: Colors.white10), borderRadius: BorderRadius.circular(8)), 
+              child: SingleChildScrollView(
+                child: Material(
+                  color: Colors.transparent, 
+                  child: Column(children: _services.map((s){ final checked=selectedServiceIds.contains(s.remoteId); return CheckboxListTile(dense: true, value: checked, activeColor: const Color(0xFF6366F1), title: Text(s.name, style: const TextStyle(color: Colors.white, fontSize: 11)), subtitle: Text(SettingsService.formatCurrency(s.price), style: const TextStyle(color: Colors.white38, fontSize: 9)), onChanged: (v)=> setD(()=> v==true? selectedServiceIds.add(s.remoteId!): selectedServiceIds.remove(s.remoteId))); }).toList())
+                )
+              )
+            ),
             if(selectedServiceIds.isNotEmpty) Padding(padding: const EdgeInsets.only(top:6), child: Text('Total ${SettingsService.formatCurrency(totalServ())}', style: const TextStyle(color: Color(0xFF6366F1), fontWeight: FontWeight.bold, fontSize: 11))),
             const SizedBox(height: 8),
-            ListTile(contentPadding: EdgeInsets.zero, title: const Text('Fecha y hora', style: TextStyle(color: Colors.white54, fontSize: 10)), subtitle: Text('${selectedDateTime.day}/${selectedDateTime.month} ${selectedDateTime.hour}:${selectedDateTime.minute.toString().padLeft(2,'0')}', style: const TextStyle(color: Colors.white, fontSize: 11)), trailing: const Icon(Icons.calendar_month, color: Colors.white54, size: 16), onTap: () async {
-              final d = await showDatePicker(context: context, initialDate: selectedDateTime, firstDate: DateTime.now(), lastDate: DateTime.now().add(const Duration(days: 60)));
-              if(d!=null){ final t=await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(selectedDateTime)); if(t!=null) setD(()=> selectedDateTime=DateTime(d.year,d.month,d.day,t.hour,t.minute)); }
-            }),
+            Material(
+              color: Colors.transparent,
+              child: ListTile(contentPadding: EdgeInsets.zero, title: const Text('Fecha y hora', style: TextStyle(color: Colors.white54, fontSize: 10)), subtitle: Text('${selectedDateTime.day}/${selectedDateTime.month} ${selectedDateTime.hour}:${selectedDateTime.minute.toString().padLeft(2,'0')}', style: const TextStyle(color: Colors.white, fontSize: 11)), trailing: const Icon(Icons.calendar_month, color: Colors.white54, size: 16), onTap: () async {
+                final d = await showDatePicker(context: context, initialDate: selectedDateTime, firstDate: DateTime.now(), lastDate: DateTime.now().add(const Duration(days: 60)));
+                if(d!=null){ final t=await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(selectedDateTime)); if(t!=null) setD(()=> selectedDateTime=DateTime(d.year,d.month,d.day,t.hour,t.minute)); }
+              })
+            ),
             if (isReagendar) Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.12), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFF10B981).withOpacity(0.3))), child: const Row(children: [Icon(Icons.restore, size: 14, color: Color(0xFF10B981)), SizedBox(width: 6), Expanded(child: Text('Reagendando cita cancelada - al guardar quedara Pendiente para reconfirmar en la nueva fecha.', style: TextStyle(color: Colors.white70, fontSize: 10)))])),
             if (isReagendar) const SizedBox(height: 8),
             DropdownButtonFormField<String>(value: selectedStatus, dropdownColor: const Color(0xFF1E293B), style: const TextStyle(color: Colors.white, fontSize: 12), decoration: InputDecoration(labelText: 'Estado *', labelStyle: const TextStyle(color: Colors.white54), filled: true, fillColor: const Color(0xFF0F172A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))), items: const [DropdownMenuItem(value: 'pending', child: Text('Pendiente', style: TextStyle(fontSize: 12))), DropdownMenuItem(value: 'confirmed', child: Text('Confirmada', style: TextStyle(fontSize: 12))), DropdownMenuItem(value: 'in_progress', child: Text('En proceso', style: TextStyle(fontSize: 12))), DropdownMenuItem(value: 'completed', child: Text('Completada', style: TextStyle(fontSize: 12))), DropdownMenuItem(value: 'cancelled', child: Text('Cancelada', style: TextStyle(fontSize: 12)))], onChanged: (v)=> setD(()=> selectedStatus = v ?? 'pending')),
@@ -405,7 +415,6 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
               if(isNewClient && newClientNameController.text.trim().isEmpty){ ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Falta el nombre del nuevo cliente'))); return; }
               if(!isNewClient && selectedClientId==null){ ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Falta cliente'))); return; }
               if(selectedBarberId==null || selectedServiceIds.isEmpty){ ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Falta barbero/servicio'))); return; }
-              // Resolver cliente: nuevo -> crear en Clientes primero, existente -> usarlo
               LocalClient client;
               if (isNewClient) {
                 try { await _clientRepo.createClient(name: newClientNameController.text.trim(), phone: phone, email: '', notes: 'Creado desde Agenda'); } catch (_) { try { await Supabase.instance.client.from('clients').insert({'name': newClientNameController.text.trim(), 'phone': phone}); } catch (_) {} }
@@ -415,7 +424,6 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                 selectedClientId = client.remoteId;
               } else {
                 client = _clients.firstWhere((c)=> c.remoteId==selectedClientId);
-                // Actualizar telefono en Clientes si cambio y esta activado Guardar como cliente
                 if (saveAsClient && (client.phone ?? '').trim() != phone) {
                   try { await Supabase.instance.client.from('clients').update({'phone': phone}).eq('id', client.remoteId!); } catch (_) {}
                   client.phone = phone;
@@ -463,26 +471,32 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = true;
+    // Evaluamos permisos para la vista de citas
+    final canCreateEdit = RolePermissions.can(currentUserRole, BbsPerm.createEditAppointment);
+    final canConfirmCancel = RolePermissions.can(currentUserRole, BbsPerm.confirmCancel);
+
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
-appBar: AppBar(
-  backgroundColor: const Color(0xFF1E293B),
-leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: () { if (Navigator.canPop(context)) { Navigator.pop(context); } else { Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => PosScreen())); } }),
-  title: const Text('Agenda', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-  actions: [
-     IconButton(icon: const Icon(Icons.lock_clock_rounded, color: Colors.white), tooltip: 'Bloquear Horas', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (_) => BlockedHoursScreen()));}),
-     IconButton(icon: const Icon(Icons.sync), tooltip: 'Sincronizar', onPressed: _syncAppointments),
-     IconButton(icon: const Icon(Icons.refresh, color: Colors.white54), onPressed: (){ _loadData(); _loadDaysWithCounts();})]),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF1E293B),
+        leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: () { if (Navigator.canPop(context)) { Navigator.pop(context); } else { Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => PosScreen())); } }),
+        title: const Text('Agenda', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+        actions: [
+          if (RolePermissions.isAdmin(currentUserRole))
+            IconButton(icon: const Icon(Icons.lock_clock_rounded, color: Colors.white), tooltip: 'Bloquear Horas', onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (_) => BlockedHoursScreen()));}),
+          IconButton(icon: const Icon(Icons.sync), tooltip: 'Sincronizar', onPressed: _syncAppointments),
+          IconButton(icon: const Icon(Icons.refresh, color: Colors.white54), onPressed: (){ _loadData(); _loadDaysWithCounts();})
+        ]
+      ),
       body: _isLoading ? const Center(child: CircularProgressIndicator(color: Color(0xFF6366F1))) : SingleChildScrollView(padding: const EdgeInsets.all(12), child: Column(children: [
         _buildPremiumCalendarCompact(),
         const SizedBox(height: 16),
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
           Text('Citas ${DateFormat('dd MMM yyyy', 'es').format(_selectedDate)} (${_appointments.length})', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-          TextButton.icon(onPressed: ()=> _showAppointmentDialog(), icon: const Icon(Icons.add, size: 14, color: Color(0xFF6366F1)), label: const Text('Nueva', style: TextStyle(fontSize: 11, color: Color(0xFF6366F1)))),
+          if (canCreateEdit)
+            TextButton.icon(onPressed: ()=> _showAppointmentDialog(), icon: const Icon(Icons.add, size: 14, color: Color(0xFF6366F1)), label: const Text('Nueva', style: TextStyle(fontSize: 11, color: Color(0xFF6366F1)))),
         ]),
         const SizedBox(height: 8),
-        // ✅ CARDS PREMIUM RESTAURADAS COMO ANTES (bonitas, no miniBtn)
         ..._appointments.map((appointment){
           return Container(
             margin: const EdgeInsets.only(bottom: 12),
@@ -516,29 +530,34 @@ leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onP
               ]),
               const SizedBox(height: 12),
               if (_parseAbono(appointment.notes) != null) Padding(padding: const EdgeInsets.only(bottom: 8), child: Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: (_parseAbono(appointment.notes)!['paid'] as bool) ? const Color(0xFF10B981).withOpacity(0.15) : const Color(0xFFF59E0B).withOpacity(0.15), borderRadius: BorderRadius.circular(20)), child: Text('💰 ${_abonoLine(appointment.notes)}', style: TextStyle(color: (_parseAbono(appointment.notes)!['paid'] as bool) ? const Color(0xFF10B981) : const Color(0xFFF59E0B), fontSize: 10, fontWeight: FontWeight.bold)))),
+              
+              // BOTONES DE ACCIÓN PROTEGIDOS POR PERMISOS
               Wrap(spacing: 8, runSpacing: 8, children: [
-                if (appointment.status == 'pending')
+                if (canConfirmCancel && appointment.status == 'pending')
                   _ActionButton(icon: Icons.check_circle, label: 'Confirmar', color: Colors.blue, onPressed: () => _updateAppointmentStatus(appointment, 'confirmed')),
-                if (appointment.status == 'confirmed')
+                if (canConfirmCancel && appointment.status == 'confirmed')
                   _ActionButton(icon: Icons.undo, label: 'Volver a Pendiente', color: Colors.orange, onPressed: () => _updateAppointmentStatus(appointment, 'pending')),
-                if (appointment.status == 'confirmed' || appointment.status == 'pending')
+                if (canCreateEdit && (appointment.status == 'confirmed' || appointment.status == 'pending'))
                   _ActionButton(icon: Icons.play_circle, label: 'En proceso', color: Colors.purple, onPressed: () => _updateAppointmentStatus(appointment, 'in_progress')),
-                if (appointment.status != 'completed' && appointment.status != 'cancelled') ...[
+                if (canCreateEdit && appointment.status != 'completed' && appointment.status != 'cancelled') ...[
                   _ActionButton(icon: Icons.task_alt, label: 'Completar', color: Colors.green, onPressed: () => _updateAppointmentStatus(appointment, 'completed')),
+                ],
+                if (canConfirmCancel && appointment.status != 'completed' && appointment.status != 'cancelled') ...[
                   _ActionButton(icon: Icons.cancel, label: 'Cancelar', color: Colors.red, onPressed: () => _deleteAppointment(appointment)),
                 ],
-                if (appointment.status == 'cancelled')
+                if (canCreateEdit && appointment.status == 'cancelled')
                   _ActionButton(icon: Icons.restore, label: 'Reagendar', color: Colors.green, onPressed: () => _showAppointmentDialog(existing: appointment)),
-                _ActionButton(icon: Icons.edit, label: 'Editar', color: Colors.grey, onPressed: () => _showAppointmentDialog(existing: appointment)),
+                if (canCreateEdit)
+                  _ActionButton(icon: Icons.edit, label: 'Editar', color: Colors.grey, onPressed: () => _showAppointmentDialog(existing: appointment)),
                 if (appointment.status == 'cancelled')
                   Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(color: Colors.red.withOpacity(0.12), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.red.withOpacity(0.3))), child: const Text('Cancelada', style: TextStyle(color: Colors.redAccent, fontSize: 10, fontWeight: FontWeight.bold))),
               ]),
             ]),
           );
         }),
-        if(_appointments.isEmpty) Container(padding: const EdgeInsets.all(24), decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(14)), child: Column(children: [Icon(Icons.event_busy, color: Colors.white12, size: 36), const SizedBox(height: 8), const Text('Sin citas para este día', style: TextStyle(color: Colors.white38, fontSize: 12)), const SizedBox(height: 8), ElevatedButton.icon(onPressed: ()=> _showAppointmentDialog(), icon: const Icon(Icons.add, size: 14), label: const Text('Nueva cita', style: TextStyle(fontSize: 11)), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6366F1)))])),
+        if(_appointments.isEmpty) Container(padding: const EdgeInsets.all(24), decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(14)), child: Column(children: [Icon(Icons.event_busy, color: Colors.white12, size: 36), const SizedBox(height: 8), const Text('Sin citas para este día', style: TextStyle(color: Colors.white38, fontSize: 12)), const SizedBox(height: 8), if (canCreateEdit) ElevatedButton.icon(onPressed: ()=> _showAppointmentDialog(), icon: const Icon(Icons.add, size: 14), label: const Text('Nueva cita', style: TextStyle(fontSize: 11)), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6366F1)))])),
       ])),
-      floatingActionButton: FloatingActionButton(onPressed: ()=> _showAppointmentDialog(), backgroundColor: const Color(0xFF6366F1), child: const Icon(Icons.add, color: Colors.white)),
+      floatingActionButton: canCreateEdit ? FloatingActionButton(onPressed: ()=> _showAppointmentDialog(), backgroundColor: const Color(0xFF6366F1), child: const Icon(Icons.add, color: Colors.white)) : null,
     );
   }
 }

@@ -1,4 +1,4 @@
-// lib/screens/users_screen.dart - FIX LLAVES - Usuarios Premium + Roles
+// lib/screens/users_screen.dart
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'roles_screen.dart' as roles_screen;
@@ -150,7 +150,6 @@ class _UsersScreenState extends State<UsersScreen> with TickerProviderStateMixin
                         'updated_at': DateTime.now().toIso8601String(),
                       }).eq('id', user!['id']);
                     } else {
-                      // CREAR NUEVO USUARIO VÍA EDGE FUNCTION (Seguro, no cierra sesión)
                       final pass = passCtrl.text.trim();
                       if (pass.isEmpty || pass.length < 6) {
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -159,7 +158,6 @@ class _UsersScreenState extends State<UsersScreen> with TickerProviderStateMixin
                         return;
                       }
 
-                      // Invocamos la función en el servidor de Supabase
                       final response = await Supabase.instance.client.functions.invoke(
                         'admin-create-user',
                         body: {
@@ -281,35 +279,38 @@ class _UsersScreenState extends State<UsersScreen> with TickerProviderStateMixin
                       child: Container(
                         margin: const EdgeInsets.only(bottom: 10),
                         decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.white.withOpacity(0.06))),
-                        child: ListTile(
-                          leading: CircleAvatar(backgroundColor: _getRoleColor(role).withOpacity(0.18), child: Text((user['full_name'] ?? 'U').toString().isNotEmpty ? (user['full_name'] ?? 'U').toString()[0].toUpperCase() : 'U', style: TextStyle(color: _getRoleColor(role), fontWeight: FontWeight.bold))),
-                          title: Text(user['full_name'] ?? 'Sin nombre', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 14)),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const SizedBox(height: 2),
-                              Text(user['email'] ?? '', style: const TextStyle(fontSize: 11, color: Colors.white54)),
-                              const SizedBox(height: 4),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(color: _getRoleColor(role).withOpacity(0.15), borderRadius: BorderRadius.circular(20)),
-                                child: Text(_getRoleLabel(role).toUpperCase(), style: TextStyle(color: _getRoleColor(role), fontSize: 10, fontWeight: FontWeight.bold)),
-                              ),
-                            ],
-                          ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.12), borderRadius: BorderRadius.circular(10)),
-                                child: IconButton(icon: const Icon(Icons.edit_rounded, size: 18, color: Color(0xFF818CF8)), onPressed: () => _showUserDialog(user: user)),
-                              ),
-                              const SizedBox(width: 6),
-                              Container(
-                                decoration: BoxDecoration(color: Colors.red.withOpacity(0.12), borderRadius: BorderRadius.circular(10)),
-                                child: IconButton(icon: const Icon(Icons.delete_rounded, size: 18, color: Color(0xFFEF4444)), onPressed: () => _deleteUser(user['id'], user['full_name'] ?? 'Usuario')),
-                              ),
-                            ],
+                        child: Material(
+                          type: MaterialType.transparency,
+                          child: ListTile(
+                            leading: CircleAvatar(backgroundColor: _getRoleColor(role).withOpacity(0.18), child: Text((user['full_name'] ?? 'U').toString().isNotEmpty ? (user['full_name'] ?? 'U').toString()[0].toUpperCase() : 'U', style: TextStyle(color: _getRoleColor(role), fontWeight: FontWeight.bold))),
+                            title: Text(user['full_name'] ?? 'Sin nombre', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 14)),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const SizedBox(height: 2),
+                                Text(user['email'] ?? '', style: const TextStyle(fontSize: 11, color: Colors.white54)),
+                                const SizedBox(height: 4),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(color: _getRoleColor(role).withOpacity(0.15), borderRadius: BorderRadius.circular(20)),
+                                  child: Text(_getRoleLabel(role).toUpperCase(), style: TextStyle(color: _getRoleColor(role), fontSize: 10, fontWeight: FontWeight.bold)),
+                                ),
+                              ],
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.12), borderRadius: BorderRadius.circular(10)),
+                                  child: IconButton(icon: const Icon(Icons.edit_rounded, size: 18, color: Color(0xFF818CF8)), onPressed: () => _showUserDialog(user: user)),
+                                ),
+                                const SizedBox(width: 6),
+                                Container(
+                                  decoration: BoxDecoration(color: Colors.red.withOpacity(0.12), borderRadius: BorderRadius.circular(10)),
+                                  child: IconButton(icon: const Icon(Icons.delete_rounded, size: 18, color: Color(0xFFEF4444)), onPressed: () => _deleteUser(user['id'], user['full_name'] ?? 'Usuario')),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),

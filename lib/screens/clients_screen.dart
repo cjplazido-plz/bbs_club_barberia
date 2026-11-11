@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../models/local_client.dart';
 import '../repositories/client_repository.dart';
 import '../services/settings_service.dart';
+import '../main.dart'; 
+import '../services/role_permissions.dart'; 
 
 class ClientsScreen extends StatefulWidget {
   @override
@@ -133,6 +135,9 @@ class _ClientsScreenState extends State<ClientsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final canEdit = RolePermissions.can(currentUserRole, BbsPerm.createEditClient);
+    final canDelete = RolePermissions.can(currentUserRole, BbsPerm.deleteClient);
+
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
       appBar: AppBar(leading: IconButton(icon: const Icon(Icons.arrow_back_rounded, color: Colors.white), onPressed: () => Navigator.pop(context)), title: const Text('Clientes Premium', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)), backgroundColor: const Color(0xFF1E293B), foregroundColor: Colors.white, elevation: 0),
@@ -142,10 +147,29 @@ class _ClientsScreenState extends State<ClientsScreen> {
           final client = _filteredClients[index];
           final phoneText = client.phone != null ? "📱 ${client.phone}" : "";
           final visitsText = "Visitas: ${client.totalVisits} | Total: ${SettingsService.formatCurrency(client.totalSpent)}";
-          return Container(margin: const EdgeInsets.only(bottom: 12), decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withOpacity(0.05)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 12, offset: const Offset(0,4))]), child: ListTile(contentPadding: const EdgeInsets.all(14), leading: CircleAvatar(backgroundColor: const Color(0xFF6366F1).withOpacity(0.15), child: Text(client.name.isNotEmpty ? client.name[0].toUpperCase() : '?', style: const TextStyle(color: Color(0xFF6366F1), fontWeight: FontWeight.bold, fontSize: 14))), title: Text(client.name, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 14)), subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [if (phoneText.isNotEmpty) Text(phoneText, style: const TextStyle(color: Colors.white70, fontSize: 12)), if (client.email != null && client.email!.isNotEmpty) Text("✉️ ${client.email}", style: const TextStyle(color: Colors.white54, fontSize: 11)), const SizedBox(height: 4), Text(visitsText, style: const TextStyle(color: Colors.white38, fontSize: 11))]), trailing: Row(mainAxisSize: MainAxisSize.min, children: [Container(decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(10)), child: IconButton(icon: const Text('✏️', style: TextStyle(fontSize: 16)), onPressed: () => _showClientDialog(client: client))), const SizedBox(width: 6), Container(decoration: BoxDecoration(color: Colors.red.withOpacity(0.1), borderRadius: BorderRadius.circular(10)), child: IconButton(icon: const Text('🗑️', style: TextStyle(fontSize: 16)), onPressed: () => _deleteClient(client)))])));
+          return Container(
+            margin: const EdgeInsets.only(bottom: 12), 
+            decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withOpacity(0.05)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 12, offset: const Offset(0,4))]), 
+            child: Material(
+              type: MaterialType.transparency,
+              child: ListTile(
+                contentPadding: const EdgeInsets.all(14), 
+                leading: CircleAvatar(backgroundColor: const Color(0xFF6366F1).withOpacity(0.15), child: Text(client.name.isNotEmpty ? client.name[0].toUpperCase() : '?', style: const TextStyle(color: Color(0xFF6366F1), fontWeight: FontWeight.bold, fontSize: 14))), 
+                title: Text(client.name, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 14)), 
+                subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [if (phoneText.isNotEmpty) Text(phoneText, style: const TextStyle(color: Colors.white70, fontSize: 12)), if (client.email != null && client.email!.isNotEmpty) Text("✉️ ${client.email}", style: const TextStyle(color: Colors.white54, fontSize: 11)), const SizedBox(height: 4), Text(visitsText, style: const TextStyle(color: Colors.white38, fontSize: 11))]), 
+                trailing: (canEdit || canDelete) ? Row(mainAxisSize: MainAxisSize.min, children: [
+                  if (canEdit)
+                    Container(decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(10)), child: IconButton(icon: const Text('✏️', style: TextStyle(fontSize: 16)), onPressed: () => _showClientDialog(client: client))),
+                  if (canEdit && canDelete) const SizedBox(width: 6),
+                  if (canDelete)
+                    Container(decoration: BoxDecoration(color: Colors.red.withOpacity(0.1), borderRadius: BorderRadius.circular(10)), child: IconButton(icon: const Text('🗑️', style: TextStyle(fontSize: 16)), onPressed: () => _deleteClient(client)))
+                ]) : null
+              )
+            )
+          );
         })),
       ]),
-      floatingActionButton: Container(decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF818CF8)]), borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: const Color(0xFF6366F1).withOpacity(0.4), blurRadius: 12, offset: const Offset(0,6))]), child: FloatingActionButton(onPressed: () => _showClientDialog(), backgroundColor: Colors.transparent, elevation: 0, child: const Icon(Icons.add_rounded, color: Colors.white, size: 28))),
+      floatingActionButton: canEdit ? Container(decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF818CF8)]), borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: const Color(0xFF6366F1).withOpacity(0.4), blurRadius: 12, offset: const Offset(0,6))]), child: FloatingActionButton(onPressed: () => _showClientDialog(), backgroundColor: Colors.transparent, elevation: 0, child: const Icon(Icons.add_rounded, color: Colors.white, size: 28))) : null,
     );
   }
 }
