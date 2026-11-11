@@ -1,7 +1,6 @@
 // lib/screens/users_screen.dart - FIX LLAVES - Usuarios Premium + Roles
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'dart:math';
 import 'roles_screen.dart' as roles_screen;
 
 class UsersScreen extends StatefulWidget {
@@ -98,7 +97,7 @@ class _UsersScreenState extends State<UsersScreen> with TickerProviderStateMixin
                 if (!isEditing) ...[
                   _field(passCtrl, 'Contraseña (para crear en Auth)', Icons.lock_rounded, obscure: true),
                   const SizedBox(height: 6),
-                  const Text('Después creá este email en Supabase > Authentication > Add user con esa contraseña para que pueda entrar.', style: TextStyle(color: Colors.white38, fontSize: 10)),
+                  const Text('El usuario se creará automáticamente en Auth y en la base de datos.', style: TextStyle(color: Colors.white38, fontSize: 10)),
                   const SizedBox(height: 12),
                 ],
                 DropdownButtonFormField<String>(
@@ -151,23 +150,33 @@ class _UsersScreenState extends State<UsersScreen> with TickerProviderStateMixin
                         'updated_at': DateTime.now().toIso8601String(),
                       }).eq('id', user!['id']);
                     } else {
-                      String uuid() {
-                        final rnd = Random();
-                        String hex(int n) => List.generate(n, (_) => rnd.nextInt(16).toRadixString(16)).join();
-                        return '${hex(8)}-${hex(4)}-4${hex(3)}-${['8', '9', 'a', 'b'][rnd.nextInt(4)]}${hex(3)}-${hex(12)}';
+                      // CREAR NUEVO USUARIO VÍA EDGE FUNCTION (Seguro, no cierra sesión)
+                      final pass = passCtrl.text.trim();
+                      if (pass.isEmpty || pass.length < 6) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('La contraseña debe tener al menos 6 caracteres'), backgroundColor: Colors.red),
+                        );
+                        return;
                       }
-                      final newId = uuid();
-                      await Supabase.instance.client.from('profiles').insert({
-                        'id': newId,
-                        'email': email,
-                        'full_name': name,
-                        'phone': phoneCtrl.text.trim(),
-                        'role': selectedRole,
-                        'commission_rate': comm,
-                        'created_at': DateTime.now().toIso8601String(),
-                        'updated_at': DateTime.now().toIso8601String(),
-                      });
+
+                      // Invocamos la función en el servidor de Supabase
+                      final response = await Supabase.instance.client.functions.invoke(
+                        'admin-create-user',
+                        body: {
+                          'email': email,
+                          'password': pass,
+                          'full_name': name,
+                          'role': selectedRole,
+                          'phone': phoneCtrl.text.trim(),
+                          'commission_rate': comm,
+                        },
+                      );
+
+                      if (response.status != 200) {
+                        throw Exception('Error al crear el usuario: ${response.data}');
+                      }
                     }
+                    
                     if (dialogContext.mounted) Navigator.pop(dialogContext);
                     await _loadUsers();
                     if (mounted) {
