@@ -376,7 +376,7 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
               Text('Titular: $_bankHolder', style: const TextStyle(color: Colors.white70, fontSize: 11)),
               // Email oculto a pedido - si queres mostrarlo, descomenta _bankEmail arriba y esta linea
               const SizedBox(height: 6),
-              const Text('Edita estos datos arriba en el archivo (EDITAR AQUI TUS DATOS DE TRANSFERENCIA).', style: TextStyle(color: Colors.white38, fontSize: 9)),
+              //const Text('Edita estos datos arriba en el archivo (EDITAR AQUI TUS DATOS DE TRANSFERENCIA).', style: TextStyle(color: Colors.white38, fontSize: 9)),
             ])),
             const SizedBox(height: 8),
             CheckboxListTile(dense: true, value: _depositAlreadyTransferred, activeColor: const Color(0xFF10B981), title: const Text('Ya transferi, enviare comprobante por WhatsApp', style: TextStyle(color: Colors.white, fontSize: 12)), subtitle: const Text('Tu cita quedara Pendiente hasta que verifiquemos la transferencia en Agenda.', style: TextStyle(color: Colors.white54, fontSize: 10)), onChanged: (v)=> setState(()=> _depositAlreadyTransferred = v ?? false)),
