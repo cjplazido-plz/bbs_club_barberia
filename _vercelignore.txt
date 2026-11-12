@@ -1,0 +1,6 @@
+# Ignorar todo el proyecto por defecto
+/*
+
+# Excepto lo que sí necesitas para el despliegue web
+!/build/web
+!/vercel.json
