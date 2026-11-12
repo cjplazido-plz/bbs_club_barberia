@@ -1,6 +1,5 @@
 {
   "cleanUrls": false,
-  "outputDirectory": "build/web",
   "rewrites": [
     {
       "source": "/(.*)",
