@@ -1,4 +1,3 @@
-// lib/services/ticket_config_service.dart - COMPATIBLE TOTAL - fix siiRazon + URLs finales usuario
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class TicketConfigService {
@@ -14,13 +13,14 @@ class TicketConfigService {
     'ancho': '80mm',
     'metodo_impresion': 'browser',
     'auto_print': true,
-    'logo_url': 'https://kshpmivwtconponuxevx.supabase.co/storage/v1/object/public/LOGO%20BBSCLUB/WhatsApp%20Image%202026-09-28%20at%2018.38.10.jpeg',
-    'logo_url_app': 'https://kshpmivwtconponuxevx.supabase.co/storage/v1/object/public/LOGO%20BBSCLUB/WhatsApp%20Image%202026-09-28%20at%2018.38.10.jpeg',
-    'logo_url_ticket': 'https://kshpmivwtconponuxevx.supabase.co/storage/v1/object/public/LOGO%20BBSCLUB/LOGOTICKET.bmp',
-    'folio_prefijo': 'V-',
-    'prefijo': 'V-',
-    'folio_actual': 1011,
-    'folioActual': 1011,
+    'logo_url': '',
+    'logo_url_app': '',
+    'logo_url_ticket': '',
+    // FIX: Valores por defecto seguros. Si falla internet, que empiece en 9999 o similar para no duplicar.
+    'folio_prefijo': '', 
+    'prefijo': '',
+    'folio_actual': 9999, 
+    'folioActual': 9999,
     'sii_razon': 'BBS CLUB SPA',
     'sii_giro': 'Barberia',
     'sii_direccion': 'Manuel Montt #460, local 6 - Coronel',
@@ -29,33 +29,29 @@ class TicketConfigService {
     'document_wrapper': '',
   };
 
-  // BASICOS
-  static String get nombreNegocio => _cache['nombre_negocio'] ?? _cache['nombre_local'] ?? 'BBS CLUB BARBERIA';
-  static String get nombreLocal => _cache['nombre_local'] ?? _cache['nombre_negocio'] ?? 'BBS CLUB BARBERIA';
-  static String get rut => _cache['rut'] ?? _cache['sii_rut_emisor'] ?? '77.000000-0';
-  static String get direccion => _cache['direccion'] ?? _cache['sii_direccion'] ?? 'Coronel';
+  static String get nombreNegocio => _cache['nombre_negocio'] ?? 'BBS CLUB BARBERIA';
+  static String get rut => _cache['rut'] ?? '77.000000-0';
+  static String get direccion => _cache['direccion'] ?? 'Coronel';
   static String get telefono => _cache['telefono'] ?? '';
   static String get email => _cache['email'] ?? '';
   static String get mensaje => _cache['mensaje'] ?? '¡Gracias por su visita!';
   static String get ancho => _cache['ancho'] ?? '80mm';
-  static String get prefijo => _cache['folio_prefijo'] ?? _cache['prefijo'] ?? 'V-';
+  static String get prefijo => _cache['folio_prefijo'] ?? _cache['prefijo'] ?? '';
   static String get folioPrefijo => prefijo;
+  
   static int get folioActual {
-    final v = _cache['folio_actual'] ?? _cache['folioActual'] ?? 1011;
+    final v = _cache['folio_actual'] ?? _cache['folioActual'] ?? 9999;
     if (v is int) return v;
-    return int.tryParse(v.toString()) ?? 1011;
+    return int.tryParse(v.toString()) ?? 9999;
   }
 
-  // LOGOS
   static String get logoUrl => _cache['logo_url'] ?? '';
   static String get appLogoUrl => _cache['logo_url_app'] ?? logoUrl;
   static String get ticketLogoUrl => _cache['logo_url_ticket'] ?? appLogoUrl;
   static String get shopLogoUrl => appLogoUrl;
   static String get logoUrlTicket => ticketLogoUrl;
 
-  // COMPATIBILIDAD - sales_history_screen, pos_screen, etc usan estos
   static String get siiRazon => _cache['sii_razon'] ?? nombreNegocio;
-  static String get siiRazonSocial => siiRazon;
   static String get siiGiro => _cache['sii_giro'] ?? 'Barberia';
   static String get siiDireccion => _cache['sii_direccion'] ?? direccion;
   static String get siiRutEmisor => _cache['sii_rut_emisor'] ?? rut;
@@ -70,8 +66,12 @@ class TicketConfigService {
   static Future<void> load() async {
     try {
       final res = await Supabase.instance.client.from(table).select('*').eq('key', 'ticket_config').maybeSingle();
-      if (res != null && res['value'] != null) _cache.addAll(Map<String, dynamic>.from(res['value'] as Map));
-    } catch (e) { print('TicketConfig load $e'); }
+      if (res != null && res['value'] != null) {
+        _cache.addAll(Map<String, dynamic>.from(res['value'] as Map));
+      }
+    } catch (e) { 
+      print('TicketConfig load error: $e'); 
+    }
   }
 
   static Future<bool> save(Map<String, dynamic> newConfig) async {
@@ -88,15 +88,33 @@ class TicketConfigService {
         if(k=='folioActual') norm['folio_actual']=v;
         if(k=='logo_url_app') norm['logo_url']=v;
       });
+      
+      // Actualizamos la caché local
       _cache.addAll(norm);
-      await Supabase.instance.client.from(table).upsert({'key':'ticket_config','value':_cache,'updated_at':DateTime.now().toIso8601String()}, onConflict: 'key');
+      
+      // Guardamos en Supabase
+      await Supabase.instance.client.from(table).upsert({
+        'key': 'ticket_config',
+        'value': _cache,
+        'updated_at': DateTime.now().toIso8601String()
+      }, onConflict: 'key');
+      
       return true;
-    } catch(e){ print('TicketConfig save $e'); return false; }
+    } catch(e){ 
+      print('❌ TicketConfig save error: $e'); 
+      return false; 
+    }
   }
 
   static Future<int> useNextFolio() async {
     final cur = folioActual;
-    await save({'folio_actual': cur+1});
+    final ok = await save({'folio_actual': cur + 1});
+    
+    // FIX CRÍTICO: Si no se pudo guardar en la nube, lanzamos error para DETENER la venta
+    if (!ok) {
+      throw Exception('Error de conexión: No se pudo generar el folio en Supabase. Revisa el internet antes de cobrar.');
+    }
+    
     return cur;
   }
 }

@@ -23,7 +23,6 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
   Uint8List? _logoBytes;
   bool _logoLoading = true;
 
-  // FIX: no usar late para animaciones que pueden fallar - inicializar en initState y usar nullable donde sea necesario
   AnimationController? _mainController;
   AnimationController? _glowController;
   AnimationController? _shakeController;
@@ -81,7 +80,6 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       try {
         if (userEmail.toLowerCase()==developerEmail.toLowerCase()) { role='admin'; userName='Desarrollador (Acceso Total)'; }
         else if (userEmail.isNotEmpty) {
-          // Usar el ID de la sesión del usuario es más seguro
           final profile = await Supabase.instance.client.from('profiles').select().eq('id', res.user!.id).maybeSingle();
           if (profile!=null) { role=profile['role']??'admin'; userName=profile['full_name']??profile['name']??userEmail.split('@').first; }
         }
@@ -96,7 +94,6 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
 
   @override
   Widget build(BuildContext context) {
-    // Si animaciones aun no listas, mostrar sin animacion para no crashear
     final fade = _fadeAnimation ?? const AlwaysStoppedAnimation<double>(1.0);
     final scale = _scaleAnimation ?? const AlwaysStoppedAnimation<double>(1.0);
     final slide = _slideAnimation ?? const AlwaysStoppedAnimation<Offset>(Offset.zero);
@@ -122,7 +119,6 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // LOGO COMO PANTALLA PUBLICA image_f87761.png
                         Container(
                           width: 160, height: 84,
                           decoration: BoxDecoration(color: const Color(0xFF0F0F0F), borderRadius: BorderRadius.circular(14), boxShadow: [BoxShadow(color: Colors.black45, blurRadius: 12)]),
@@ -134,7 +130,8 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                           ),
                         ),
                         const SizedBox(height: 12),
-                        Text(TicketConfigService.nombreLocal.isEmpty?'BBS CLUB':TicketConfigService.nombreLocal, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 0.5)),
+                        // FIX: Cambiado nombreLocal por nombreNegocio
+                        Text(TicketConfigService.nombreNegocio.isEmpty ? 'BBS CLUB' : TicketConfigService.nombreNegocio, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 0.5)),
                         const SizedBox(height: 2),
                         const Text('Barbería Premium', style: TextStyle(color: Colors.white54, fontSize: 11, letterSpacing: 2)),
                         const SizedBox(height: 28),

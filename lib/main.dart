@@ -8,22 +8,18 @@ import 'services/theme_service.dart';
 import 'screens/login_screen.dart';
 import 'screens/public_booking_screen.dart';
 import 'screens/appointments_screen.dart';
-import 'screens/pos_screen.dart'; // <- pantalla principal despues del login: POS, no Agenda
+import 'screens/pos_screen.dart';
 
-String currentUserRole = 'admin';
+// FIX: Por defecto, si falla la carga, que sea 'cashier' (cajero) por seguridad, NO admin.
+String currentUserRole = 'cashier'; 
 String currentUserName = '';
 String currentUserEmail = '';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // ✅ Inicializar locale español
   await initializeDateFormatting('es', null);
-  
-  // Inicializar Isar
   await DatabaseService.init();
   
-  // Inicializar Supabase CON opciones para web (esto arregla el refresh)
   await Supabase.initialize(
     url: 'https://kshpmivwtconponuxevx.supabase.co',
     anonKey: 'sb_publishable_Vg3CpOZkRDJbTD-Mw_F3nw_S2Wmajf3',
@@ -33,14 +29,12 @@ void main() async {
     ),
   );
   
-  // ✅ CLAVE: Esperar a que Supabase recupere la sesión del localStorage en web
+  // Esperar a que recupere la sesión ANTES de arrancar la app
   try {
     await Supabase.instance.client.auth.getSession();
   } catch (_) {}
   
-  // Cargar configuración de la barbería
   await SettingsService.loadSettings();
-  
   runApp(BarberFlowApp());
 }
 
@@ -57,19 +51,14 @@ class _BarberFlowAppState extends State<BarberFlowApp> {
       debugShowCheckedModeBanner: false,
       theme: ThemeService.lightTheme,
       darkTheme: ThemeService.darkTheme,
-      themeMode: ThemeService.themeMode,
+      themeMode: ThemeMode.dark, // Forzar modo oscuro
       locale: const Locale('es'),
-      supportedLocales: const [
-        Locale('es'),
-        Locale('en'),
-      ],
+      supportedLocales: const [Locale('es'), Locale('en')],
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      // FIX QR /reservar publica: home ignoraba la URL y AuthGate mandaba a login.
-      // Ahora initialRoute respeta la URL y AuthGate tambien revisa Uri.base.
       initialRoute: (Uri.base.path == '/reservar' || Uri.base.path == '/reservar/') ? '/reservar' : '/',
       routes: {
         '/': (context) => const AuthGate(),
@@ -82,7 +71,6 @@ class _BarberFlowAppState extends State<BarberFlowApp> {
   }
 }
 
-/// ✅ ESTE WIDGET ARREGLA EL LOGOUT AL REFRESCAR
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
 
@@ -98,19 +86,18 @@ class _AuthGateState extends State<AuthGate> {
     super.initState();
     _init();
 
-    // Escucha cambios de auth (login/logout) para actualizarse automático
     Supabase.instance.client.auth.onAuthStateChange.listen((data) {
       if (mounted) {
-        _init(); // Volver a cargar el perfil si cambia la sesión
+        _init();
         setState(() {});
       }
     });
   }
 
   Future<void> _init() async {
-    setState(() => _isLoading = true);
+    if (mounted) setState(() => _isLoading = true);
+    
     try {
-      // 1. Recuperar sesión
       await Supabase.instance.client.auth.getSession();
       final session = Supabase.instance.client.auth.currentSession;
       
@@ -118,27 +105,34 @@ class _AuthGateState extends State<AuthGate> {
         final user = session.user;
         currentUserEmail = user.email ?? '';
         
-        // 2. Buscar su perfil en la base de datos para saber su ROL
-        final profile = await Supabase.instance.client
-            .from('profiles')
-            .select('role, full_name')
-            .eq('id', user.id)
-            .maybeSingle();
+        try {
+          final profile = await Supabase.instance.client
+              .from('profiles')
+              .select('role, full_name')
+              .eq('id', user.id)
+              .maybeSingle();
 
-        if (profile != null) {
-          currentUserRole = profile['role'] ?? 'cashier';
-          currentUserName = profile['full_name'] ?? '';
-        } else {
-          // Si no tiene perfil (raro), lo dejamos como cashier por seguridad
-          currentUserRole = 'cashier'; 
+          if (profile != null) {
+            currentUserRole = profile['role'] ?? 'cashier';
+            // FIX: Si el perfil no tiene full_name, usa el correo, si no, 'Usuario'
+            currentUserName = profile['full_name'] ?? user.email?.split('@').first ?? 'Usuario';
+          } else {
+            // FIX: Si el usuario existe en Auth pero no en la tabla profiles
+            currentUserRole = 'cashier';
+            currentUserName = user.email?.split('@').first ?? 'Usuario'; 
+          }
+        } catch (e) {
+          debugPrint('Error obteniendo perfil: $e');
+          // FIX: En caso de error de red, al menos asignamos el nombre del correo
+          currentUserRole = 'cashier';
+          currentUserName = user.email?.split('@').first ?? 'Usuario';
         }
       }
     } catch (e) {
-      print('Error cargando perfil: $e');
+      debugPrint('Error recuperando sesión: $e');
     }
     
-    // Pequeño delay para web, asegura que localStorage cargó
-    await Future.delayed(const Duration(milliseconds: 300));
+    await Future.delayed(const Duration(milliseconds: 400));
     
     if (mounted) {
       setState(() => _isLoading = false);
@@ -147,25 +141,23 @@ class _AuthGateState extends State<AuthGate> {
 
   @override
   Widget build(BuildContext context) {
-    // PUBLICA: si la URL es /reservar, mostrar Reservar Cita aunque no haya sesion
     final uriPath = Uri.base.path;
     if (uriPath == '/reservar' || uriPath == '/reservar/') {
       return PublicBookingScreen();
     }
     if (_isLoading) {
       return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+        backgroundColor: Color(0xFF0F172A),
+        body: Center(child: CircularProgressIndicator(color: Color(0xFF6366F1))),
       );
     }
 
     final session = Supabase.instance.client.auth.currentSession;
 
-    // Si hay sesion guardada, entra directo a POS
     if (session != null) {
       return PosScreen();
     }
 
-    // Si no hay sesión, va al login
     return LoginScreen();
   }
 }

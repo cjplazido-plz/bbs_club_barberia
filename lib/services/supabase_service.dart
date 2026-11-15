@@ -1,45 +1,20 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/local_transaction.dart';
 
 class SupabaseService {
   final SupabaseClient _client = Supabase.instance.client;
 
-  /// Subir una venta a la nube
-  Future<void> uploadTransaction(LocalTransaction transaction) async {
-    try {
-      // 1. Insertar la transacción principal
-      final transactionResponse = await _client
-          .from('transactions')
-          .insert({
-            'subtotal': transaction.subtotal,
-            'total': transaction.total,
-            'payment_method': transaction.paymentMethod,
-            'status': transaction.status,
-          })
-          .select()
-          .single();
+  // =======================================================================
+  // ⚠️ ADVERTENCIA DE SEGURIDAD ⚠️
+  // La función 'uploadTransaction' fue ELIMINADA de este archivo.
+  // Razón: Era una versión antigua que insertaba ventas SIN folio, SIN cajero
+  // y SIN barbero, generando registros "fantasma" y folios duplicados (NULL).
+  //
+  // La lógica de cobro y guardado de transacciones ahora vive ÚNICAMENTE 
+  // en 'pos_screen.dart' (método _completeTransaction) que sí usa el folio
+  // correlativo, el UUID del cajero logueado y las comisiones de los barberos.
+  // =======================================================================
 
-      final transactionId = transactionResponse['id'] as String;
-
-      // 2. Insertar los ítems de la transacción
-      final itemsData = transaction.items.map((item) {
-        return {
-          'transaction_id': transactionId,
-          'service_name': item.serviceName,
-          'price_at_moment': item.priceAtMoment,
-          'quantity': item.quantity,
-        };
-      }).toList();
-
-      await _client.from('transaction_items').insert(itemsData);
-
-      print('✅ Venta subida a la nube: $transactionId');
-    } catch (e) {
-      print('❌ Error al subir venta a la nube: $e');
-    }
-  }
-
-  /// Obtener todas las ventas de hoy (para el dashboard)
+  /// Obtener todas las ventas de hoy (para el Dashboard o Reportes rápidos)
   Future<List<Map<String, dynamic>>> getTodaySales() async {
     try {
       final now = DateTime.now();
@@ -54,7 +29,7 @@ class SupabaseService {
 
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
-      print(' Error al obtener ventas: $e');
+      print('❌ Error al obtener ventas: $e');
       return [];
     }
   }
@@ -66,7 +41,7 @@ class SupabaseService {
       double total = 0.0;
       
       for (final sale in sales) {
-        total += (sale['total'] as num).toDouble();
+        total += (sale['total'] as num?)?.toDouble() ?? 0.0;
       }
       
       return total;

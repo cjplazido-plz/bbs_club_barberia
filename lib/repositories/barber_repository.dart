@@ -17,7 +17,7 @@ class BarberRepository {
     }
     return unique.map((data) {
       return LocalBarber()
-        ..remoteId = data['id']
+        ..remoteId = data['id'] // <-- Ahora siempre será el UUID real
         ..name = data['name'] ?? ''
         ..phone = data['phone']
         ..commissionValue = (data['commission'] as num?)?.toDouble() ?? 0.0
@@ -27,17 +27,18 @@ class BarberRepository {
   }
 
   Future<void> createBarber(LocalBarber barber) async {
-    final id = barber.remoteId ?? 'barber-${DateTime.now().millisecondsSinceEpoch}';
-    barber.remoteId = id;
-    await _client.from('barbers').insert({
-      'id': id,
+    // FIX: Quitamos el ID inventado. No enviamos 'id', dejamos que Supabase lo cree.
+    final response = await _client.from('barbers').insert({
       'name': barber.name,
       'phone': barber.phone,
       'commission': barber.commissionValue,
       'commission_rate': barber.commissionRate,
       'is_active': true,
-    });
-    print('✅ Barbero creado: ${barber.name}');
+    }).select().single();
+    
+    // Asignamos el UUID real generado por Supabase a nuestro objeto local
+    barber.remoteId = response['id']; 
+    print('✅ Barbero creado con UUID real: ${barber.remoteId}');
   }
 
   Future<void> updateBarber(LocalBarber barber) async {

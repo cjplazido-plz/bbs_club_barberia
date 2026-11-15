@@ -5,8 +5,8 @@ import '../services/settings_service.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
-import '../main.dart'; // IMPORTANTE: Para leer currentUserRole
-import '../services/role_permissions.dart'; // IMPORTANTE: Para aplicar permisos
+import '../main.dart';
+import '../services/role_permissions.dart';
 
 class ReportsScreen extends StatefulWidget {
   @override
@@ -14,6 +14,9 @@ class ReportsScreen extends StatefulWidget {
 }
 
 class _ReportsScreenState extends State<ReportsScreen> {
+  // NUEVO: Fecha seleccionada (por defecto hoy)
+  DateTime _selectedDate = DateTime.now();
+
   double _dayTotal = 0.0;
   int _dayTransactions = 0;
   Map<String, double> _barberTotals = {};
@@ -32,6 +35,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   List<Map<String, dynamic>> _movimientos = [];
   int _anuladasCount = 0;
   double _anuladasTotal = 0;
+
   double get _entradasEfectivo => _movimientos.where((m) => m['tipo'] == 'entrada' && m['metodo'] == 'cash' && (m['afecta_caja'] == true)).fold(0.0, (s, m) => s + ((m['monto'] as num).toDouble()));
   double get _salidasMovimientosEfectivo => _movimientos.where((m) => m['tipo'] == 'salida' && m['metodo'] == 'cash' && (m['afecta_caja'] == true)).fold(0.0, (s, m) => s + ((m['monto'] as num).toDouble()));
   double _efectivoContado = 0;
@@ -49,11 +53,32 @@ class _ReportsScreenState extends State<ReportsScreen> {
     _loadReports();
   }
 
+  // NUEVO: Función para seleccionar fecha
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2023),
+      lastDate: DateTime.now().add(const Duration(days: 1)),
+      builder: (c, child) => Theme(
+        data: ThemeData.dark().copyWith(
+          colorScheme: const ColorScheme.dark(primary: Color(0xFF6366F1), surface: Color(0xFF1E293B))
+        ), 
+        child: child!
+      ),
+    );
+    if (picked != null) {
+      setState(() => _selectedDate = picked);
+      _loadReports();
+    }
+  }
+
   Future<void> _loadReports() async {
     setState(() { _isLoading = true; });
-    final today = DateTime.now();
-    final startOfDay = DateTime(today.year, today.month, today.day);
+    // MODIFICADO: Usar _selectedDate en lugar de DateTime.now()
+    final startOfDay = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
     final endOfDay = startOfDay.add(const Duration(days: 1));
+    
     try {
       final response = await Supabase.instance.client.from('transactions').select('*, transaction_items(*)').gte('created_at', startOfDay.toIso8601String()).lt('created_at', endOfDay.toIso8601String());
       final transactions = List<Map<String, dynamic>>.from(response);
@@ -155,6 +180,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   }
 
   void _showMovimientoDialog(String tipo) {
+    // ... (Sin cambios significativos, igual que tu código original)
     String categoria = tipo == 'entrada' ? 'Abono Reserva' : 'Gasto';
     String metodo = 'cash';
     final montoCtrl = TextEditingController();
@@ -186,6 +212,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   }
 
   void _showAnularVenta() {
+    // ... (Sin cambios)
     if (_transactions.isEmpty) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No hay ventas hoy para anular'), backgroundColor: Colors.orange)); return; }
     Map<String, dynamic>? selected = _transactions.first;
     final motivoCtrl = TextEditingController(text: 'Anulación solicitada por cliente');
@@ -204,6 +231,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   }
 
   void _showCambiarPago() {
+    // ... (Sin cambios)
     if (_transactions.isEmpty) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No hay ventas hoy para cambiar pago'), backgroundColor: Colors.orange)); return; }
     Map<String, dynamic>? selected = _transactions.first;
     String nuevoMetodo = 'transfer';
@@ -225,6 +253,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   }
 
   void _showDevolverReserva() {
+    // ... (Sin cambios)
     final clienteCtrl = TextEditingController();
     final folioCtrl = TextEditingController();
     final montoCtrl = TextEditingController();
@@ -264,7 +293,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
         setSt(() {});
         setState(() {});
       }
-      final folio = 'CAJA-${DateFormat('yyyyMMdd').format(DateTime.now())}';
+      // MODIFICADO: Folio usa la fecha seleccionada
+      final folio = 'CAJA-${DateFormat('yyyyMMdd').format(_selectedDate)}';
       return Dialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -275,12 +305,13 @@ class _ReportsScreenState extends State<ReportsScreen> {
             child: Column(children: [
               Text((SettingsService.shopName.isNotEmpty ? SettingsService.shopName : 'BBS CLUB').toUpperCase(), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black)),
               const Text('CUADRATURA DE CAJA', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.2, color: Colors.black54)),
-              Text('Resumen del dia - ${DateFormat('dd/MM/yyyy').format(DateTime.now())}', style: const TextStyle(fontSize: 10, color: Colors.black54)),
+              // MODIFICADO: Fecha seleccionada
+              Text('Resumen del dia - ${DateFormat('dd/MM/yyyy').format(_selectedDate)}', style: const TextStyle(fontSize: 10, color: Colors.black54)),
               const SizedBox(height: 10),
               const Divider(color: Colors.black26, height: 1),
               const SizedBox(height: 10),
               _cuadRow('Folio:', folio, bold: true),
-              _cuadRow('Fecha:', DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())),
+              _cuadRow('Fecha:', DateFormat('dd/MM/yyyy HH:mm').format(_selectedDate)),
               _cuadRow('Ventas del día:', '$_dayTransactions ventas'),
               _cuadRow('Total del día:', SettingsService.formatCurrency(_dayTotal), bold: true),
               if (_anuladasCount > 0) _cuadRow('Anuladas (no cuentan):', '$_anuladasCount ventas - ${SettingsService.formatCurrency(_anuladasTotal)}'),
@@ -394,7 +425,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
-
   Widget _cuadInput(String label, TextEditingController ctrl, VoidCallback onChanged, {bool autofocus = false}) {
     return Padding(padding: const EdgeInsets.symmetric(vertical: 4), child: Row(children: [Expanded(child: Text(label, style: const TextStyle(fontSize: 11, color: Colors.black54))), const SizedBox(width: 8), SizedBox(width: 120, child: TextField(controller: ctrl, autofocus: autofocus, keyboardType: TextInputType.number, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black), decoration: InputDecoration(filled: true, fillColor: Colors.grey.shade100, border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none), contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8)), onChanged: (_) => onChanged()))]));
   }
@@ -406,10 +436,12 @@ class _ReportsScreenState extends State<ReportsScreen> {
       build: (_) => pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.center, children: [
         pw.Text((SettingsService.shopName.isNotEmpty ? SettingsService.shopName : 'BBS CLUB').toUpperCase(), style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold), textAlign: pw.TextAlign.center),
         pw.Text('CUADRATURA DE CAJA', style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
-        pw.Text('Resumen del dia - ${DateFormat('dd/MM/yyyy').format(DateTime.now())}', style: const pw.TextStyle(fontSize: 9)),
+        // MODIFICADO: Fecha seleccionada
+        pw.Text('Resumen del dia - ${DateFormat('dd/MM/yyyy').format(_selectedDate)}', style: const pw.TextStyle(fontSize: 9)),
         pw.Divider(thickness: 1, borderStyle: pw.BorderStyle.dashed),
         pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Folio:', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)), pw.Text(folio, style: const pw.TextStyle(fontSize: 9))]),
-        pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Fecha:', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)), pw.Text(DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now()), style: const pw.TextStyle(fontSize: 10))]),
+        // MODIFICADO: Fecha seleccionada
+        pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Fecha:', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)), pw.Text(DateFormat('dd/MM/yyyy HH:mm').format(_selectedDate), style: const pw.TextStyle(fontSize: 10))]),
         pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Ventas:', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)), pw.Text('$_dayTransactions ventas', style: const pw.TextStyle(fontSize: 10))]),
         pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Total del día:', style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)), pw.Text(SettingsService.formatCurrency(_dayTotal), style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold))]),
         if (_anuladasCount > 0) pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Anuladas (no cuentan):', style: const pw.TextStyle(fontSize: 10)), pw.Text('$_anuladasCount - ${SettingsService.formatCurrency(_anuladasTotal)}', style: const pw.TextStyle(fontSize: 10))]),
@@ -448,17 +480,20 @@ class _ReportsScreenState extends State<ReportsScreen> {
         pw.Text('¡Gracias!', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold), textAlign: pw.TextAlign.center),
       ]),
     ));
-    await Printing.layoutPdf(onLayout: (f) async => pdf.save(), name: 'Cuadratura-Caja-${DateFormat('yyyyMMdd').format(DateTime.now())}.pdf');
+    // MODIFICADO: Nombre del archivo usa la fecha seleccionada
+    await Printing.layoutPdf(onLayout: (f) async => pdf.save(), name: 'Cuadratura-Caja-${DateFormat('yyyyMMdd').format(_selectedDate)}.pdf');
   }
 
   @override
   Widget build(BuildContext context) {
-    // PROTECCIÓN EXTRA: Si no tiene permisos de ver reportes, no dibuja nada
     if (!RolePermissions.isAdmin(currentUserRole) && !RolePermissions.can(currentUserRole, BbsPerm.viewReports)) {
       return const Scaffold(backgroundColor: Color(0xFF0F172A), body: Center(child: Text('No tienes permisos para ver esta sección', style: TextStyle(color: Colors.white))));
     }
 
+    // Verificar si estamos viendo el día de hoy
+    final isToday = DateFormat('yyyy-MM-dd').format(_selectedDate) == DateFormat('yyyy-MM-dd').format(DateTime.now());
     final transaccionesText = "${_dayTransactions}";
+
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
       appBar: AppBar(
@@ -467,15 +502,63 @@ class _ReportsScreenState extends State<ReportsScreen> {
         backgroundColor: const Color(0xFF1E293B),
         foregroundColor: Colors.white,
         elevation: 0,
-        actions: [TextButton.icon(onPressed: _showCuadraturaDialog, icon: const Icon(Icons.print_rounded, size: 18, color: Colors.white), label: const Text('Cuadratura', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)), style: TextButton.styleFrom(backgroundColor: const Color(0xFF10B981), padding: const EdgeInsets.symmetric(horizontal: 10))), const SizedBox(width: 6), IconButton(icon: const Icon(Icons.sync_rounded, color: Colors.white), onPressed: _loadReports)],
+        actions: [
+          // NUEVO: Botón de calendario en el AppBar
+          IconButton(
+            icon: const Icon(Icons.calendar_month_rounded, color: Color(0xFF818CF8)),
+            tooltip: 'Seleccionar Fecha',
+            onPressed: _pickDate,
+          ),
+          TextButton.icon(
+            onPressed: _showCuadraturaDialog, 
+            icon: const Icon(Icons.print_rounded, size: 18, color: Colors.white), 
+            label: const Text('Cuadratura', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)), 
+            style: TextButton.styleFrom(backgroundColor: const Color(0xFF10B981), padding: const EdgeInsets.symmetric(horizontal: 10))
+          ), 
+          const SizedBox(width: 6), 
+          IconButton(icon: const Icon(Icons.sync_rounded, color: Colors.white), onPressed: _loadReports)
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Color(0xFF6366F1)))
           : SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                
+                // NUEVO: Banner indicando la fecha seleccionada
+                if (!isToday)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF59E0B).withOpacity(0.1), 
+                      borderRadius: BorderRadius.circular(12), 
+                      border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.3))
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.history_rounded, color: Color(0xFFF59E0B), size: 20),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Mostrando datos históricos del: ${DateFormat('dd/MM/yyyy').format(_selectedDate)}', 
+                            style: const TextStyle(color: Color(0xFFF59E0B), fontSize: 13, fontWeight: FontWeight.bold)
+                          )
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            setState(() => _selectedDate = DateTime.now());
+                            _loadReports();
+                          },
+                          style: TextButton.styleFrom(backgroundColor: const Color(0xFFF59E0B).withOpacity(0.2), padding: const EdgeInsets.symmetric(horizontal: 10)),
+                          child: const Text('Volver a Hoy', style: TextStyle(color: Color(0xFFF59E0B), fontSize: 11, fontWeight: FontWeight.bold)),
+                        )
+                      ]
+                    ),
+                  ),
+
                 Row(children: [
-                  Expanded(child: _SummaryCard(title: 'Total del dia', value: SettingsService.formatCurrency(_dayTotal), icon: '💵', color: const Color(0xFF10B981))),
+                  Expanded(child: _SummaryCard(title: isToday ? 'Total del dia' : 'Total del ${DateFormat('dd/MM').format(_selectedDate)}', value: SettingsService.formatCurrency(_dayTotal), icon: '💵', color: const Color(0xFF10B981))),
                   const SizedBox(width: 12),
                   Expanded(child: _SummaryCard(title: 'Ventas', value: transaccionesText, icon: '💲', color: const Color(0xFF3B82F6))),
                 ]),
@@ -487,7 +570,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     Row(children: [
                       const Text('🧾 Cuadratura de Caja', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white)),
                       const Spacer(),
-                      Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.15), borderRadius: BorderRadius.circular(12)), child: Text(DateFormat('dd/MM/yyyy').format(DateTime.now()), style: const TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold))),
+                      Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.15), borderRadius: BorderRadius.circular(12)), child: Text(DateFormat('dd/MM/yyyy').format(_selectedDate), style: const TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold))),
                     ]),
                     const SizedBox(height: 10),
                     Row(children: [
@@ -495,14 +578,16 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [const Text('Efectivo + Mixto-Efectivo - Vuelto', style: TextStyle(fontSize: 10, color: Colors.white38)), const SizedBox(height: 2), Text('${SettingsService.formatCurrency(_cashAmount)} + ${SettingsService.formatCurrency(_mixedCash)} - ${SettingsService.formatCurrency(_totalChange)}', style: const TextStyle(fontSize: 11, color: Colors.white70))])),
                     ]),
                     const SizedBox(height: 12),
-                    SizedBox(width: double.infinity, height: 44, child: ElevatedButton.icon(onPressed: _showCuadraturaDialog, icon: const Icon(Icons.print_rounded, size: 18), label: const Text('Ver e Imprimir Cuadratura del Día', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))))),
+                    SizedBox(width: double.infinity, height: 44, child: ElevatedButton.icon(onPressed: _showCuadraturaDialog, icon: const Icon(Icons.print_rounded, size: 18), label: Text('Ver e Imprimir Cuadratura del ${DateFormat('dd/MM').format(_selectedDate)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))))),
                   ]),
                 ),
+                
+                // ... El resto de tu código (Ventas por Barbero, Movimientos, Metodos de Pago) se mantiene igual
                 const SizedBox(height: 24),
                 const Text('Ventas por Barbero', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
                 const SizedBox(height: 12),
                 if (_barberTotals.isEmpty)
-                  Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.white10)), child: const Text('No hay datos', style: TextStyle(color: Colors.white54)))
+                  Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.white10)), child: const Text('No hay datos para esta fecha', style: TextStyle(color: Colors.white54)))
                 else
                   ..._barberTotals.entries.map((entry) => Container(
                         margin: const EdgeInsets.only(bottom: 10),
@@ -529,14 +614,14 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 const SizedBox(height: 8),
                 Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.12), borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFF6366F1).withOpacity(0.3))), child: const Row(children: [Text('ℹ️', style: TextStyle(fontSize: 14)), SizedBox(width: 8), Expanded(child: Text('Anular y Cambiar Pago se hacen desde Historial > Detalle de Venta > Editar Pago / Anular (como en tu captura). Esos botones ya dejan el movimiento en Cuadratura, aquí no se duplican.', style: TextStyle(color: Colors.white70, fontSize: 11)))])),
                 const SizedBox(height: 10),
-                if (_movimientos.isEmpty) Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(12)), child: const Text('Sin movimientos hoy. Usa Entrada / Salida o los botones de Anular / Cambiar / Devolver.', style: TextStyle(color: Colors.white54, fontSize: 12)))
+                if (_movimientos.isEmpty) Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(12)), child: const Text('Sin movimientos registrados para esta fecha.', style: TextStyle(color: Colors.white54, fontSize: 12)))
                 else ..._movimientos.map((m) => Container(margin: const EdgeInsets.only(bottom: 8), padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white.withOpacity(0.05))), child: Row(children: [Text(m['tipo'] == 'entrada' ? '➕' : '➖', style: const TextStyle(fontSize: 16)), const SizedBox(width: 10), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('${m['categoria']} ${m['folio'] != '' ? '• ${m['folio']}' : ''}', style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)), Text('${_formatPaymentMethod(m['metodo'])} - ${m['motivo']}${(m['afecta_caja'] == true) ? '' : ' - Informativo'}', style: const TextStyle(color: Colors.white54, fontSize: 11))])), Text('${m['tipo'] == 'entrada' ? '+' : '-'}${SettingsService.formatCurrency((m['monto'] as num).toDouble())}', style: TextStyle(color: m['tipo'] == 'entrada' ? const Color(0xFF10B981) : Colors.redAccent, fontSize: 13, fontWeight: FontWeight.bold))]))) ,
-                if (_anuladasCount > 0) Padding(padding: const EdgeInsets.only(top: 6), child: Text('Anuladas hoy: $_anuladasCount - ${SettingsService.formatCurrency(_anuladasTotal)} (no cuentan en Total)', style: const TextStyle(color: Colors.redAccent, fontSize: 11, fontWeight: FontWeight.bold))),
+                if (_anuladasCount > 0) Padding(padding: const EdgeInsets.only(top: 6), child: Text('Anuladas: $_anuladasCount - ${SettingsService.formatCurrency(_anuladasTotal)} (no cuentan en Total)', style: const TextStyle(color: Colors.redAccent, fontSize: 11, fontWeight: FontWeight.bold))),
                 const SizedBox(height: 24),
                 const Text('Metodos de Pago', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
                 const SizedBox(height: 12),
                 if (_paymentMethods.isEmpty)
-                  Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.white10)), child: const Text('No hay datos', style: TextStyle(color: Colors.white54)))
+                  Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.white10)), child: const Text('No hay datos para esta fecha', style: TextStyle(color: Colors.white54)))
                 else
                   ..._paymentMethods.entries.map((entry) {
                         final countText = "${entry.value} ventas";

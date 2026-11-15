@@ -17,9 +17,15 @@ class _RolesScreenState extends State<RolesScreen> {
     _loadRoles();
   }
 
+  // FIX: Nueva función para poner la primera letra en mayúscula solo al mostrar en pantalla
+  String _capitalize(String text) {
+    if (text.isEmpty) return text;
+    return text[0].toUpperCase() + text.substring(1);
+  }
+
   Future<void> _loadRoles() async {
     setState(() => _isLoading = true);
-    await RolePermissions.loadFromSupabase(); // Carga los permisos desde Supabase
+    await RolePermissions.loadFromSupabase();
     try {
       final res = await Supabase.instance.client.from('role_permissions').select('role');
       final Set<String> fromDb = {};
@@ -41,7 +47,7 @@ class _RolesScreenState extends State<RolesScreen> {
       case 'cashier': return 'Cobra, ve cierre, no edita ni borra';
       case 'barber': return 'Solo sus citas, no edita clientes';
       case 'barber_cashier': return 'Corta y cobra, no edita clientes';
-      default: return 'Rol personalizado';
+      default: return 'Rol personalizado'; // Puedes cambiarlo por 'Permisos personalizados'
     }
   }
 
@@ -50,13 +56,14 @@ class _RolesScreenState extends State<RolesScreen> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Administrador no se puede borrar'), backgroundColor: Colors.orange));
       return;
     }
+    final displayName = RolePermissions.roleNames[role] ?? _capitalize(role);
     final confirm = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
         backgroundColor: const Color(0xFF1E293B),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Borrar rol', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        content: Text('¿Borrar rol ${RolePermissions.roleNames[role] ?? role}?', style: const TextStyle(color: Colors.white70)),
+        content: Text('¿Borrar rol $displayName?', style: const TextStyle(color: Colors.white70)),
         actions: [
           TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancelar', style: TextStyle(color: Colors.grey))),
           ElevatedButton(onPressed: () => Navigator.pop(c, true), style: ElevatedButton.styleFrom(backgroundColor: Colors.red), child: const Text('Borrar')),
@@ -99,8 +106,8 @@ class _RolesScreenState extends State<RolesScreen> {
       await RolePermissions.loadFromSupabase();
       await _loadRoles();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Rol $raw creado'), backgroundColor: Colors.green));
-        _openEdit(raw, nameCtrl.text.trim());
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Rol ${_capitalize(raw)} creado'), backgroundColor: Colors.green));
+        _openEdit(raw);
       }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.orange));
@@ -108,7 +115,7 @@ class _RolesScreenState extends State<RolesScreen> {
   }
 
   Future<void> _openEdit(String role, [String? displayName]) async {
-    final result = await Navigator.push(context, MaterialPageRoute(builder: (_) => _EditarRolScreen(role: role, displayName: displayName ?? RolePermissions.roleNames[role] ?? role)));
+    final result = await Navigator.push(context, MaterialPageRoute(builder: (_) => _EditarRolScreen(role: role, displayName: displayName ?? RolePermissions.roleNames[role] ?? _capitalize(role))));
     if (result == true) await _loadRoles();
   }
 
@@ -141,7 +148,8 @@ class _RolesScreenState extends State<RolesScreen> {
                 itemCount: _roles.length,
                 itemBuilder: (context, i) {
                   final role = _roles[i];
-                  final name = RolePermissions.roleNames[role] ?? role;
+                  // FIX: Usar _capitalize() si el rol no está en los predeterminados
+                  final name = RolePermissions.roleNames[role] ?? _capitalize(role); 
                   final color = Color(RolePermissions.roleColors[role] ?? 0xFF6C5CE7);
                   return Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -202,7 +210,6 @@ class _EditarRolScreenState extends State<_EditarRolScreen> {
     try {
       await Supabase.instance.client.from('role_permissions').delete().eq('role', widget.role);
       
-      // FIX: Guardar 'none' si está vacío para que no vuelva a los defaults
       if (_checked.isEmpty) {
         await Supabase.instance.client.from('role_permissions').insert({'role': widget.role, 'permission': 'none'});
       } else {

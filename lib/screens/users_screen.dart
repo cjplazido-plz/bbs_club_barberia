@@ -72,7 +72,6 @@ class _UsersScreenState extends State<UsersScreen> with TickerProviderStateMixin
     final emailCtrl = TextEditingController(text: user?['email'] ?? '');
     final nameCtrl = TextEditingController(text: user?['full_name'] ?? '');
     final phoneCtrl = TextEditingController(text: user?['phone'] ?? '');
-    final commCtrl = TextEditingController(text: '${user?['commission_rate'] ?? 0.0}');
     final passCtrl = TextEditingController();
     String selectedRole = user?['role'] ?? 'cashier';
     final isEditing = user != null;
@@ -94,12 +93,12 @@ class _UsersScreenState extends State<UsersScreen> with TickerProviderStateMixin
                 const SizedBox(height: 12),
                 _field(phoneCtrl, 'Teléfono', Icons.phone_rounded, keyboardType: TextInputType.phone),
                 const SizedBox(height: 12),
-                if (!isEditing) ...[
-                  _field(passCtrl, 'Contraseña (para crear en Auth)', Icons.lock_rounded, obscure: true),
-                  const SizedBox(height: 6),
-                  const Text('El usuario se creará automáticamente en Auth y en la base de datos.', style: TextStyle(color: Colors.white38, fontSize: 10)),
-                  const SizedBox(height: 12),
-                ],
+                
+                // NUEVO: Contraseña visible siempre, pero adaptada si es edición
+                _field(passCtrl, isEditing ? 'Nueva Contraseña (Opcional)' : 'Contraseña *', Icons.lock_rounded, obscure: true),
+                if (isEditing) const Padding(padding: EdgeInsets.only(top: 4, bottom: 8), child: Text('Deja en blanco para no cambiarla.', style: TextStyle(color: Colors.white38, fontSize: 10))),
+                const SizedBox(height: 12),
+
                 DropdownButtonFormField<String>(
                   value: selectedRole,
                   dropdownColor: const Color(0xFF1E293B),
@@ -119,8 +118,7 @@ class _UsersScreenState extends State<UsersScreen> with TickerProviderStateMixin
                   ],
                   onChanged: (v) => setDialogState(() => selectedRole = v!),
                 ),
-                const SizedBox(height: 12),
-                _field(commCtrl, '% Comisión', Icons.percent_rounded, keyboardType: TextInputType.number),
+                // ELIMINADO: Ya no está el campo de % Comisión
               ],
             ),
           ),
@@ -135,22 +133,43 @@ class _UsersScreenState extends State<UsersScreen> with TickerProviderStateMixin
                 onPressed: () async {
                   final email = emailCtrl.text.trim();
                   final name = nameCtrl.text.trim();
+                  final pass = passCtrl.text.trim();
+                  
                   if (email.isEmpty || name.isEmpty) {
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('❌ Email y nombre son obligatorios'), backgroundColor: Colors.red));
                     return;
                   }
-                  final comm = double.tryParse(commCtrl.text.trim()) ?? 0.0;
+                  
                   try {
                     if (isEditing) {
-                      await Supabase.instance.client.from('profiles').update({
-                        'full_name': name,
-                        'phone': phoneCtrl.text.trim(),
-                        'role': selectedRole,
-                        'commission_rate': comm,
-                        'updated_at': DateTime.now().toIso8601String(),
-                      }).eq('id', user!['id']);
+                      // Si hay contraseña nueva, usar Edge Function para actualizar Auth + Profile
+                      if (pass.isNotEmpty) {
+                        if (pass.length < 6) {
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('La contraseña debe tener al menos 6 caracteres'), backgroundColor: Colors.red));
+                          return;
+                        }
+                        final response = await Supabase.instance.client.functions.invoke(
+                          'admin-update-user',
+                          body: {
+                            'userId': user!['id'],
+                            'password': pass,
+                            'full_name': name,
+                            'role': selectedRole,
+                            'phone': phoneCtrl.text.trim(),
+                          },
+                        );
+                        if (response.status != 200) throw Exception('Error al actualizar: ${response.data}');
+                      } else {
+                        // Si no hay contraseña nueva, solo actualizar el perfil
+                        await Supabase.instance.client.from('profiles').update({
+                          'full_name': name,
+                          'phone': phoneCtrl.text.trim(),
+                          'role': selectedRole,
+                          'updated_at': DateTime.now().toIso8601String(),
+                        }).eq('id', user!['id']);
+                      }
                     } else {
-                      final pass = passCtrl.text.trim();
+                      // CREAR NUEVO USUARIO VÍA EDGE FUNCTION
                       if (pass.isEmpty || pass.length < 6) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('La contraseña debe tener al menos 6 caracteres'), backgroundColor: Colors.red),
@@ -166,7 +185,7 @@ class _UsersScreenState extends State<UsersScreen> with TickerProviderStateMixin
                           'full_name': name,
                           'role': selectedRole,
                           'phone': phoneCtrl.text.trim(),
-                          'commission_rate': comm,
+                          'commission_rate': 0.0, // Enviamos 0 por defecto al crear
                         },
                       );
 

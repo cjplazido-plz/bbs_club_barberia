@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:intl/intl.dart';
 import '../repositories/dashboard_repository.dart';
 import '../services/settings_service.dart';
 
@@ -10,11 +11,24 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   final _dashboardRepo = DashboardRepository();
+  
   bool _isLoading = true;
-  double _todaySales = 0;
-  int _todayTransactions = 0;
-  int _todayAppointments = 0;
-  double _monthSales = 0;
+  
+  // --- FILTROS ---
+  // Se inicializa con la fecha del día actual
+  DateTimeRange _selectedDateRange = DateTimeRange(
+    start: DateTime.now(), 
+    end: DateTime.now()
+  );
+  String _selectedBarberId = 'all';
+  List<Map<String, dynamic>> _barbersList = []; 
+
+  // --- DATOS DEL DASHBOARD ---
+  double _totalSales = 0;
+  int _totalTransactions = 0;
+  int _totalAppointments = 0;
+  double _averageTicket = 0;
+  
   List<Map<String, dynamic>> _weekSales = [];
   List<Map<String, dynamic>> _barberRanking = [];
   List<Map<String, dynamic>> _barberCommissions = [];
@@ -23,25 +37,46 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
+    _loadInitialData();
+  }
+
+  Future<void> _loadInitialData() async {
+    try {
+      _barbersList = await _dashboardRepo.getBarbers();
+    } catch (e) {
+      debugPrint('Error cargando barberos: $e');
+    }
+    // Se llama a _loadData independientemente de si fallaron los barberos
     _loadData();
   }
 
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
-      final todaySales = await _dashboardRepo.getTodaySales();
-      final todayTransactions = await _dashboardRepo.getTodayTransactionCount();
-      final todayAppointments = await _dashboardRepo.getTodayAppointments();
-      final monthSales = await _dashboardRepo.getMonthSales();
-      final weekSales = await _dashboardRepo.getWeekSales();
-      final barberRanking = await _dashboardRepo.getBarberRanking();
-      final barberCommissions = await _dashboardRepo.getBarberCommissions();
-      final paymentMethods = await _dashboardRepo.getPaymentMethods();
+      // 1. Normalizar las fechas para abarcar todo el día (00:00:00 a 23:59:59)
+      final rawStart = _selectedDateRange.start;
+      final rawEnd = _selectedDateRange.end;
+      
+      final start = DateTime(rawStart.year, rawStart.month, rawStart.day);
+      // Se suma 1 día a la fecha normalizada (el repositorio parece usar "< end")
+      final end = DateTime(rawEnd.year, rawEnd.month, rawEnd.day).add(const Duration(days: 1)); 
+      
+      final barber = _selectedBarberId;
+
+      final totalSales = await _dashboardRepo.getTotalSales(start, end, barber);
+      final totalTransactions = await _dashboardRepo.getTransactionCount(start, end, barber);
+      final appointments = await _dashboardRepo.getAppointmentsCount(start, end, barber);
+      final weekSales = await _dashboardRepo.getWeekSales(start, end, barber);
+      final barberRanking = await _dashboardRepo.getBarberRanking(start, end, barber);
+      final barberCommissions = await _dashboardRepo.getBarberCommissions(start, end, barber);
+      final paymentMethods = await _dashboardRepo.getPaymentMethods(start, end, barber);
+      
       setState(() {
-        _todaySales = todaySales;
-        _todayTransactions = todayTransactions;
-        _todayAppointments = todayAppointments;
-        _monthSales = monthSales;
+        _totalSales = totalSales;
+        _totalTransactions = totalTransactions;
+        _totalAppointments = appointments;
+        _averageTicket = _totalTransactions > 0 ? (_totalSales / _totalTransactions) : 0.0;
+        
         _weekSales = weekSales;
         _barberRanking = barberRanking;
         _barberCommissions = barberCommissions;
@@ -50,6 +85,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
       });
     } catch (e) {
       setState(() => _isLoading = false);
+      debugPrint('Error cargando dashboard: $e');
+    }
+  }
+
+  Future<void> _pickDateRange() async {
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2023),
+      lastDate: DateTime.now().add(const Duration(days: 1)),
+      initialDateRange: _selectedDateRange,
+      builder: (c, child) => Theme(
+        data: ThemeData.dark().copyWith(
+          colorScheme: const ColorScheme.dark(primary: Color(0xFF6366F1), surface: Color(0xFF1E293B))
+        ), 
+        child: child!
+      ),
+    );
+    if (picked != null) {
+      setState(() => _selectedDateRange = picked);
+      _loadData();
     }
   }
 
@@ -66,29 +121,115 @@ class _DashboardScreenState extends State<DashboardScreen> {
         centerTitle: true,
         actions: [IconButton(icon: const Icon(Icons.refresh_rounded, color: Colors.white70, size: 20), onPressed: _loadData)],
       ),
-      body: _isLoading ? const Center(child: CircularProgressIndicator(color: Color(0xFF6366F1))) : RefreshIndicator(color: const Color(0xFF6366F1), onRefresh: _loadData, child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: EdgeInsets.all(isDesktop ? 20 : 12),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          _buildSummaryCardsCompact(isDesktop),
-          const SizedBox(height: 16),
-          if (isDesktop)
-            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Expanded(flex: 2, child: _buildWeekChart()),
-              const SizedBox(width: 16),
-              Expanded(flex: 1, child: Column(children: [_buildBarberRanking(), const SizedBox(height: 16), _buildPaymentMethods()])),
-            ])
-          else ...[
-            _buildWeekChart(),
-            const SizedBox(height: 16),
-            _buildBarberRanking(),
-            const SizedBox(height: 16),
-            _buildCommissions(),
-            const SizedBox(height: 16),
-            _buildPaymentMethods(),
+      body: _isLoading 
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFF6366F1))) 
+          : RefreshIndicator(
+              color: const Color(0xFF6366F1), 
+              onRefresh: _loadData, 
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: EdgeInsets.all(isDesktop ? 20 : 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start, 
+                  children: [
+                    _buildFiltersBar(isDesktop),
+                    const SizedBox(height: 16),
+                    _buildSummaryCardsCompact(isDesktop),
+                    const SizedBox(height: 16),
+                    
+                    if (isDesktop)
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start, 
+                        children: [
+                          Expanded(flex: 2, child: _buildWeekChart()),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            flex: 1, 
+                            child: Column(
+                              children: [
+                                _buildBarberRanking(), 
+                                const SizedBox(height: 16), 
+                                _buildPaymentMethodsChart()
+                              ]
+                            )
+                          ),
+                        ]
+                      )
+                    else ...[
+                      _buildWeekChart(),
+                      const SizedBox(height: 16),
+                      _buildBarberRanking(),
+                      const SizedBox(height: 16),
+                      _buildCommissions(),
+                      const SizedBox(height: 16),
+                      _buildPaymentMethodsChart(),
+                    ]
+                  ]
+                ),
+              )
+          ),
+    );
+  }
+
+  Widget _buildFiltersBar(bool isDesktop) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B), 
+        borderRadius: BorderRadius.circular(14), 
+        border: Border.all(color: Colors.white.withOpacity(0.06))
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: InkWell(
+              onTap: _pickDateRange,
+              borderRadius: BorderRadius.circular(8),
+              child: Row(
+                children: [
+                  const Icon(Icons.calendar_month_rounded, color: Color(0xFF818CF8), size: 18),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${DateFormat('dd/MM/yyyy').format(_selectedDateRange.start)} - ${DateFormat('dd/MM/yyyy').format(_selectedDateRange.end)}',
+                    style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(Icons.keyboard_arrow_down, color: Colors.white54, size: 16),
+                ],
+              ),
+            ),
+          ),
+          
+          if (isDesktop && _barbersList.isNotEmpty) ...[
+            const SizedBox(width: 16),
+            Container(
+              height: 30,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0F172A), 
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.white10)
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _selectedBarberId,
+                  dropdownColor: const Color(0xFF1E293B),
+                  icon: const Icon(Icons.person_search, color: Color(0xFF818CF8), size: 16),
+                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                  items: [
+                    const DropdownMenuItem(value: 'all', child: Text('Todos los Barberos')),
+                    ..._barbersList.map((b) => DropdownMenuItem(value: b['id'].toString(), child: Text(b['name'].toString())))
+                  ],
+                  onChanged: (val) {
+                    setState(() => _selectedBarberId = val ?? 'all');
+                    _loadData();
+                  },
+                ),
+              ),
+            ),
           ]
-        ]),
-      )),
+        ],
+      ),
     );
   }
 
@@ -101,10 +242,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       crossAxisSpacing: 10,
       childAspectRatio: isDesktop ? 1.6 : 1.7,
       children: [
-        _compactCard('Ventas Hoy', SettingsService.formatCurrency(_todaySales), '💵', const Color(0xFF10B981)),
-        _compactCard('Transacciones', '$_todayTransactions', '🧾', const Color(0xFF6366F1)),
-        _compactCard('Citas Hoy', '$_todayAppointments', '📅', const Color(0xFFF59E0B)),
-        _compactCard('Ventas Mes', SettingsService.formatCurrency(_monthSales), '📈', const Color(0xFF8B5CF6)),
+        _compactCard('Ventas del Periodo', SettingsService.formatCurrency(_totalSales), '💵', const Color(0xFF10B981)),
+        _compactCard('Transacciones', '$_totalTransactions', '🧾', const Color(0xFF6366F1)),
+        _compactCard('Ticket Promedio', SettingsService.formatCurrency(_averageTicket), '⚖️', const Color(0xFFF59E0B)),
+        _compactCard('Citas', '$_totalAppointments', '📅', const Color(0xFF8B5CF6)),
       ],
     );
   }
@@ -112,34 +253,53 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _compactCard(String title, String value, String icon, Color color) {
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.white.withOpacity(0.06))),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Container(padding: const EdgeInsets.all(7), decoration: BoxDecoration(color: color.withOpacity(0.15), borderRadius: BorderRadius.circular(8)), child: Text(icon, style: const TextStyle(fontSize: 14))),
-          Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: color.withOpacity(0.15), borderRadius: BorderRadius.circular(10)), child: const Text('+12%', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Color(0xFF10B981)))),
-        ]),
-        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(title, style: const TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
-          const SizedBox(height: 2),
-          Text(value, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
-        ])
-      ]),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B), 
+        borderRadius: BorderRadius.circular(14), 
+        border: Border.all(color: Colors.white.withOpacity(0.06))
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start, 
+        mainAxisAlignment: MainAxisAlignment.spaceBetween, 
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween, 
+            children: [
+              Container(padding: const EdgeInsets.all(7), decoration: BoxDecoration(color: color.withOpacity(0.15), borderRadius: BorderRadius.circular(8)), child: Text(icon, style: const TextStyle(fontSize: 14))),
+            ]
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start, 
+            children: [
+              Text(title, style: const TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
+              const SizedBox(height: 2),
+              Text(value, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
+            ]
+          )
+        ]
+      ),
     );
   }
 
   Widget _buildWeekChart() {
-    final maxSales = _weekSales.isEmpty ? 1.0 : _weekSales.map((e) => (e['total'] as num).toDouble()).reduce((a, b) => a > b ? a : b);
+    // 2. Corrección del maxY para que el gráfico pinte las barras incluso si es 0
+    final maxVal = _weekSales.isEmpty 
+        ? 0.0 
+        : _weekSales.map((e) => (e['total'] as num).toDouble()).reduce((a, b) => a > b ? a : b);
+    // Si el valor máximo es 0, asignamos un eje Y de 10 para que el gráfico se dibuje correctamente
+    final maxY = maxVal == 0 ? 10.0 : maxVal * 1.3;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.white.withOpacity(0.06))),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [const Text('📊 Ventas Semana', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)), const Spacer(), Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.15), borderRadius: BorderRadius.circular(20)), child: const Text('7 días', style: TextStyle(fontSize: 9, color: Color(0xFF818CF8), fontWeight: FontWeight.bold)))]),
+        Row(children: [const Text('📊 Ventas del Periodo', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)), const Spacer(), Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.15), borderRadius: BorderRadius.circular(20)), child: const Text('Rango Seleccionado', style: TextStyle(fontSize: 9, color: Color(0xFF818CF8), fontWeight: FontWeight.bold)))]),
         const SizedBox(height: 16),
         SizedBox(
-          height: 140,
+          height: 160,
           child: _weekSales.isEmpty ? const Center(child: Text('Sin datos', style: TextStyle(color: Colors.white38, fontSize: 11))) : BarChart(BarChartData(
             alignment: BarChartAlignment.spaceAround,
-            maxY: maxSales * 1.3,
+            maxY: maxY,
             barGroups: _weekSales.asMap().entries.map((entry) {
               final index = entry.key;
               final data = entry.value;
@@ -165,9 +325,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.white.withOpacity(0.06))),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('🏆 Ranking Barberos (Hoy)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
+        const Text('🏆 Top Barberos', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
         const SizedBox(height: 12),
-        if (_barberRanking.isEmpty) const Padding(padding: EdgeInsets.all(12), child: Center(child: Text('Sin ventas hoy', style: TextStyle(color: Colors.white38, fontSize: 11)))) else ..._barberRanking.take(5).toList().asMap().entries.map((entry) {
+        if (_barberRanking.isEmpty) const Padding(padding: EdgeInsets.all(12), child: Center(child: Text('Sin ventas en el periodo', style: TextStyle(color: Colors.white38, fontSize: 11)))) else ..._barberRanking.take(4).toList().asMap().entries.map((entry) {
           final index = entry.key;
           final barber = entry.value;
           final medals = ['🥇', '🥈', '🥉'];
@@ -190,9 +350,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.white.withOpacity(0.06))),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('💰 Comisiones del Día', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
+        const Text('💰 Comisiones (Periodo)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
         const SizedBox(height: 12),
-        if (_barberCommissions.isEmpty) const Padding(padding: EdgeInsets.all(12), child: Center(child: Text('Sin comisiones hoy', style: TextStyle(color: Colors.white38, fontSize: 11)))) else ..._barberCommissions.map((barber) => Padding(padding: const EdgeInsets.only(bottom: 8), child: Row(children: [
+        if (_barberCommissions.isEmpty) const Padding(padding: EdgeInsets.all(12), child: Center(child: Text('Sin comisiones', style: TextStyle(color: Colors.white38, fontSize: 11)))) else ..._barberCommissions.map((barber) => Padding(padding: const EdgeInsets.only(bottom: 8), child: Row(children: [
           CircleAvatar(radius: 12, backgroundColor: const Color(0xFF6366F1).withOpacity(0.15), child: Text((barber['name'] as String)[0].toUpperCase(), style: const TextStyle(color: Color(0xFF6366F1), fontSize: 10, fontWeight: FontWeight.bold))),
           const SizedBox(width: 8),
           Expanded(child: Text(barber['name'] as String, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600))),
@@ -202,22 +362,63 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildPaymentMethods() {
+  Widget _buildPaymentMethodsChart() {
+    if (_paymentMethods.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.white.withOpacity(0.06))),
+        child: const Center(child: Padding(padding: EdgeInsets.all(20), child: Text('Sin transacciones', style: TextStyle(color: Colors.white38, fontSize: 11)))),
+      );
+    }
+
+    int totalTx = _paymentMethods.values.reduce((a, b) => a + b);
+    final colors = [const Color(0xFF10B981), const Color(0xFF6366F1), const Color(0xFFF59E0B), const Color(0xFF8B5CF6)];
+    final icons = {'Efectivo': '💵', 'Tarjeta': '💳', 'Transferencia': '📱', 'Mixto': '🔀'};
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.white.withOpacity(0.06))),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const Text('💳 Métodos de Pago', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
+        const SizedBox(height: 16),
+        SizedBox(
+          height: 120,
+          child: PieChart(
+            PieChartData(
+              sectionsSpace: 2,
+              centerSpaceRadius: 30,
+              sections: _paymentMethods.entries.toList().asMap().entries.map((entry) {
+                final index = entry.key;
+                final mapEntry = entry.value;
+                final percentage = (mapEntry.value / totalTx) * 100;
+                return PieChartSectionData(
+                  color: colors[index % colors.length],
+                  value: mapEntry.value.toDouble(),
+                  title: '${percentage.toStringAsFixed(0)}%',
+                  radius: 40,
+                  titleStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+                );
+              }).toList(),
+            ),
+          ),
+        ),
         const SizedBox(height: 12),
-        if (_paymentMethods.isEmpty) const Padding(padding: EdgeInsets.all(12), child: Center(child: Text('Sin transacciones hoy', style: TextStyle(color: Colors.white38, fontSize: 11)))) else ..._paymentMethods.entries.map((entry) {
-          final icons = {'Efectivo': '💵', 'Tarjeta': '💳', 'Transferencia': '📱'};
-          return Padding(padding: const EdgeInsets.only(bottom: 8), child: Row(children: [
-            Text(icons[entry.key] ?? '💰', style: const TextStyle(fontSize: 14)),
-            const SizedBox(width: 8),
-            Expanded(child: Text(entry.key, style: const TextStyle(color: Colors.white, fontSize: 11))),
-            Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.15), borderRadius: BorderRadius.circular(20)), child: Text('${entry.value}', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold))),
-          ]));
-        }),
+        Wrap(
+          spacing: 12,
+          runSpacing: 8,
+          children: _paymentMethods.entries.toList().asMap().entries.map((entry) {
+            final index = entry.key;
+            final mapEntry = entry.value;
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(width: 8, height: 8, decoration: BoxDecoration(color: colors[index % colors.length], shape: BoxShape.circle)),
+                const SizedBox(width: 4),
+                Text('${icons[mapEntry.key] ?? ''} ${mapEntry.key}', style: const TextStyle(color: Colors.white70, fontSize: 10)),
+              ],
+            );
+          }).toList(),
+        )
       ]),
     );
   }

@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:http/http.dart' as http;
 import '../services/settings_service.dart';
 import '../main.dart'; 
 import '../services/role_permissions.dart'; 
@@ -17,28 +18,46 @@ class SalesHistoryScreen extends StatefulWidget {
 class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProviderStateMixin {
   bool _isLoading = true;
   List<Map<String, dynamic>> _transactions = [];
-  DateTime _startDate = DateTime.now().subtract(const Duration(days: 7));
+  DateTime _startDate = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
   DateTime _endDate = DateTime.now();
   String _searchQuery = '';
-  String _filterBarber = 'all';
   String _filterMethod = 'all';
   String _filterStatus = 'all';
-  
+  String _activeQuickFilter = 'today';
+
+  final TextEditingController _searchController = TextEditingController();
+
   List<Map<String, dynamic>> get _filteredTransactions {
     var list = _transactions;
-    if (_filterBarber != 'all') list = list.where((tr) => (tr['barber_name'] ?? '').toString() == _filterBarber).toList();
+    
     if (_filterMethod != 'all') list = list.where((tr) => (tr['payment_method'] ?? '').toString() == _filterMethod).toList();
     if (_filterStatus != 'all') list = list.where((tr) => (tr['status'] ?? 'completed').toString() == _filterStatus).toList();
+    
     if (_searchQuery.trim().isNotEmpty) {
       final q = _searchQuery.trim().toLowerCase();
-      list = list.where((tr) => (tr['id'] ?? '').toString().toLowerCase().contains(q) || (tr['barber_name'] ?? '').toString().toLowerCase().contains(q) || (tr['cashier_name'] ?? '').toString().toLowerCase().contains(q) || _formatPayment(tr['payment_method']?.toString()).toLowerCase().contains(q)).toList();
+      list = list.where((tr) => 
+        (tr['id'] ?? '').toString().toLowerCase().contains(q) || 
+        (tr['folio'] ?? '').toString().toLowerCase().contains(q) || 
+        (tr['barber_name'] ?? '').toString().toLowerCase().contains(q) || 
+        (tr['cashier_name'] ?? '').toString().toLowerCase().contains(q) || 
+        (tr['client_name'] ?? '').toString().toLowerCase().contains(q) ||
+        _formatPayment(tr['payment_method']?.toString()).toLowerCase().contains(q)
+      ).toList();
     }
     return list;
   }
   
-  List<String> get _allBarbersHist { final s = <String>{}; for (final tr in _transactions) { final b = (tr['barber_name'] ?? '').toString(); if (b.isNotEmpty) s.add(b); } final l = s.toList()..sort(); return l; }
   double get _filteredTotal => _filteredTransactions.fold(0.0, (s, tr) => s + ((tr['total'] as num?)?.toDouble() ?? 0.0));
-  void _clearHistFilters() { setState(() { _searchQuery = ''; _filterBarber = 'all'; _filterMethod = 'all'; _filterStatus = 'all'; }); }
+  
+  void _clearHistFilters() { 
+    _searchController.clear();
+    setState(() { 
+      _searchQuery = ''; 
+      _filterMethod = 'all'; 
+      _filterStatus = 'all'; 
+    }); 
+  }
+  
   late AnimationController _ctrl;
 
   @override
@@ -50,6 +69,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
 
   @override
   void dispose() {
+    _searchController.dispose();
     _ctrl.dispose();
     super.dispose();
   }
@@ -76,10 +96,46 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
       case 'cash': return 'Efectivo';
       case 'card': return 'Tarjeta';
       case 'transfer': return 'Transferencia';
-      case 'debito': return 'Débito';
       case 'mixto':
       case 'mixed': return 'Mixto';
       default: return p ?? 'Efectivo';
+    }
+  }
+
+  void _setQuickDate(String type) {
+    final now = DateTime.now();
+    setState(() {
+      _activeQuickFilter = type;
+      if (type == 'today') {
+        _startDate = DateTime(now.year, now.month, now.day);
+        _endDate = now;
+      } else if (type == 'week') {
+        _startDate = now.subtract(Duration(days: now.weekday - 1));
+        _startDate = DateTime(_startDate.year, _startDate.month, _startDate.day);
+        _endDate = now;
+      } else if (type == 'month') {
+        _startDate = DateTime(now.year, now.month, 1);
+        _endDate = now;
+      }
+    });
+    _loadTransactions();
+  }
+
+  Future<void> _selectDateRange() async {
+    final picked = await showDateRangePicker(
+      context: context, 
+      firstDate: DateTime(2023), 
+      lastDate: DateTime.now().add(const Duration(days: 1)), 
+      initialDateRange: DateTimeRange(start: _startDate, end: _endDate), 
+      builder: (c, child) => Theme(data: ThemeData.dark().copyWith(colorScheme: const ColorScheme.dark(primary: Color(0xFF6366F1))), child: child!)
+    );
+    if (picked != null) {
+      setState(() { 
+        _startDate = picked.start; 
+        _endDate = picked.end; 
+        _activeQuickFilter = 'custom'; 
+      });
+      await _loadTransactions();
     }
   }
 
@@ -92,6 +148,18 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
     } catch (_) {}
 
     if (!mounted) return;
+
+    String displayBarberName = (transaction['barber_name'] ?? '').toString();
+    if (displayBarberName.isEmpty && items.isNotEmpty) {
+      final itemBarbers = items
+          .map((i) => i['barber_name']?.toString())
+          .where((b) => b != null && b.isNotEmpty && b != 'null')
+          .toSet()
+          .toList();
+      if (itemBarbers.isNotEmpty) {
+        displayBarberName = itemBarbers.join(', ');
+      }
+    }
 
     showModalBottomSheet(
       context: context,
@@ -120,10 +188,10 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withOpacity(0.06))),
                 child: Column(children: [
-                  _infoRow('ID', transaction['id'].toString().length > 26 ? '${transaction['id'].toString().substring(0, 26)}...' : transaction['id'].toString()),
+                  _infoRow('Folio', transaction['folio']?.toString() ?? transaction['id'].toString().substring(transaction['id'].toString().length - 6).toUpperCase()),
                   const Divider(color: Colors.white10, height: 18),
                   _infoRow('Cajero', transaction['cashier_name']?.toString() ?? 'N/A'),
-                  _infoRow('Barbero', transaction['barber_name']?.toString() ?? 'N/A'),
+                  _infoRow('Barbero', displayBarberName.isEmpty ? 'Sin asignar' : displayBarberName),
                   _infoRow('Pago', _formatPayment(transaction['payment_method']?.toString())),
                   if ((transaction['cash_received'] as num?) != null && (transaction['cash_received'] as num) > 0) _infoRow('Recibido', SettingsService.formatCurrency((transaction['cash_received'] as num).toDouble())),
                   if ((transaction['change_amount'] as num?) != null && (transaction['change_amount'] as num) > 0) _infoRow('Vuelto', SettingsService.formatCurrency((transaction['change_amount'] as num).toDouble())),
@@ -157,7 +225,6 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
                 ]),
               ),
               const SizedBox(height: 20),
-              
               if (RolePermissions.isAdmin(currentUserRole)) ...[
                 Row(children: [
                   Expanded(child: OutlinedButton.icon(onPressed: () { Navigator.pop(context); _showEditPaymentDialog(transaction); }, icon: const Icon(Icons.edit_rounded, size: 16, color: Color(0xFF818CF8)), label: const Text('Editar Pago', style: TextStyle(color: Color(0xFF818CF8), fontSize: 12, fontWeight: FontWeight.bold)), style: OutlinedButton.styleFrom(side: const BorderSide(color: Color(0xFF6366F1)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 13)))),
@@ -166,7 +233,6 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
                 ]),
                 const SizedBox(height: 10),
               ],
-              
               Row(children: [
                 Expanded(child: OutlinedButton.icon(onPressed: () => _printTicket(transaction, items), icon: const Icon(Icons.print_rounded, size: 18, color: Colors.white70), label: const Text('Imprimir 80mm', style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold)), style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.white24), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 14)))),
                 const SizedBox(width: 10),
@@ -178,7 +244,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
       ),
     );
   }
-
+  
   Widget _infoRow(String label, String value, {bool isStatus = false}) {
     Color valColor = Colors.white;
     if (isStatus) {
@@ -211,7 +277,6 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
           DropdownMenuItem(value: 'cash', child: Text('Efectivo')),
           DropdownMenuItem(value: 'transfer', child: Text('Transferencia')),
           DropdownMenuItem(value: 'card', child: Text('Tarjeta')),
-          DropdownMenuItem(value: 'debito', child: Text('Débito')),
           DropdownMenuItem(value: 'mixto', child: Text('Mixto')),
         ],
         onChanged: (v) => setSt(() => selected = v!),
@@ -283,51 +348,148 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
 
   Future<void> _printTicket(Map<String, dynamic> transaction, List<Map<String, dynamic>> items) async {
     try {
-      const businessName = 'BBS CLUB';
-      const businessAddress = 'Manuel Montt #460, local 6 - Coronel';
-      const businessPhone = 'Tel: +569 6106 9670';
+      pw.ImageProvider? logoImage;
+      final logoUrl = SettingsService.ticketLogoUrl.isNotEmpty ? SettingsService.ticketLogoUrl : SettingsService.shopLogoUrl;
+
+      if (logoUrl.isNotEmpty) {
+        try {
+          final response = await http.get(Uri.parse(logoUrl));
+          if (response.statusCode == 200) {
+            logoImage = pw.MemoryImage(response.bodyBytes);
+          }
+        } catch (e) {
+          debugPrint('Error al cargar el logo del ticket: $e');
+        }
+      }
+
+      String displayBarberName = (transaction['barber_name'] ?? '').toString();
+      if (displayBarberName.isEmpty && items.isNotEmpty) {
+        final itemBarbers = items
+            .map((i) => i['barber_name']?.toString())
+            .where((b) => b != null && b.isNotEmpty && b != 'null')
+            .toSet()
+            .toList();
+        if (itemBarbers.isNotEmpty) {
+          displayBarberName = itemBarbers.join(', ');
+        }
+      }
+
+      final folioStr = transaction['folio']?.toString() ?? '#${transaction['id'].toString().substring(transaction['id'].toString().length - 6).toUpperCase()}';
 
       final pdf = pw.Document();
       pdf.addPage(pw.Page(
         pageFormat: PdfPageFormat(80 * PdfPageFormat.mm, double.infinity, marginAll: 4 * PdfPageFormat.mm),
         build: (_) => pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.center, children: [
-          pw.Container(
-            decoration: pw.BoxDecoration(border: pw.Border.all(width: 2)),
-            padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            child: pw.Text('BBSCLUB\'\nBARBERIA', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 12), textAlign: pw.TextAlign.center),
-          ),
+          if (logoImage != null) ...[
+            pw.Image(logoImage, height: 40, fit: pw.BoxFit.contain),
+            pw.SizedBox(height: 4),
+          ],
+          pw.Text((SettingsService.shopName.isNotEmpty ? SettingsService.shopName : 'BBS CLUB').toUpperCase(), style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14), textAlign: pw.TextAlign.center),
+          pw.Text(SettingsService.shopAddress, style: const pw.TextStyle(fontSize: 8), textAlign: pw.TextAlign.center),
+          pw.Text('RUT: ${SettingsService.shopRif}', style: const pw.TextStyle(fontSize: 8), textAlign: pw.TextAlign.center),
+          pw.Text('Tel: ${SettingsService.shopPhone}', style: const pw.TextStyle(fontSize: 8), textAlign: pw.TextAlign.center),
           pw.SizedBox(height: 6),
-          pw.Text(businessName, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11)),
-          pw.Text(businessAddress, style: const pw.TextStyle(fontSize: 7), textAlign: pw.TextAlign.center),
-          pw.Text(businessPhone, style: const pw.TextStyle(fontSize: 7), textAlign: pw.TextAlign.center),
-          pw.SizedBox(height: 6), pw.Divider(),
-          pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Fecha:', style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold)), pw.Text(DateFormat('dd/MM/yyyy HH:mm').format(DateTime.parse(transaction['created_at'])), style: const pw.TextStyle(fontSize: 7))]),
-          pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Cajero:', style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold)), pw.Text(transaction['cashier_name']?.toString() ?? '', style: const pw.TextStyle(fontSize: 7))]),
-          pw.Divider(),
-          ...items.map((it) => pw.Padding(padding: const pw.EdgeInsets.symmetric(vertical: 2), child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-            pw.Text(it['service_name'] ?? it['product_name'] ?? 'Item', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
-            pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('${it['quantity']} x ${SettingsService.formatCurrency((it['price_at_moment'] as num).toDouble())}', style: const pw.TextStyle(fontSize: 7)), pw.Text(SettingsService.formatCurrency((it['price_at_moment'] as num).toDouble() * (it['quantity'] as num).toInt()), style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold))]),
-          ]))),
-          pw.Divider(),
-          pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('TOTAL:', style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)), pw.Text(SettingsService.formatCurrency((transaction['total'] as num).toDouble()), style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold))]),
+          pw.Text('TICKET DE VENTA', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+          pw.Divider(thickness: 0.5, borderStyle: pw.BorderStyle.dashed),
+          
+          pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Folio:', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)), pw.Text(folioStr, style: const pw.TextStyle(fontSize: 8))]),
+          pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Fecha:', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)), pw.Text(DateFormat('dd/MM/yyyy HH:mm').format(DateTime.parse(transaction['created_at'])), style: const pw.TextStyle(fontSize: 8))]),
+          pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Cajero:', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)), pw.Text(transaction['cashier_name']?.toString() ?? 'N/A', style: const pw.TextStyle(fontSize: 8))]),
+          
+          pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Barbero:', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)), pw.Text(displayBarberName.isEmpty ? 'Sin asignar' : displayBarberName, style: const pw.TextStyle(fontSize: 8))]),
+          
+          pw.Divider(thickness: 0.5, borderStyle: pw.BorderStyle.dashed),
+          pw.Row(children: [
+            pw.Expanded(flex: 3, child: pw.Text('Cant  Descripción', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold))),
+            pw.Expanded(flex: 1, child: pw.Text('Total', textAlign: pw.TextAlign.right, style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold))),
+          ]),
+          pw.SizedBox(height: 2),
+          ...items.map((it) {
+            final name = it['service_name'] ?? it['product_name'] ?? 'Item';
+            final qty = it['quantity'];
+            final price = (it['price_at_moment'] as num).toDouble();
+            final total = price * (qty as num).toInt();
+            return pw.Padding(
+              padding: const pw.EdgeInsets.symmetric(vertical: 1),
+              child: pw.Row(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+                pw.Expanded(flex: 3, child: pw.Text('${qty}x  ${name.length > 25 ? '${name.substring(0, 25)}...' : name}', style: const pw.TextStyle(fontSize: 8))),
+                pw.Expanded(flex: 1, child: pw.Text(SettingsService.formatCurrency(total), textAlign: pw.TextAlign.right, style: const pw.TextStyle(fontSize: 8))),
+              ]),
+            );
+          }),
+          pw.Divider(thickness: 0.5, borderStyle: pw.BorderStyle.dashed),
+          pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('TOTAL:', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)), pw.Text(SettingsService.formatCurrency((transaction['total'] as num).toDouble()), style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold))]),
           pw.SizedBox(height: 4),
-          pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Pago:', style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold)), pw.Text(_formatPayment(transaction['payment_method']?.toString()), style: const pw.TextStyle(fontSize: 7))]),
+          pw.Divider(thickness: 0.5, borderStyle: pw.BorderStyle.dashed),
+          pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Forma de pago:', style: const pw.TextStyle(fontSize: 8)), pw.Text(_formatPayment(transaction['payment_method']?.toString()), style: const pw.TextStyle(fontSize: 8))]),
+          if ((transaction['cash_received'] as num?) != null && (transaction['cash_received'] as num) > 0) pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Recibido:', style: const pw.TextStyle(fontSize: 8)), pw.Text(SettingsService.formatCurrency((transaction['cash_received'] as num).toDouble()), style: const pw.TextStyle(fontSize: 8))]),
+          if ((transaction['change_amount'] as num?) != null && (transaction['change_amount'] as num) > 0) pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Vuelto:', style: const pw.TextStyle(fontSize: 8)), pw.Text(SettingsService.formatCurrency((transaction['change_amount'] as num).toDouble()), style: const pw.TextStyle(fontSize: 8))]),
           pw.SizedBox(height: 10),
-          pw.Text('¡Gracias por su visita!', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold), textAlign: pw.TextAlign.center),
+          pw.Text(SettingsService.ticketFooter.isNotEmpty ? SettingsService.ticketFooter : '¡Gracias por su visita!', style: pw.TextStyle(fontSize: 8, fontStyle: pw.FontStyle.italic), textAlign: pw.TextAlign.center),
         ]),
       ));
-      await Printing.layoutPdf(onLayout: (_) async => pdf.save(), name: 'Ticket', format: PdfPageFormat(80 * PdfPageFormat.mm, double.infinity));
+
+      // --- FIX: Generar nombre con Folio y Fecha/Hora ---
+      final DateTime txDate = DateTime.parse(transaction['created_at']);
+      final String dateStr = DateFormat('yyyyMMdd_HHmm').format(txDate);
+      final String fileName = 'Ticket_${folioStr.replaceAll('#', '')}_$dateStr';
+
+      await Printing.layoutPdf(
+        onLayout: (_) async => pdf.save(), 
+        name: fileName, 
+        format: PdfPageFormat(80 * PdfPageFormat.mm, double.infinity)
+      );
+      
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ $e'), backgroundColor: Colors.red));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ Error al imprimir: $e'), backgroundColor: Colors.red));
     }
   }
+  
+  Widget _buildPremiumDropdown({required String label, required IconData icon, required String value, required List<DropdownMenuItem<String>> items, required ValueChanged<String?> onChanged}) {
+    return DropdownButtonFormField<String>(
+      value: value,
+      dropdownColor: const Color(0xFF1E293B),
+      icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white54, size: 20),
+      style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(color: Colors.white54, fontSize: 11),
+        floatingLabelStyle: const TextStyle(color: Color(0xFF818CF8), fontSize: 12),
+        prefixIcon: Icon(icon, color: const Color(0xFF818CF8), size: 18),
+        filled: true,
+        fillColor: const Color(0xFF0F172A),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.white.withOpacity(0.08))),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF6366F1), width: 1.5)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      ),
+      items: items,
+      onChanged: onChanged,
+    );
+  }
 
-  Future<void> _selectDateRange() async {
-    final picked = await showDateRangePicker(context: context, firstDate: DateTime(2023), lastDate: DateTime.now().add(const Duration(days: 1)), initialDateRange: DateTimeRange(start: _startDate, end: _endDate), builder: (c, child) => Theme(data: ThemeData.dark().copyWith(colorScheme: const ColorScheme.dark(primary: Color(0xFF6366F1))), child: child!));
-    if (picked != null) {
-      setState(() { _startDate = picked.start; _endDate = picked.end; });
-      await _loadTransactions();
-    }
+  Widget _buildQuickDateChip(String label, String type) {
+    final isSelected = _activeQuickFilter == type;
+    return InkWell(
+      onTap: () => _setQuickDate(type),
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF6366F1) : const Color(0xFF0F172A),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: isSelected ? const Color(0xFF6366F1) : Colors.white10),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? Colors.white : Colors.white54,
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -346,61 +508,198 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
           IconButton(icon: const Icon(Icons.calendar_month_rounded, color: Colors.white70, size: 20), onPressed: _selectDateRange),
         ],
       ),
-      body: Column(children: [
-        Container(
-          margin: const EdgeInsets.all(12),
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(color: const Color(0xFF312E81), borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFF6366F1).withOpacity(0.2))),
-          child: Row(children: [
-            Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.2), borderRadius: BorderRadius.circular(10)), child: const Icon(Icons.calendar_today_rounded, size: 14, color: Color(0xFF818CF8))),
-            const SizedBox(width: 10),
-            Text('${DateFormat('dd/MM/yyyy').format(_startDate)} - ${DateFormat('dd/MM/yyyy').format(_endDate)}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-            const Spacer(),
-            Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.2), borderRadius: BorderRadius.circular(20)), child: Text('${_transactions.length} ventas', style: const TextStyle(color: Color(0xFF818CF8), fontSize: 11, fontWeight: FontWeight.bold))),
-          ]),
-        ),
-        Container(
-          margin: const EdgeInsets.symmetric(horizontal: 12),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withOpacity(0.06))),
-          child: Column(children: [
-            TextField(onChanged: (v) => setState(() => _searchQuery = v), style: const TextStyle(color: Colors.white, fontSize: 13), decoration: InputDecoration(hintText: 'Buscar folio, barbero, cajero...', hintStyle: const TextStyle(color: Colors.white38, fontSize: 12), prefixIcon: const Icon(Icons.search_rounded, color: Colors.white38, size: 18), filled: true, fillColor: const Color(0xFF0F172A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none), contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10))),
-            const SizedBox(height: 10),
-            Row(children: [
-              Expanded(child: DropdownButtonFormField<String>(value: _filterBarber, dropdownColor: const Color(0xFF1E293B), style: const TextStyle(color: Colors.white, fontSize: 12), decoration: InputDecoration(labelText: 'Barbero', labelStyle: const TextStyle(color: Colors.white54, fontSize: 11), filled: true, fillColor: const Color(0xFF0F172A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)), contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8)), items: [const DropdownMenuItem(value: 'all', child: Text('Todos')), ..._allBarbersHist.map((b) => DropdownMenuItem(value: b, child: Text(b)))], onChanged: (v) => setState(() => _filterBarber = v ?? 'all'))),
-              const SizedBox(width: 8),
-              Expanded(child: DropdownButtonFormField<String>(value: _filterMethod, dropdownColor: const Color(0xFF1E293B), style: const TextStyle(color: Colors.white, fontSize: 12), decoration: InputDecoration(labelText: 'Método', labelStyle: const TextStyle(color: Colors.white54, fontSize: 11), filled: true, fillColor: const Color(0xFF0F172A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)), contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8)), items: const [DropdownMenuItem(value: 'all', child: Text('Todos')), DropdownMenuItem(value: 'cash', child: Text('Efectivo')), DropdownMenuItem(value: 'transfer', child: Text('Transferencia')), DropdownMenuItem(value: 'card', child: Text('Tarjeta')), DropdownMenuItem(value: 'debito', child: Text('Débito')), DropdownMenuItem(value: 'mixto', child: Text('Mixto'))], onChanged: (v) => setState(() => _filterMethod = v ?? 'all'))),
-            ]),
-            const SizedBox(height: 10),
-            Row(children: [
-              Expanded(child: DropdownButtonFormField<String>(value: _filterStatus, dropdownColor: const Color(0xFF1E293B), style: const TextStyle(color: Colors.white, fontSize: 12), decoration: InputDecoration(labelText: 'Estado', labelStyle: const TextStyle(color: Colors.white54, fontSize: 11), filled: true, fillColor: const Color(0xFF0F172A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)), contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8)), items: const [DropdownMenuItem(value: 'all', child: Text('Todos')), DropdownMenuItem(value: 'completed', child: Text('Completadas')), DropdownMenuItem(value: 'cancelled', child: Text('Anuladas'))], onChanged: (v) => setState(() => _filterStatus = v ?? 'all'))),
-              const SizedBox(width: 8),
-              Expanded(child: Container(padding: const EdgeInsets.symmetric(vertical: 12), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.15), borderRadius: BorderRadius.circular(10)), child: Text('${_filteredTransactions.length} de ${_transactions.length} • ${SettingsService.formatCurrency(_filteredTotal)}', style: const TextStyle(color: Color(0xFF818CF8), fontSize: 11, fontWeight: FontWeight.bold), textAlign: TextAlign.center))),
-            ]),
-            if (_searchQuery.isNotEmpty || _filterBarber != 'all' || _filterMethod != 'all' || _filterStatus != 'all') Padding(padding: const EdgeInsets.only(top: 10), child: GestureDetector(onTap: _clearHistFilters, child: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), decoration: BoxDecoration(color: Colors.red.withOpacity(0.15), borderRadius: BorderRadius.circular(20)), child: const Text('Limpiar filtros ✕', style: TextStyle(color: Colors.redAccent, fontSize: 11, fontWeight: FontWeight.bold))))),
-          ]),
-        ),
-        const SizedBox(height: 8),
-        Expanded(
-          child: _isLoading
-              ? const Center(child: CircularProgressIndicator(color: Color(0xFF6366F1)))
-              : _filteredTransactions.isEmpty
-                  ? const Center(child: Text('No hay ventas', style: TextStyle(color: Colors.white38)))
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      itemCount: _filteredTransactions.length,
-                      itemBuilder: (c, i) {
-                        final t = _filteredTransactions[i];
-                        final isCancelled = t['status'] == 'cancelled';
-                        return AnimatedBuilder(
-                          animation: _ctrl,
-                          builder: (context, child) {
-                            final delay = i * 0.03;
-                            final anim = Tween<double>(begin: 0, end: 1).animate(CurvedAnimation(parent: _ctrl, curve: Interval(delay, 0.7 + delay, curve: Curves.easeOutCubic)));
-                            return FadeTransition(opacity: anim, child: SlideTransition(position: Tween<Offset>(begin: const Offset(0, 0.05), end: Offset.zero).animate(anim), child: child));
-                          },
+      body: _isLoading 
+        ? const Center(child: CircularProgressIndicator(color: Color(0xFF6366F1)))
+        : CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                child: Container(
+                  margin: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E293B), 
+                    borderRadius: BorderRadius.circular(16), 
+                    border: Border.all(color: Colors.white.withOpacity(0.06)),
+                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))]
+                  ),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Row(
+                      children: [
+                        Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.15), borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.calendar_month_rounded, size: 16, color: Color(0xFF818CF8))),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            '${DateFormat('dd/MM/yyyy').format(_startDate)} - ${DateFormat('dd/MM/yyyy').format(_endDate)}', 
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)
+                          )
+                        ),
+                        Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.2), borderRadius: BorderRadius.circular(20)), child: Text('${_transactions.length} ventas', style: const TextStyle(color: Color(0xFF818CF8), fontSize: 11, fontWeight: FontWeight.bold))),
+                      ]
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _buildQuickDateChip('Hoy', 'today'),
+                        _buildQuickDateChip('Semana', 'week'),
+                        _buildQuickDateChip('Mes', 'month'),
+                        InkWell(
+                          onTap: _selectDateRange,
+                          borderRadius: BorderRadius.circular(20),
                           child: Container(
-                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: _activeQuickFilter == 'custom' ? const Color(0xFF6366F1) : const Color(0xFF0F172A),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: _activeQuickFilter == 'custom' ? const Color(0xFF6366F1) : Colors.white10),
+                            ),
+                            child: Row(mainAxisSize: MainAxisSize.min, children: [
+                              Icon(Icons.date_range, size: 14, color: _activeQuickFilter == 'custom' ? Colors.white : Colors.white54),
+                              const SizedBox(width: 6),
+                              Text('Rango', style: TextStyle(color: _activeQuickFilter == 'custom' ? Colors.white : Colors.white54, fontSize: 12, fontWeight: FontWeight.bold)),
+                            ]),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ]),
+                ),
+              ),
+
+              SliverToBoxAdapter(
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 12),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E293B), 
+                    borderRadius: BorderRadius.circular(16), 
+                    border: Border.all(color: Colors.white.withOpacity(0.06)),
+                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))]
+                  ),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Row(children: [
+                      Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.15), borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.tune_rounded, size: 16, color: Color(0xFF818CF8))),
+                      const SizedBox(width: 10),
+                      const Text('Filtros de Búsqueda', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                      const Spacer(),
+                      if (_searchQuery.isNotEmpty || _filterMethod != 'all' || _filterStatus != 'all') 
+                        TextButton.icon(
+                          onPressed: _clearHistFilters, 
+                          icon: const Icon(Icons.clear_all_rounded, size: 16, color: Colors.redAccent), 
+                          label: const Text('Limpiar', style: TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.bold)),
+                          style: TextButton.styleFrom(backgroundColor: Colors.redAccent.withOpacity(0.1), padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4)),
+                        ),
+                    ]),
+                    const SizedBox(height: 16),
+                    
+                    TextField(
+                      controller: _searchController,
+                      onChanged: (v) => setState(() => _searchQuery = v), 
+                      style: const TextStyle(color: Colors.white, fontSize: 13), 
+                      decoration: InputDecoration(
+                        hintText: 'Buscar folio, barbero, cajero...', 
+                        hintStyle: const TextStyle(color: Colors.white38, fontSize: 12), 
+                        prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF818CF8), size: 18), 
+                        suffixIcon: _searchQuery.isNotEmpty ? IconButton(
+                          icon: const Icon(Icons.clear, size: 16, color: Colors.white54), 
+                          onPressed: () { 
+                            _searchController.clear(); 
+                            setState(() => _searchQuery = ''); 
+                          }
+                        ) : null,
+                        filled: true, 
+                        fillColor: const Color(0xFF0F172A), 
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.white.withOpacity(0.08))),
+                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF6366F1), width: 1.5)),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14)
+                      )
+                    ),
+                    const SizedBox(height: 12),
+                    
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        if (constraints.maxWidth > 750) {
+                          return Row(
+                            children: [
+                              Expanded(child: _buildPremiumDropdown(
+                                label: 'Método', icon: Icons.payments_rounded, value: _filterMethod, 
+                                items: const [
+                                  DropdownMenuItem(value: 'all', child: Text('Todos')), 
+                                  DropdownMenuItem(value: 'cash', child: Text('Efectivo')), 
+                                  DropdownMenuItem(value: 'transfer', child: Text('Transferencia')), 
+                                  DropdownMenuItem(value: 'card', child: Text('Tarjeta')), 
+                                  DropdownMenuItem(value: 'mixto', child: Text('Mixto'))
+                                ], 
+                                onChanged: (v) => setState(() => _filterMethod = v ?? 'all')
+                              )),
+                              const SizedBox(width: 12),
+                              Expanded(child: _buildPremiumDropdown(
+                                label: 'Estado', icon: Icons.check_circle_outline_rounded, value: _filterStatus, 
+                                items: const [
+                                  DropdownMenuItem(value: 'all', child: Text('Todos')), 
+                                  DropdownMenuItem(value: 'completed', child: Text('Completadas')), 
+                                  DropdownMenuItem(value: 'cancelled', child: Text('Anuladas'))
+                                ], 
+                                onChanged: (v) => setState(() => _filterStatus = v ?? 'all')
+                              )),
+                            ],
+                          );
+                        } else {
+                          return Column(
+                            children: [
+                              _buildPremiumDropdown(
+                                label: 'Método', icon: Icons.payments_rounded, value: _filterMethod, 
+                                items: const [
+                                  DropdownMenuItem(value: 'all', child: Text('Todos')), 
+                                  DropdownMenuItem(value: 'cash', child: Text('Efectivo')), 
+                                  DropdownMenuItem(value: 'transfer', child: Text('Transferencia')), 
+                                  DropdownMenuItem(value: 'card', child: Text('Tarjeta')), 
+                                  DropdownMenuItem(value: 'mixto', child: Text('Mixto'))
+                                ], 
+                                onChanged: (v) => setState(() => _filterMethod = v ?? 'all')
+                              ),
+                              const SizedBox(height: 10),
+                              _buildPremiumDropdown(
+                                label: 'Estado', icon: Icons.check_circle_outline_rounded, value: _filterStatus, 
+                                items: const [
+                                  DropdownMenuItem(value: 'all', child: Text('Todos')), 
+                                  DropdownMenuItem(value: 'completed', child: Text('Completadas')), 
+                                  DropdownMenuItem(value: 'cancelled', child: Text('Anuladas'))
+                                ], 
+                                onChanged: (v) => setState(() => _filterStatus = v ?? 'all')
+                              ),
+                            ],
+                          );
+                        }
+                      }
+                    ),
+                    
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.08), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFF6366F1).withOpacity(0.2))),
+                      child: Row(children: [
+                        const Icon(Icons.info_outline_rounded, color: Color(0xFF818CF8), size: 14),
+                        const SizedBox(width: 8),
+                        Expanded(child: Text('Mostrando ${_filteredTransactions.length} de ${_transactions.length} ventas • ${SettingsService.formatCurrency(_filteredTotal)}', style: const TextStyle(color: Color(0xFF818CF8), fontSize: 11, fontWeight: FontWeight.w500))),
+                      ]),
+                    ),
+                  ]),
+                ),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 8)),
+              
+              _filteredTransactions.isEmpty
+                  ? const SliverFillRemaining(child: Center(child: Text('No hay ventas', style: TextStyle(color: Colors.white38))))
+                  : SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (c, i) {
+                          final t = _filteredTransactions[i];
+                          final isCancelled = t['status'] == 'cancelled';
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 8, left: 12, right: 12),
                             decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(14), border: Border.all(color: isCancelled ? Colors.red.withOpacity(0.2) : Colors.white.withOpacity(0.05))),
                             child: Material(
                               type: MaterialType.transparency,
@@ -413,12 +712,13 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
                                 trailing: Text(SettingsService.formatCurrency((t['total'] as num).toDouble()), style: TextStyle(color: isCancelled ? Colors.white38 : const Color(0xFF10B981), fontWeight: FontWeight.w900, fontSize: 14, decoration: isCancelled ? TextDecoration.lineThrough : null)),
                               ),
                             ),
-                          ),
-                        );
-                      },
+                          );
+                        },
+                        childCount: _filteredTransactions.length,
+                      ),
                     ),
-        ),
-      ]),
+            ],
+          ),
     );
   }
 }

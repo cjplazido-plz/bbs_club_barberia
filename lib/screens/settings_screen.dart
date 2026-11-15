@@ -245,7 +245,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(gradient: const LinearGradient(colors: [_indigo, Color(0xFF4F46E5)]), borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: _indigo.withOpacity(0.35), blurRadius: 18, offset: const Offset(0, 8))]),
       child: Row(children: [
-        ClipRRect(borderRadius: BorderRadius.circular(8), child: Container(width: 84, height: 38, color: Colors.black, child: _shopLogoCtrl.text.isNotEmpty ? Image.network(_shopLogoCtrl.text, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.store_rounded, color: _indigo)) : const Icon(Icons.store_rounded, color: _indigo))),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            width: 90, // Ancho fijo un poco más amplio
+            height: 40,
+            color: Colors.black,
+            padding: const EdgeInsets.all(4),
+            alignment: Alignment.center, // FIX: Forzar centrado
+            child: _shopLogoCtrl.text.isNotEmpty 
+                ? Image.network(
+                    _shopLogoCtrl.text, 
+                    fit: BoxFit.contain, // FIX: Mantiene proporción
+                    errorBuilder: (_, __, ___) => const Icon(Icons.store_rounded, color: _indigo)
+                  ) 
+                : const Icon(Icons.store_rounded, color: _indigo),
+          ),
+        ),
         const SizedBox(width: 12),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(_shopNameCtrl.text.isNotEmpty ? _shopNameCtrl.text : 'BBS CLUB', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
@@ -326,8 +342,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         width: double.infinity,
         height: 72,
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        alignment: Alignment.center, // FIX: Forzar centrado
         child: url.isNotEmpty
-            ? Image.network(url, fit: BoxFit.contain, width: double.infinity, errorBuilder: (_, __, ___) => const Icon(Icons.image_not_supported_rounded, color: Colors.grey))
+            ? Image.network(url, fit: BoxFit.contain, errorBuilder: (_, __, ___) => const Icon(Icons.image_not_supported_rounded, color: Colors.grey))
             : const Icon(Icons.image_rounded, color: Colors.grey),
       ),
     );
@@ -353,8 +370,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.black12), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.25), blurRadius: 12, offset: const Offset(0, 4))]),
         child: Column(crossAxisAlignment: CrossAxisAlignment.center, children: [
-        if (_ticketLogoCtrl.text.isNotEmpty) Image.network(_ticketLogoCtrl.text, height: 40, width: 180, fit: BoxFit.contain, errorBuilder: (_, __, ___) => const SizedBox.shrink()),
-        const SizedBox(height: 6),
+        if (_ticketLogoCtrl.text.isNotEmpty)
+          Container(
+            height: 40,
+            margin: const EdgeInsets.only(bottom: 6),
+            alignment: Alignment.center, // FIX: Forzar centrado
+            child: Image.network(
+              _ticketLogoCtrl.text, 
+              fit: BoxFit.contain, // FIX: Mantiene proporción
+              errorBuilder: (_, __, ___) => const SizedBox.shrink()
+            ),
+          ),
         Text(_ticketHeaderCtrl.text.isNotEmpty ? _ticketHeaderCtrl.text : 'BBS CLUB', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black), textAlign: TextAlign.center),
         if (_addressCtrl.text.isNotEmpty) Text(_addressCtrl.text, style: const TextStyle(fontSize: 9, color: Colors.black54), textAlign: TextAlign.center),
         if (_phoneCtrl.text.isNotEmpty) Text('Tel: ${_phoneCtrl.text}', style: const TextStyle(fontSize: 9, color: Colors.black54)),
