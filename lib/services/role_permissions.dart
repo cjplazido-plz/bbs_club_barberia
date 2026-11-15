@@ -17,12 +17,17 @@ class BbsPerm {
   static const viewUsers = 'viewUsers';
   static const manageRoles = 'manageRoles';
   static const viewSettings = 'viewSettings';
+  
+  // NUEVOS PERMISOS
+  static const viewBarbers = 'viewBarbers';
+  static const viewServices = 'viewServices';
+  static const viewProducts = 'viewProducts';
 
-  // Eliminamos viewPos y cancelSale (Anular/Editar Pago)
   static const all = [
     sell, viewAgenda, createEditAppointment, confirmCancel, blockHours,
     viewClients, createEditClient, deleteClient, viewCommissions, markPaid,
     viewClosure, viewHistory, viewReports, viewUsers, manageRoles, viewSettings,
+    viewBarbers, viewServices, viewProducts, // <-- AGREGADOS AQUÍ
   ];
 
   static const labels = {
@@ -42,6 +47,9 @@ class BbsPerm {
     viewUsers: 'Ver Usuarios',
     manageRoles: 'Roles',
     viewSettings: 'Ver Configuración',
+    viewBarbers: 'Ver Barberos',   // <-- NUEVO
+    viewServices: 'Ver Servicios', // <-- NUEVO
+    viewProducts: 'Ver Productos', // <-- NUEVO
   };
 }
 
@@ -53,6 +61,7 @@ class RolePermissions {
       BbsPerm.deleteClient, BbsPerm.viewCommissions, BbsPerm.markPaid, BbsPerm.viewClosure,
       BbsPerm.viewHistory, BbsPerm.viewReports, BbsPerm.viewUsers,
       BbsPerm.manageRoles, BbsPerm.viewSettings,
+      BbsPerm.viewBarbers, BbsPerm.viewServices, BbsPerm.viewProducts, // <-- NUEVOS PARA ADMIN
     },
     'cashier': {
       BbsPerm.sell, BbsPerm.viewAgenda, BbsPerm.createEditAppointment,
@@ -87,12 +96,10 @@ class RolePermissions {
   static Set<String> getPermissions(String role) {
     final r = role.trim().toLowerCase();
     if (_custom.containsKey(r)) {
-      // FIX: Especificar <String> para evitar el error de tipo dynamic
       final perms = Set<String>.from(_custom[r]!);
-      perms.remove('none'); // Quita el permiso fantasma
+      perms.remove('none');
       return perms;
     }
-    // FIX: Especificar <String> aquí también
     return Set<String>.from(defaults[r] ?? defaults['cashier']!);
   }
   
