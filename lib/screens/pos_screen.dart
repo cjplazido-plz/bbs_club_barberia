@@ -618,7 +618,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
         if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewReports))
           _buildMenuItem('📊', 'Dashboard', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => DashboardScreen())); }),
         if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewClients))
-          _buildMenuItem('👥', 'Clientes', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ClientsScreen())).then((_) => _loadData()); }),
+          _buildMenuItem('👤', 'Clientes', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ClientsScreen())).then((_) => _loadData()); }),
              const Divider(color: Colors.white10),
         if (RolePermissions.isAdmin(_myRole ?? currentUserRole)) ...[
           _buildMenuItem('💈', 'Barberos', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => BarbersScreen())).then((_) => _loadData()); }),
