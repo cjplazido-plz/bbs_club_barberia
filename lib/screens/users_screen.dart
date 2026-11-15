@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'roles_screen.dart' as roles_screen;
+import '../services/role_permissions.dart'; // <-- NUEVO IMPORT
 
 class UsersScreen extends StatefulWidget {
   @override
@@ -10,6 +11,7 @@ class UsersScreen extends StatefulWidget {
 
 class _UsersScreenState extends State<UsersScreen> with TickerProviderStateMixin {
   List<Map<String, dynamic>> _users = [];
+  List<String> _availableRoles = ['admin', 'cashier', 'barber', 'barber_cashier']; // <-- NUEVA LISTA
   bool _isLoading = true;
   late AnimationController _ctrl;
 
@@ -17,6 +19,7 @@ class _UsersScreenState extends State<UsersScreen> with TickerProviderStateMixin
   void initState() {
     super.initState();
     _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 800));
+    _loadRoles(); // Cargar roles primero
     _loadUsers();
   }
 
@@ -24,6 +27,24 @@ class _UsersScreenState extends State<UsersScreen> with TickerProviderStateMixin
   void dispose() {
     _ctrl.dispose();
     super.dispose();
+  }
+
+  // <-- NUEVA FUNCIÓN PARA CARGAR ROLES
+  Future<void> _loadRoles() async {
+    await RolePermissions.loadFromSupabase();
+    try {
+      final res = await Supabase.instance.client.from('role_permissions').select('role');
+      final Set<String> fromDb = {};
+      for (final r in (res as List)) fromDb.add((r['role'] ?? '').toString());
+      final all = {...RolePermissions.defaults.keys, ...fromDb}.toList();
+      all.sort((a, b) {
+        const order = {'admin': 0, 'cashier': 1, 'barber': 2, 'barber_cashier': 3};
+        return (order[a] ?? 99).compareTo(order[b] ?? 99);
+      });
+      if (mounted) setState(() => _availableRoles = all);
+    } catch (e) {
+      print('Error roles $e');
+    }
   }
 
   Future<void> _loadUsers() async {
@@ -93,8 +114,6 @@ class _UsersScreenState extends State<UsersScreen> with TickerProviderStateMixin
                 const SizedBox(height: 12),
                 _field(phoneCtrl, 'Teléfono', Icons.phone_rounded, keyboardType: TextInputType.phone),
                 const SizedBox(height: 12),
-                
-                // NUEVO: Contraseña visible siempre, pero adaptada si es edición
                 _field(passCtrl, isEditing ? 'Nueva Contraseña (Opcional)' : 'Contraseña *', Icons.lock_rounded, obscure: true),
                 if (isEditing) const Padding(padding: EdgeInsets.only(top: 4, bottom: 8), child: Text('Deja en blanco para no cambiarla.', style: TextStyle(color: Colors.white38, fontSize: 10))),
                 const SizedBox(height: 12),
@@ -110,15 +129,19 @@ class _UsersScreenState extends State<UsersScreen> with TickerProviderStateMixin
                     fillColor: const Color(0xFF0F172A),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  items: const [
-                    DropdownMenuItem(value: 'admin', child: Text('Administrador')),
-                    DropdownMenuItem(value: 'cashier', child: Text('Cajero')),
-                    DropdownMenuItem(value: 'barber', child: Text('Barbero')),
-                    DropdownMenuItem(value: 'barber_cashier', child: Text('Barbero/Cajero')),
-                  ],
+                  // <-- FIX: Generar items dinámicamente
+                  items: _availableRoles.map((role) {
+                    String label = role;
+                    if (role == 'admin') label = 'Administrador';
+                    else if (role == 'cashier') label = 'Cajero';
+                    else if (role == 'barber') label = 'Barbero';
+                    else if (role == 'barber_cashier') label = 'Barbero/Cajero';
+                    else label = role[0].toUpperCase() + role.substring(1); // Capitalizar custom
+                    
+                    return DropdownMenuItem(value: role, child: Text(label));
+                  }).toList(),
                   onChanged: (v) => setDialogState(() => selectedRole = v!),
                 ),
-                // ELIMINADO: Ya no está el campo de % Comisión
               ],
             ),
           ),
@@ -142,7 +165,6 @@ class _UsersScreenState extends State<UsersScreen> with TickerProviderStateMixin
                   
                   try {
                     if (isEditing) {
-                      // Si hay contraseña nueva, usar Edge Function para actualizar Auth + Profile
                       if (pass.isNotEmpty) {
                         if (pass.length < 6) {
                           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('La contraseña debe tener al menos 6 caracteres'), backgroundColor: Colors.red));
@@ -160,7 +182,6 @@ class _UsersScreenState extends State<UsersScreen> with TickerProviderStateMixin
                         );
                         if (response.status != 200) throw Exception('Error al actualizar: ${response.data}');
                       } else {
-                        // Si no hay contraseña nueva, solo actualizar el perfil
                         await Supabase.instance.client.from('profiles').update({
                           'full_name': name,
                           'phone': phoneCtrl.text.trim(),
@@ -169,7 +190,6 @@ class _UsersScreenState extends State<UsersScreen> with TickerProviderStateMixin
                         }).eq('id', user!['id']);
                       }
                     } else {
-                      // CREAR NUEVO USUARIO VÍA EDGE FUNCTION
                       if (pass.isEmpty || pass.length < 6) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('La contraseña debe tener al menos 6 caracteres'), backgroundColor: Colors.red),
@@ -185,7 +205,7 @@ class _UsersScreenState extends State<UsersScreen> with TickerProviderStateMixin
                           'full_name': name,
                           'role': selectedRole,
                           'phone': phoneCtrl.text.trim(),
-                          'commission_rate': 0.0, // Enviamos 0 por defecto al crear
+                          'commission_rate': 0.0,
                         },
                       );
 
@@ -235,31 +255,21 @@ class _UsersScreenState extends State<UsersScreen> with TickerProviderStateMixin
 
   Color _getRoleColor(String role) {
     switch (role) {
-      case 'admin':
-        return const Color(0xFF8B5CF6);
-      case 'cashier':
-        return const Color(0xFF6366F1);
-      case 'barber':
-        return const Color(0xFFF59E0B);
-      case 'barber_cashier':
-        return const Color(0xFF10B981);
-      default:
-        return Colors.grey;
+      case 'admin': return const Color(0xFF8B5CF6);
+      case 'cashier': return const Color(0xFF6366F1);
+      case 'barber': return const Color(0xFFF59E0B);
+      case 'barber_cashier': return const Color(0xFF10B981);
+      default: return Colors.grey;
     }
   }
 
   String _getRoleLabel(String role) {
     switch (role) {
-      case 'admin':
-        return 'Administrador';
-      case 'cashier':
-        return 'Cajero';
-      case 'barber':
-        return 'Barbero';
-      case 'barber_cashier':
-        return 'Barbero/Cajero';
-      default:
-        return role;
+      case 'admin': return 'Administrador';
+      case 'cashier': return 'Cajero';
+      case 'barber': return 'Barbero';
+      case 'barber_cashier': return 'Barbero/Cajero';
+      default: return role[0].toUpperCase() + role.substring(1);
     }
   }
 
@@ -275,7 +285,10 @@ class _UsersScreenState extends State<UsersScreen> with TickerProviderStateMixin
         elevation: 0,
         actions: [
           TextButton.icon(
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => roles_screen.RolesScreen())),
+            onPressed: () async {
+              await Navigator.push(context, MaterialPageRoute(builder: (_) => roles_screen.RolesScreen()));
+              _loadRoles(); // Recargar roles al volver
+            },
             icon: const Icon(Icons.shield_rounded, color: Colors.white, size: 18),
             label: const Text('Roles', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
