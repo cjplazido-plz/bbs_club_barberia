@@ -386,11 +386,30 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
     }
 
     final String realCashierId = user.id;
-    final String realCashierName = (user.userMetadata?['full_name'] ?? user.email?.split('@').first ?? 'Usuario').toString();
+    String realCashierName = (user.userMetadata?['full_name'] ?? user.email?.split('@').first ?? 'Usuario').toString();
+    String cajaAsignada = 'Caja 1'; // Valor por defecto
+
+    // --- NUEVO: Obtener el nombre real y la caja desde la tabla profiles ---
+    try {
+      final profile = await Supabase.instance.client
+          .from('profiles')
+          .select('full_name, cash_register_id')
+          .eq('id', user.id)
+          .single();
+      
+      if (profile['full_name'] != null && profile['full_name'].toString().isNotEmpty) {
+        realCashierName = profile['full_name'].toString();
+      }
+      if (profile['cash_register_id'] != null && profile['cash_register_id'].toString().isNotEmpty) {
+        cajaAsignada = profile['cash_register_id'].toString();
+      }
+    } catch (e) {
+      print('No se pudo leer el perfil, usando datos por defecto: $e');
+    }
 
     final transaction = LocalTransaction()
       ..remoteId='trans-${DateTime.now().millisecondsSinceEpoch}'
-      ..cashRegisterId='caja-001'
+      ..cashRegisterId = cajaAsignada // <-- Asignamos la caja del usuario
       ..cashierId = realCashierId 
       ..cashierName = realCashierName
       ..subtotal=_subtotal
@@ -409,7 +428,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
       final transResponse = await Supabase.instance.client.from('transactions').insert({
         'id': transaction.remoteId, 
         'folio': folioStr, 
-        'cash_register_id': transaction.cashRegisterId, 
+        'cash_register_id': cajaAsignada, // <-- Se guarda en Supabase
         'cashier_id': transaction.cashierId, 
         'cashier_name': transaction.cashierName, 
         'barber_id': _selectedBarber?.remoteId??'', 

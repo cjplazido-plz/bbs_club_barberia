@@ -385,7 +385,7 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
       ),
     );
 
-    final fileName = 'Reporte_Ventas_${DateFormat('dd-MM-yyyy_HH-mm').format(now)}.pdf';
+    final fileName = 'Reporte_Ventas_${DateFormat('dd-MM-yyyy_HH-mm-ss').format(now)}.pdf';
     final bytes = await pdf.save();
     await Printing.sharePdf(
       bytes: bytes,

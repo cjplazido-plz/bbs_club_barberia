@@ -28,9 +28,8 @@ class PrinterService {
     }
 
     final pdf = pw.Document();
-    final DateTime txDate = DateTime.now(); // Usamos la hora del cobro actual
+    final DateTime txDate = DateTime.now();
     
-    // FIX CRÍTICO: Usar transaction.folio, si está vacío usar el remoteId de respaldo
     final folioStr = transaction.folio.isNotEmpty ? transaction.folio : transaction.remoteId;
 
     pdf.addPage(
@@ -63,6 +62,9 @@ class PrinterService {
               pw.Text('Folio: $folioStr', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: is58 ? 10 : 11)),
               pw.Text('Fecha: ${DateFormat('dd/MM/yyyy HH:mm').format(txDate)}', style: pw.TextStyle(fontSize: is58 ? 9 : 10)),
               pw.Text('Cajero: ${transaction.cashierName.length > 22 ? transaction.cashierName.substring(0, 22) : transaction.cashierName}', style: pw.TextStyle(fontSize: is58 ? 9 : 10)),
+              // --- NUEVO: Imprimir la Caja ---
+              pw.Text('Caja: ${transaction.cashRegisterId}', style: pw.TextStyle(fontSize: is58 ? 9 : 10)),
+              // -------------------------------
               pw.Text('Pago: ${_formatPayment(transaction.paymentMethod)}', style: pw.TextStyle(fontSize: is58 ? 9 : 10)),
               pw.SizedBox(height: 4),
               pw.Text(List.filled(is58 ? 32 : 42, '-').join(), style: const pw.TextStyle(fontSize: 8)),

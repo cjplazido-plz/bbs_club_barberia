@@ -199,6 +199,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
                   _infoRow('Folio', transaction['folio']?.toString() ?? transaction['id'].toString().substring(transaction['id'].toString().length - 6).toUpperCase()),
                   const Divider(color: Colors.white10, height: 18),
                   _infoRow('Cajero', transaction['cashier_name']?.toString() ?? 'N/A'),
+                  _infoRow('Caja', transaction['cash_register_id']?.toString() ?? 'No asignada'), // <-- NUEVA LÍNEA
                   _infoRow('Barbero', displayBarberName.isEmpty ? 'Sin asignar' : displayBarberName),
                   _infoRow('Pago', _formatPayment(transaction['payment_method']?.toString())),
                   if ((transaction['cash_received'] as num?) != null && (transaction['cash_received'] as num) > 0) _infoRow('Recibido', SettingsService.formatCurrency((transaction['cash_received'] as num).toDouble())),
@@ -421,7 +422,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
           ]),
           pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
             pw.Text('Fecha:', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)), 
-            pw.Text(DateFormat('dd/MM/yyyy HH:mm').format(txDate), style: const pw.TextStyle(fontSize: 8))
+            pw.Text(DateFormat('dd/MM/yyyy HH:mm:ss').format(txDate), style: const pw.TextStyle(fontSize: 8))
           ]),
           pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
             pw.Text('Cliente:', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)), 
@@ -430,6 +431,10 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
           pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
             pw.Text('Cajero:', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)), 
             pw.Text(transaction['cashier_name']?.toString() ?? 'N/A', style: const pw.TextStyle(fontSize: 8))
+          ]),
+          pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+            pw.Text('Caja:', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)), 
+            pw.Text(transaction['cash_register_id']?.toString() ?? 'N/A', style: const pw.TextStyle(fontSize: 8))
           ]),
           pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
             pw.Text('Barbero:', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)), 
@@ -526,15 +531,14 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
         ]),
       ));
 
-      final String dateStr = DateFormat('yyyyMMdd_HHmm').format(txDate);
-      //final String fileName = 'Ticket_${folioStr.replaceAll('#', '')}_$dateStr';
+      final String dateStr = DateFormat('yyyyMMdd_HHmmss').format(txDate);
       final String cleanFolio = folioStr.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '');
       final String fileName = 'Ticket_${cleanFolio}_$dateStr';
 
-      await Printing.layoutPdf(
-        onLayout: (_) async => pdf.save(), 
-        name: fileName, 
-        format: PdfPageFormat(80 * PdfPageFormat.mm, double.infinity)
+      final bytes = await pdf.save();
+      await Printing.sharePdf(
+        bytes: bytes,
+        filename: fileName,
       );
       
     } catch (e) {
