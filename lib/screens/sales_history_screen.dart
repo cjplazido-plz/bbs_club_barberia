@@ -527,7 +527,9 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
       ));
 
       final String dateStr = DateFormat('yyyyMMdd_HHmm').format(txDate);
-      final String fileName = 'Ticket_${folioStr.replaceAll('#', '')}_$dateStr';
+      //final String fileName = 'Ticket_${folioStr.replaceAll('#', '')}_$dateStr';
+      final String cleanFolio = folioStr.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '');
+      final String fileName = 'Ticket_${cleanFolio}_$dateStr';
 
       await Printing.layoutPdf(
         onLayout: (_) async => pdf.save(), 

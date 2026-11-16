@@ -143,7 +143,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
   }
 
   void _showBarberSelector(){
-    showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: const Color(0xFF1E293B), shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), builder: (c) => DraggableScrollableSheet(initialChildSize: 0.6, minChildSize: 0.4, maxChildSize: 0.85, expand: false, builder: (ctx, sc) => Column(children: [Container(padding: const EdgeInsets.all(16), decoration: const BoxDecoration(color: Color(0xFF6366F1), borderRadius: BorderRadius.vertical(top: Radius.circular(20))), child: Row(children: const [Text('💈', style: TextStyle(fontSize: 20)), SizedBox(width: 8), Text('Seleccionar Barbero', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15))])), Expanded(child: ListView.builder(controller: sc, itemCount: _barbers.length, itemBuilder: (ctx,i){
+    showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: const Color(0xFF1E293B), shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), builder: (c) => DraggableScrollableSheet(initialChildSize: 0.6, minChildSize: 0.4, maxChildSize: 0.85, expand: false, builder: (ctx, sc) => Column(children: [Container(padding: const EdgeInsets.all(16), decoration: const BoxDecoration(color: Color(0xFF6366F1), borderRadius: BorderRadius.vertical(top: Radius.circular(20))), child: Row(children: const [Icon(Icons.cut, color: Colors.white, size: 20), SizedBox(width: 8), Text('Seleccionar Barbero', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15))])), Expanded(child: ListView.builder(controller: sc, itemCount: _barbers.length, itemBuilder: (ctx,i){
       final b=_barbers[i]; 
       return Material(
         type: MaterialType.transparency,
@@ -160,7 +160,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
   void _showClientSelector() {
     final search = TextEditingController();
     List<LocalClient> filtered = _clients;
-    showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: const Color(0xFF1E293B), shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), builder: (c) => StatefulBuilder(builder: (ctx,setModal){return DraggableScrollableSheet(initialChildSize: 0.7, minChildSize: 0.5, maxChildSize: 0.9, expand: false, builder: (ctx,sc)=>Column(children: [Container(padding: const EdgeInsets.all(16), decoration: const BoxDecoration(color: Color(0xFF6366F1), borderRadius: BorderRadius.vertical(top: Radius.circular(20))), child: Row(children: const [Text('🧑‍💼', style: TextStyle(fontSize: 20)), SizedBox(width: 8), Text('Seleccionar Cliente', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15))])), Padding(padding: const EdgeInsets.all(12), child: TextField(controller: search, style: const TextStyle(color: Colors.white, fontSize: 13), decoration: InputDecoration(hintText: 'Buscar cliente...', hintStyle: const TextStyle(color: Colors.white38, fontSize: 12), prefixIcon: const Icon(Icons.search, color: Colors.white38, size: 18), filled: true, fillColor: const Color(0xFF0F172A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none), contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10)), onChanged: (q){setModal((){filtered = _clients.where((cl)=> cl.name.toLowerCase().contains(q.toLowerCase()) || (cl.phone??'').contains(q)).toList();});})), Expanded(child: ListView.builder(controller: sc, itemCount: filtered.length, itemBuilder: (ctx,i){
+    showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: const Color(0xFF1E293B), shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), builder: (c) => StatefulBuilder(builder: (ctx,setModal){return DraggableScrollableSheet(initialChildSize: 0.7, minChildSize: 0.5, maxChildSize: 0.9, expand: false, builder: (ctx,sc)=>Column(children: [Container(padding: const EdgeInsets.all(16), decoration: const BoxDecoration(color: Color(0xFF6366F1), borderRadius: BorderRadius.vertical(top: Radius.circular(20))), child: Row(children: const [Icon(Icons.person, color: Colors.white, size: 20), SizedBox(width: 8), Text('Seleccionar Cliente', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15))])), Padding(padding: const EdgeInsets.all(12), child: TextField(controller: search, style: const TextStyle(color: Colors.white, fontSize: 13), decoration: InputDecoration(hintText: 'Buscar cliente...', hintStyle: const TextStyle(color: Colors.white38, fontSize: 12), prefixIcon: const Icon(Icons.search, color: Colors.white38, size: 18), filled: true, fillColor: const Color(0xFF0F172A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none), contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10)), onChanged: (q){setModal((){filtered = _clients.where((cl)=> cl.name.toLowerCase().contains(q.toLowerCase()) || (cl.phone??'').contains(q)).toList();});})), Expanded(child: ListView.builder(controller: sc, itemCount: filtered.length, itemBuilder: (ctx,i){
       final cl=filtered[i]; 
       return Material(
         type: MaterialType.transparency,
@@ -176,7 +176,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
 
   void _showAppointmentSelector() {
     showModalBottomSheet(context: context, backgroundColor: const Color(0xFF1E293B), shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), builder: (c) => Column(mainAxisSize: MainAxisSize.min, children: [
-      Container(padding: const EdgeInsets.all(16), decoration: const BoxDecoration(color: Color(0xFF6366F1), borderRadius: BorderRadius.vertical(top: Radius.circular(20))), child: Row(children: const [Text('📅', style: TextStyle(fontSize: 20)), SizedBox(width: 8), Text('Citas de Hoy', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15))])),
+      Container(padding: const EdgeInsets.all(16), decoration: const BoxDecoration(color: Color(0xFF6366F1), borderRadius: BorderRadius.vertical(top: Radius.circular(20))), child: Row(children: const [Icon(Icons.calendar_month, color: Colors.white, size: 20), SizedBox(width: 8), Text('Citas de Hoy', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15))])),
       _todayAppointments.isEmpty ? const Padding(padding: EdgeInsets.all(24), child: Text('No hay citas pendientes hoy', style: TextStyle(color: Colors.white54, fontSize: 13))) : ListView.builder(shrinkWrap: true, itemCount: _todayAppointments.length, itemBuilder: (ctx,i){
         final ap=_todayAppointments[i];
         final timeStr = DateFormat('HH:mm').format(ap.appointmentDate);
@@ -348,14 +348,14 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
   }
 
   Widget _buildPaymentMethodSelector({VoidCallback? onChanged}) {
-    Widget btn(String value, String icon, String label) {
+    Widget btn(String value, IconData icon, String label) {
       final selected = _paymentMethod == value;
-      return Expanded(child: InkWell(onTap: (){ setState(()=> _paymentMethod = value); if(value=='mixed'){ _mixedPayments = []; } onChanged?.call(); }, child: Container(padding: const EdgeInsets.symmetric(vertical: 10), decoration: BoxDecoration(color: selected ? const Color(0xFF6366F1) : const Color(0xFF0F172A), borderRadius: BorderRadius.circular(10), border: Border.all(color: selected ? const Color(0xFF818CF8) : Colors.white10)), child: Column(children: [Text(icon, style: const TextStyle(fontSize: 15)), const SizedBox(height: 3), Text(label, style: TextStyle(color: selected ? Colors.white : Colors.white70, fontSize: 10, fontWeight: selected ? FontWeight.bold : FontWeight.w500))]))));
+      return Expanded(child: InkWell(onTap: (){ setState(()=> _paymentMethod = value); if(value=='mixed'){ _mixedPayments = []; } onChanged?.call(); }, child: Container(padding: const EdgeInsets.symmetric(vertical: 10), decoration: BoxDecoration(color: selected ? const Color(0xFF6366F1) : const Color(0xFF0F172A), borderRadius: BorderRadius.circular(10), border: Border.all(color: selected ? const Color(0xFF818CF8) : Colors.white10)), child: Column(children: [Icon(icon, size: 18, color: selected ? Colors.white : Colors.white70), const SizedBox(height: 3), Text(label, style: TextStyle(color: selected ? Colors.white : Colors.white70, fontSize: 10, fontWeight: selected ? FontWeight.bold : FontWeight.w500))]))));
     }
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       const Text('Forma de pago', style: TextStyle(color: Colors.white54, fontSize: 11)),
       const SizedBox(height: 8),
-      Row(children: [btn('cash', '💵', 'Efectivo'), const SizedBox(width: 6), btn('card', '💳', 'Tarjeta'), const SizedBox(width: 6), btn('transfer', '🔁', 'Transfer'), const SizedBox(width: 6), btn('mixed', '🧾', 'Mixto')]),
+      Row(children: [btn('cash', Icons.money, 'Efectivo'), const SizedBox(width: 6), btn('card', Icons.credit_card, 'Tarjeta'), const SizedBox(width: 6), btn('transfer', Icons.swap_horiz, 'Transfer'), const SizedBox(width: 6), btn('mixed', Icons.call_split, 'Mixto')]),
       if(_paymentMethod=='mixed' && _mixedPayments.isNotEmpty) ...[const SizedBox(height: 8), Container(width: double.infinity, padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8), decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.12), borderRadius: BorderRadius.circular(8)), child: Text('Mixto: ${_mixedPayments.map((e)=> '${_labelForMethod(e['method'] as String)} ${SettingsService.formatCurrency((e['amount'] as num).toDouble())}').join(' + ')}', style: const TextStyle(color: Color(0xFF10B981), fontSize: 10, fontWeight: FontWeight.w600)))],
     ]);
   }
@@ -366,13 +366,12 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
     return showDialog<Map<String,double>>(context: context, builder: (c){
       return StatefulBuilder(builder: (ctx,setSt){
         void calc(){ final rec = double.tryParse(ctrl.text)??0; setSt(()=> change = rec - _total); }
-        return AlertDialog(backgroundColor: const Color(0xFF1E293B), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), title: const Text('💵 Pago en Efectivo', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)), content: Column(mainAxisSize: MainAxisSize.min, children: [Container(width: double.infinity, padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: const Color(0xFF0F172A), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white10)), child: Column(children: [const Text('Total a pagar', style: TextStyle(color: Colors.white54, fontSize: 11)), Text(SettingsService.formatCurrency(_total), style: const TextStyle(color: Color(0xFF818CF8), fontSize: 22, fontWeight: FontWeight.bold))])), const SizedBox(height: 12), TextField(controller: ctrl, autofocus: true, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold), keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(labelText: 'Monto recibido', labelStyle: const TextStyle(color: Colors.white54, fontSize: 12), prefixText: '${SettingsService.currencySymbol} ', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)), focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF10B981), width: 2))), onChanged: (_)=>calc()), const SizedBox(height: 10), Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: change>=0 ? const Color(0xFF10B981).withOpacity(0.15) : Colors.red.withOpacity(0.15), borderRadius: BorderRadius.circular(10)), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(change>=0 ? 'Vuelto:' : 'Falta:', style: TextStyle(color: change>=0 ? const Color(0xFF10B981) : Colors.redAccent, fontSize: 12)), Text(SettingsService.formatCurrency(change.abs()), style: TextStyle(color: change>=0 ? const Color(0xFF10B981) : Colors.redAccent, fontSize: 16, fontWeight: FontWeight.bold))]))]), actions: [TextButton(onPressed: ()=>Navigator.pop(c), child: const Text('Cancelar', style: TextStyle(color: Colors.grey, fontSize: 12))), ElevatedButton(onPressed: (){ final rec = double.tryParse(ctrl.text)??0; if(rec < _total){ ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Faltan ${SettingsService.formatCurrency(_total-rec)}'), backgroundColor: Colors.red)); return;} Navigator.pop(c, {'received': rec, 'change': rec-_total}); }, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981)), child: const Text('Confirmar', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)))]);
+        return AlertDialog(backgroundColor: const Color(0xFF1E293B), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), title: Row(children: const [Icon(Icons.money, color: Colors.white, size: 20), SizedBox(width: 8), Text('Pago en Efectivo', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold))]), content: Column(mainAxisSize: MainAxisSize.min, children: [Container(width: double.infinity, padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: const Color(0xFF0F172A), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white10)), child: Column(children: [const Text('Total a pagar', style: TextStyle(color: Colors.white54, fontSize: 11)), Text(SettingsService.formatCurrency(_total), style: const TextStyle(color: Color(0xFF818CF8), fontSize: 22, fontWeight: FontWeight.bold))])), const SizedBox(height: 12), TextField(controller: ctrl, autofocus: true, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold), keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(labelText: 'Monto recibido', labelStyle: const TextStyle(color: Colors.white54, fontSize: 12), prefixText: '${SettingsService.currencySymbol} ', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)), focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF10B981), width: 2))), onChanged: (_)=>calc()), const SizedBox(height: 10), Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: change>=0 ? const Color(0xFF10B981).withOpacity(0.15) : Colors.red.withOpacity(0.15), borderRadius: BorderRadius.circular(10)), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(change>=0 ? 'Vuelto:' : 'Falta:', style: TextStyle(color: change>=0 ? const Color(0xFF10B981) : Colors.redAccent, fontSize: 12)), Text(SettingsService.formatCurrency(change.abs()), style: TextStyle(color: change>=0 ? const Color(0xFF10B981) : Colors.redAccent, fontSize: 16, fontWeight: FontWeight.bold))]))]), actions: [TextButton(onPressed: ()=>Navigator.pop(c), child: const Text('Cancelar', style: TextStyle(color: Colors.grey, fontSize: 12))), ElevatedButton(onPressed: (){ final rec = double.tryParse(ctrl.text)??0; if(rec < _total){ ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Faltan ${SettingsService.formatCurrency(_total-rec)}'), backgroundColor: Colors.red)); return;} Navigator.pop(c, {'received': rec, 'change': rec-_total}); }, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981)), child: const Text('Confirmar', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)))]);
       });
     });
   }
   
   Future<void> _completeTransaction({required double cashReceived, required double change, List<Map<String, dynamic>>? mixedPayments}) async {
-    // --- FIX DEFINITIVO: Exigir usuario real de Supabase ---
     final user = Supabase.instance.client.auth.currentUser;
     
     if (user == null) {
@@ -383,14 +382,11 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
             duration: Duration(seconds: 4),
           ));
        }
-       return; // Detiene la venta para no guardar "Recepción"
+       return;
     }
 
     final String realCashierId = user.id;
-    // FIX REAL: El Edge Function guarda 'full_name' en user_metadata, no 'name'
-    final String realCashierName = (user.userMetadata?['full_name'] 
-        ?? user.email?.split('@').first 
-        ?? 'Usuario').toString();
+    final String realCashierName = (user.userMetadata?['full_name'] ?? user.email?.split('@').first ?? 'Usuario').toString();
 
     final transaction = LocalTransaction()
       ..remoteId='trans-${DateTime.now().millisecondsSinceEpoch}'
@@ -405,15 +401,11 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
       ..items=List.from(_cart);
 
     try{
-      // 1. GENERAR EL FOLIO Y ACTUALIZARLO INMEDIATAMENTE EN SUPABASE (Evita duplicados)
       final currentFolio = await TicketConfigService.useNextFolio();
       final prefijo = TicketConfigService.prefijo;
       final folioStr = '$prefijo$currentFolio';
-
-      // FIX CRÍTICO: Asignar el folio real a la transacción para que la impresora lo lea
       transaction.folio = folioStr;
 
-      // 2. INSERTAR LA TRANSACCIÓN CON EL FOLIO
       final transResponse = await Supabase.instance.client.from('transactions').insert({
         'id': transaction.remoteId, 
         'folio': folioStr, 
@@ -455,7 +447,6 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
         }catch(_){}
       }
       
-      // 4. IMPRIMIR TICKET
       await _printer.printTicket(transaction);
       
       if(mounted){ 
@@ -528,9 +519,9 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
         const SizedBox(height: 6),
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('TOTAL:', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)), Text(SettingsService.formatCurrency(_total), style: const TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.bold, fontSize: 22))]),
         const SizedBox(height: 16),
-        _buildOptionButton(icon: '📅', label: _selectedAppointment?.clientName ?? 'Cita (opcional)', onTap: _showAppointmentSelector),
+        _buildOptionButton(icon: Icons.calendar_month, label: _selectedAppointment?.clientName ?? 'Cita (opcional)', onTap: _showAppointmentSelector),
         const SizedBox(height: 8),
-        _buildOptionButton(icon: '🧑‍💼', label: _selectedClient?.name ?? 'Cliente (opcional)', onTap: _showClientSelector),
+        _buildOptionButton(icon: Icons.person, label: _selectedClient?.name ?? 'Cliente (opcional)', onTap: _showClientSelector),
         const SizedBox(height: 12),
         _buildPaymentMethodSelector(),
         const SizedBox(height: 16),
@@ -539,15 +530,15 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
     ]));
   }
 
-  Widget _buildOptionButton({required String icon, required String label, required VoidCallback onTap}) {
-    return InkWell(onTap: onTap, child: Container(width: double.infinity, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12), decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.white10)), child: Row(children: [Text(icon, style: const TextStyle(fontSize: 14)), const SizedBox(width: 8), Expanded(child: Text(label, style: const TextStyle(color: Colors.white70, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis)), const Icon(Icons.chevron_right_rounded, color: Colors.white24, size: 18)])));
+  Widget _buildOptionButton({required IconData icon, required String label, required VoidCallback onTap}) {
+    return InkWell(onTap: onTap, child: Container(width: double.infinity, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12), decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.white10)), child: Row(children: [Icon(icon, size: 18, color: Colors.white70), const SizedBox(width: 8), Expanded(child: Text(label, style: const TextStyle(color: Colors.white70, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis)), const Icon(Icons.chevron_right_rounded, color: Colors.white24, size: 18)])));
   }
 
   Widget _buildMobileBottomBar() {
     return Container(padding: const EdgeInsets.fromLTRB(12,12,12,12), decoration: BoxDecoration(color: const Color(0xFF1E293B), border: Border(top: BorderSide(color: Colors.white.withOpacity(0.08))), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.4), blurRadius: 12, offset: const Offset(0,-4))]), child: Column(mainAxisSize: MainAxisSize.min, children: [
       Row(children: [Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Subtotal: ${SettingsService.formatCurrency(_subtotal)}', style: const TextStyle(color: Colors.white54, fontSize: 11)), Text(SettingsService.formatCurrency(_total), style: const TextStyle(color: Color(0xFF10B981), fontSize: 20, fontWeight: FontWeight.bold))])), const SizedBox(width: 10), Expanded(child: OutlinedButton.icon(onPressed: ()=>_showCartModal(), icon: const Icon(Icons.shopping_cart, size: 16), label: Text('Carrito (${_cart.length})', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)), style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: const BorderSide(color: Colors.white24), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)), padding: const EdgeInsets.symmetric(vertical: 12))))]),
       const SizedBox(height: 10),
-      Row(children: [Expanded(child: _buildOptionButton(icon: '📅', label: _selectedAppointment?.clientName ?? 'Cita', onTap: _showAppointmentSelector)), const SizedBox(width: 8), Expanded(child: _buildOptionButton(icon: '🧑‍💼', label: _selectedClient?.name ?? 'Cliente', onTap: _showClientSelector))]),
+      Row(children: [Expanded(child: _buildOptionButton(icon: Icons.calendar_month, label: _selectedAppointment?.clientName ?? 'Cita', onTap: _showAppointmentSelector)), const SizedBox(width: 8), Expanded(child: _buildOptionButton(icon: Icons.person, label: _selectedClient?.name ?? 'Cliente', onTap: _showClientSelector))]),
       const SizedBox(height: 10),
       SizedBox(width: double.infinity, height: 50, child: Container(decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF10B981), Color(0xFF059669)]), borderRadius: BorderRadius.circular(12)), child: ElevatedButton(onPressed: (_cart.isEmpty || !RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.sell)) ? null : _processPayment, style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, shadowColor: Colors.transparent, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), child: Text(_cart.isEmpty ? 'CARRITO VACÍO' : 'COBRAR ${SettingsService.formatCurrency(_total)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white)))))
     ]));
@@ -559,7 +550,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
         return DraggableScrollableSheet(initialChildSize: 0.7, minChildSize: 0.5, maxChildSize: 0.9, expand: false, builder: (ctx,sc){
           return Column(children: [
             Container(padding: const EdgeInsets.all(16), decoration: const BoxDecoration(color: Color(0xFF6366F1), borderRadius: BorderRadius.vertical(top: Radius.circular(20))), child: Row(children: [Text('Carrito (${_cart.length})', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)), const Spacer(), if(_cart.isNotEmpty) TextButton(onPressed: (){ setState(()=>_cart.clear()); setModal((){}); }, child: const Text('Vaciar', style: TextStyle(color: Colors.white70, fontSize: 13)))])),
-            Expanded(child: _cart.isEmpty ? const Center(child: Text('🛒 Carrito vacío', style: TextStyle(color: Colors.white54, fontSize: 14))) : ListView.builder(controller: sc, padding: const EdgeInsets.all(12), itemCount: _cart.length, itemBuilder: (ctx,i){ 
+            Expanded(child: _cart.isEmpty ? const Center(child: Text('Carrito vacío', style: TextStyle(color: Colors.white54, fontSize: 14))) : ListView.builder(controller: sc, padding: const EdgeInsets.all(12), itemCount: _cart.length, itemBuilder: (ctx,i){ 
               final it=_cart[i]; 
               return Container(margin: const EdgeInsets.only(bottom: 8), decoration: BoxDecoration(color: const Color(0xFF0F172A), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white10)), 
                 child: Material(
@@ -612,42 +603,42 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
       ),
       Column(children: [
         if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewReports))
-          _buildMenuItem('📝', 'Reportes Avanzados', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => AdvancedReportsScreen())); }),
+          _buildMenuItem(Icons.analytics, 'Reportes Avanzados', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => AdvancedReportsScreen())); }),
         if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewCommissions))
-          _buildMenuItem('💰', 'Comisiones', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => CommissionsScreen())); }),
+          _buildMenuItem(Icons.monetization_on, 'Comisiones', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => CommissionsScreen())); }),
         if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewReports))
-          _buildMenuItem('📈', 'Reporte caja', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ReportsScreen())); }),  
+          _buildMenuItem(Icons.trending_up, 'Reporte caja', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ReportsScreen())); }),  
         if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewAgenda))
-          _buildMenuItem('📅', 'Agenda', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => AppointmentsScreen())); }),  
+          _buildMenuItem(Icons.calendar_month, 'Agenda', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => AppointmentsScreen())); }),  
         if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewReports))
-          _buildMenuItem('📜', 'Historial', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => SalesHistoryScreen())); }),
+          _buildMenuItem(Icons.receipt_long, 'Historial', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => SalesHistoryScreen())); }),
         if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewReports))
-          _buildMenuItem('📊', 'Dashboard', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => DashboardScreen())); }),
+          _buildMenuItem(Icons.dashboard, 'Dashboard', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => DashboardScreen())); }),
              const Divider(color: Colors.white10),
         if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewBarbers))
-          _buildMenuItem('💈', 'Barberos', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => BarbersScreen())).then((_) => _loadData()); }),
+          _buildMenuItem(Icons.cut, 'Barberos', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => BarbersScreen())).then((_) => _loadData()); }),
         if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewServices))
-          _buildMenuItem('✂️','Servicios', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ServicesScreen())).then((_) => _loadData()); }),
+          _buildMenuItem(Icons.content_cut, 'Servicios', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ServicesScreen())).then((_) => _loadData()); }),
         if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewProducts))
-          _buildMenuItem('📦','Productos', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ProductsScreen())).then((_) => _loadData()); }),
+          _buildMenuItem(Icons.inventory_2, 'Productos', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ProductsScreen())).then((_) => _loadData()); }),
         if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewClients))
-          _buildMenuItem('👤', 'Clientes', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ClientsScreen())).then((_) => _loadData()); }),
+          _buildMenuItem(Icons.person, 'Clientes', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ClientsScreen())).then((_) => _loadData()); }),
         if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewUsers))
-          _buildMenuItem('👥', 'Usuarios', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => users_screen.UsersScreen())); }),
+          _buildMenuItem(Icons.group, 'Usuarios', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => users_screen.UsersScreen())); }),
         if (RolePermissions.isAdmin(_myRole ?? currentUserRole) || RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.manageRoles))
-          _buildMenuItem('🛡️','Roles', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => roles_screen.RolesScreen())); }),
+          _buildMenuItem(Icons.security, 'Roles', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => roles_screen.RolesScreen())); }),
         if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewSettings))
-          _buildMenuItem('⚙️', 'Configuración', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => SettingsScreen())); }),
-          _buildMenuItem('🚪', 'Cerrar sesión', () { Navigator.pop(context); _handleLogout(); }, isLogout: true),
+          _buildMenuItem(Icons.settings, 'Configuración', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => SettingsScreen())); }),
+          _buildMenuItem(Icons.logout, 'Cerrar sesión', () { Navigator.pop(context); _handleLogout(); }, isLogout: true),
       ]),
       const SizedBox(height: 20),
     ])))) ;
   }
 
-  Widget _buildMenuItem(String icon, String text, VoidCallback onTap, {bool isLogout = false}) {
+  Widget _buildMenuItem(IconData icon, String text, VoidCallback onTap, {bool isLogout = false}) {
     return Material(
       type: MaterialType.transparency,
-      child: ListTile(leading: Text(icon, style: const TextStyle(fontSize: 20)), title: Text(text, style: TextStyle(fontSize: 14, color: isLogout ? Colors.redAccent : Colors.white, fontWeight: FontWeight.w500)), onTap: onTap),
+      child: ListTile(leading: Icon(icon, color: isLogout ? Colors.redAccent : Colors.white, size: 20), title: Text(text, style: TextStyle(fontSize: 14, color: isLogout ? Colors.redAccent : Colors.white, fontWeight: FontWeight.w500)), onTap: onTap),
     );
   }
 
@@ -666,16 +657,15 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
         elevation: 0,
         leading: IconButton(icon: const Icon(Icons.menu_rounded, color: Colors.white), onPressed: _showMobileMenu),
         title: Row(children: [
-          Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: const Color(0xFF6366F1), borderRadius: BorderRadius.circular(10)), child: const Text('💈', style: TextStyle(fontSize: 18))),
+          Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: const Color(0xFF6366F1), borderRadius: BorderRadius.circular(10)), child: const Icon(Icons.storefront, color: Colors.white, size: 18)),
           const SizedBox(width: 8),
           const Text('POS Premium', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
           if(_selectedBarber!=null) ...[
             const SizedBox(width: 10),
-            Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.15), borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFF10B981).withOpacity(0.3))), child: Text('✂️ ${_selectedBarber!.name}', style: const TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold))),
+            Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.15), borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFF10B981).withOpacity(0.3))), child: Text('Barbero: ${_selectedBarber!.name}', style: const TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold))),
           ]
         ]),
         actions: [
-          // BOTÓN INTELIGENTE PARA SELECCIONAR BARBERO
           IconButton(
             tooltip: 'Seleccionar Barbero',
             icon: Icon(
@@ -684,7 +674,6 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
             ),
             onPressed: _showBarberSelector,
           ),
-          // PERFIL DEL USUARIO
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8.0),
             child: Center(
@@ -711,7 +700,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
           const SizedBox(width: 8),
           if(isMobile) Stack(children: [IconButton(icon: const Icon(Icons.shopping_cart_rounded, color: Colors.white), onPressed: _showCartModal), if(_cart.isNotEmpty) Positioned(right: 6, top: 6, child: Container(padding: const EdgeInsets.all(4), decoration: const BoxDecoration(color: Color(0xFF10B981), shape: BoxShape.circle), child: Text('${_cart.length}', style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold))))]),
         ],
-        bottom: TabBar(controller: _tabController, indicatorColor: const Color(0xFF6366F1), indicatorWeight: 3, labelColor: Colors.white, unselectedLabelColor: Colors.white54, labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold), tabs: const [Tab(icon: Text('✂️', style: TextStyle(fontSize: 16)), text: 'Servicios'), Tab(icon: Text('📦', style: TextStyle(fontSize: 16)), text: 'Productos')]),
+        bottom: TabBar(controller: _tabController, indicatorColor: const Color(0xFF6366F1), indicatorWeight: 3, labelColor: Colors.white, unselectedLabelColor: Colors.white54, labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold), tabs: const [Tab(icon: Icon(Icons.content_cut_rounded, size: 16), text: 'Servicios'), Tab(icon: Icon(Icons.inventory_2_rounded, size: 16), text: 'Productos')]),
       ),
       body: isMobile
           ? Column(children: [

@@ -16,11 +16,10 @@ class TicketConfigService {
     'logo_url': '',
     'logo_url_app': '',
     'logo_url_ticket': '',
-    // FIX: Valores por defecto seguros. Si falla internet, que empiece en 9999 o similar para no duplicar.
     'folio_prefijo': '', 
     'prefijo': '',
-    'folio_actual': 9999, 
-    'folioActual': 9999,
+    'folio_actual': 1, // Mejor empezar en 1 por defecto
+    'folioActual': 1,
     'sii_razon': 'BBS CLUB SPA',
     'sii_giro': 'Barberia',
     'sii_direccion': 'Manuel Montt #460, local 6 - Coronel',
@@ -40,9 +39,9 @@ class TicketConfigService {
   static String get folioPrefijo => prefijo;
   
   static int get folioActual {
-    final v = _cache['folio_actual'] ?? _cache['folioActual'] ?? 9999;
+    final v = _cache['folio_actual'] ?? _cache['folioActual'] ?? 1;
     if (v is int) return v;
-    return int.tryParse(v.toString()) ?? 9999;
+    return int.tryParse(v.toString()) ?? 1;
   }
 
   static String get logoUrl => _cache['logo_url'] ?? '';
@@ -89,10 +88,8 @@ class TicketConfigService {
         if(k=='logo_url_app') norm['logo_url']=v;
       });
       
-      // Actualizamos la caché local
       _cache.addAll(norm);
       
-      // Guardamos en Supabase
       await Supabase.instance.client.from(table).upsert({
         'key': 'ticket_config',
         'value': _cache,
@@ -108,19 +105,15 @@ class TicketConfigService {
 
   static Future<int> useNextFolio() async {
     try {
-      // Llamada atómica a la base de datos (a prueba de doble clic)
       final response = await Supabase.instance.client.rpc('get_next_folio');
-      
-      // Supabase devuelve el folio que acabamos de usar
       final int folioUsado = response as int; 
       
-      // Actualizamos la caché local para que la interfaz muestre el siguiente
       _cache['folio_actual'] = folioUsado + 1;
       _cache['folioActual'] = folioUsado + 1;
       
       return folioUsado;
     } catch (e) {
-      // Si falla el internet o la base de datos, detenemos la venta
       throw Exception('Error de conexión: No se pudo generar el folio seguro en Supabase. $e');
     }
   }
+}
