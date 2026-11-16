@@ -437,30 +437,40 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
           pw.Divider(thickness: 0.5, borderStyle: pw.BorderStyle.dashed),
           pw.SizedBox(height: 6),
 
-          // --- ITEMS ---
-          pw.Row(children: [
-            pw.Expanded(flex: 3, child: pw.Text('Cant  Descripción', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold))),
-            pw.Expanded(flex: 1, child: pw.Text('Total', textAlign: pw.TextAlign.right, style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold))),
-          ]),
-          pw.SizedBox(height: 4),
-          
-          ...items.map((it) {
-            final name = it['service_name'] ?? it['product_name'] ?? 'Item';
-            final qty = it['quantity'];
-            final price = (it['price_at_moment'] as num).toDouble();
-            final total = price * (qty as num).toInt();
-            
-            return pw.Padding(
-              padding: const pw.EdgeInsets.only(bottom: 4),
-              child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-                pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
-                  pw.Expanded(child: pw.Text(name, style: const pw.TextStyle(fontSize: 8))),
-                  pw.Text(SettingsService.formatCurrency(total), style: const pw.TextStyle(fontSize: 8)),
-                ]),
-                pw.Text('  ${qty} x ${SettingsService.formatCurrency(price)}', style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey700)),
-              ]),
-            );
-          }),
+          // --- ITEMS (USANDO TABLA PARA EVITAR ERRORES EN ANDROID) ---
+          pw.Table(
+            columnWidths: {
+              0: const pw.FlexColumnWidth(3),
+              1: const pw.FlexColumnWidth(1),
+            },
+            children: [
+              pw.TableRow(
+                children: [
+                  pw.Text('Cant  Descripción', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
+                  pw.Text('Total', textAlign: pw.TextAlign.right, style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
+                ],
+              ),
+              ...items.map((it) {
+                final name = it['service_name'] ?? it['product_name'] ?? 'Item';
+                final qty = it['quantity'];
+                final price = (it['price_at_moment'] as num).toDouble();
+                final total = price * (qty as num).toInt();
+                
+                return pw.TableRow(
+                  children: [
+                    pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text(name, style: const pw.TextStyle(fontSize: 8)),
+                        pw.Text('  ${qty} x ${SettingsService.formatCurrency(price)}', style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey700)),
+                      ],
+                    ),
+                    pw.Text(SettingsService.formatCurrency(total), textAlign: pw.TextAlign.right, style: const pw.TextStyle(fontSize: 8)),
+                  ],
+                );
+              }),
+            ],
+          ),
           
           pw.SizedBox(height: 6),
           pw.Divider(thickness: 0.5, borderStyle: pw.BorderStyle.dashed),
@@ -526,6 +536,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
     }
   }
   
+    
   Widget _buildPremiumDropdown({required String label, required IconData icon, required String value, required List<DropdownMenuItem<String>> items, required ValueChanged<String?> onChanged}) {
     return DropdownButtonFormField<String>(
       value: value,
