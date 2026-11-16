@@ -30,7 +30,14 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
   List<Map<String, dynamic>> get _filteredTransactions {
     var list = _transactions;
     
-    if (_filterMethod != 'all') list = list.where((tr) => (tr['payment_method'] ?? '').toString() == _filterMethod).toList();
+    if (_filterMethod != 'all') {
+      list = list.where((tr) {
+        final pm = (tr['payment_method'] ?? '').toString();
+        if (_filterMethod == 'mixed') return pm == 'mixed' || pm == 'mixto'; // Tolerancia
+        return pm == _filterMethod;
+      }).toList();
+    }
+    
     if (_filterStatus != 'all') list = list.where((tr) => (tr['status'] ?? 'completed').toString() == _filterStatus).toList();
     
     if (_searchQuery.trim().isNotEmpty) {
@@ -110,12 +117,10 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
         _startDate = DateTime(now.year, now.month, now.day);
         _endDate = now;
       } else if (type == 'week') {
-        // FIX: Ahora filtra los últimos 7 días, no solo el inicio de la semana calendario
         _startDate = now.subtract(const Duration(days: 7));
         _startDate = DateTime(_startDate.year, _startDate.month, _startDate.day);
         _endDate = now;
       } else if (type == 'month') {
-        // FIX: Ahora filtra los últimos 30 días
         _startDate = now.subtract(const Duration(days: 30));
         _startDate = DateTime(_startDate.year, _startDate.month, _startDate.day);
         _endDate = now;
@@ -265,7 +270,8 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
 
   Future<void> _showEditPaymentDialog(Map<String, dynamic> transaction) async {
     String selected = transaction['payment_method']?.toString() ?? 'cash';
-    if (selected == 'mixed') selected = 'mixto';
+    // FIX: Normalizar a 'mixed'
+    if (selected == 'mixto') selected = 'mixed';
 
     await showDialog(context: context, builder: (c) => AlertDialog(
       backgroundColor: const Color(0xFF1E293B),
@@ -280,7 +286,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
           DropdownMenuItem(value: 'cash', child: Text('Efectivo')),
           DropdownMenuItem(value: 'transfer', child: Text('Transferencia')),
           DropdownMenuItem(value: 'card', child: Text('Tarjeta')),
-          DropdownMenuItem(value: 'mixto', child: Text('Mixto')),
+          DropdownMenuItem(value: 'mixed', child: Text('Mixto')), // FIX: Guardar 'mixed'
         ],
         onChanged: (v) => setSt(() => selected = v!),
       )),
@@ -349,9 +355,6 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
     )));
   }
 
-  // =========================================================================
-  // NUEVO DISEÑO DE TICKET (LIMPIO, SIN CÓDIGO DE BARRAS)
-  // =========================================================================
   Future<void> _printTicket(Map<String, dynamic> transaction, List<Map<String, dynamic>> items) async {
     try {
       pw.ImageProvider? logoImage;
@@ -437,7 +440,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
           pw.Divider(thickness: 0.5, borderStyle: pw.BorderStyle.dashed),
           pw.SizedBox(height: 6),
 
-          // --- ITEMS (USANDO TABLA PARA EVITAR ERRORES EN ANDROID) ---
+          // --- ITEMS ---
           pw.Table(
             columnWidths: {
               0: const pw.FlexColumnWidth(3),
@@ -479,7 +482,8 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
           // --- TOTALES ---
           pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
             pw.Text('Subtotal', style: const pw.TextStyle(fontSize: 9)), 
-            pw.Text(SettingsService.formatCurrency((transaction['total'] as num).toDouble()), style: const pw.TextStyle(fontSize: 9))
+            // FIX: Se usa 'subtotal' en vez de 'total'
+            pw.Text(SettingsService.formatCurrency((transaction['subtotal'] as num).toDouble()), style: const pw.TextStyle(fontSize: 9))
           ]),
           pw.SizedBox(height: 4),
           pw.Divider(thickness: 0.5, borderStyle: pw.BorderStyle.dashed),
@@ -722,7 +726,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
                                   DropdownMenuItem(value: 'cash', child: Text('Efectivo')), 
                                   DropdownMenuItem(value: 'transfer', child: Text('Transferencia')), 
                                   DropdownMenuItem(value: 'card', child: Text('Tarjeta')), 
-                                  DropdownMenuItem(value: 'mixto', child: Text('Mixto'))
+                                  DropdownMenuItem(value: 'mixed', child: Text('Mixto'))
                                 ], 
                                 onChanged: (v) => setState(() => _filterMethod = v ?? 'all')
                               )),
@@ -748,7 +752,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
                                   DropdownMenuItem(value: 'cash', child: Text('Efectivo')), 
                                   DropdownMenuItem(value: 'transfer', child: Text('Transferencia')), 
                                   DropdownMenuItem(value: 'card', child: Text('Tarjeta')), 
-                                  DropdownMenuItem(value: 'mixto', child: Text('Mixto'))
+                                  DropdownMenuItem(value: 'mixed', child: Text('Mixto'))
                                 ], 
                                 onChanged: (v) => setState(() => _filterMethod = v ?? 'all')
                               ),

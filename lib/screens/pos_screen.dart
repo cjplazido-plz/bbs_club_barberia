@@ -387,7 +387,10 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
     }
 
     final String realCashierId = user.id;
-    final String realCashierName = (user.userMetadata?['name'] ?? user.email?.split('@').first ?? 'Usuario').toString();
+    // FIX REAL: El Edge Function guarda 'full_name' en user_metadata, no 'name'
+    final String realCashierName = (user.userMetadata?['full_name'] 
+        ?? user.email?.split('@').first 
+        ?? 'Usuario').toString();
 
     final transaction = LocalTransaction()
       ..remoteId='trans-${DateTime.now().millisecondsSinceEpoch}'
@@ -406,6 +409,9 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
       final currentFolio = await TicketConfigService.useNextFolio();
       final prefijo = TicketConfigService.prefijo;
       final folioStr = '$prefijo$currentFolio';
+
+      // FIX CRÍTICO: Asignar el folio real a la transacción para que la impresora lo lea
+      transaction.folio = folioStr;
 
       // 2. INSERTAR LA TRANSACCIÓN CON EL FOLIO
       final transResponse = await Supabase.instance.client.from('transactions').insert({

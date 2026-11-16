@@ -1,4 +1,4 @@
-// lib/models/local_transaction.dart - FINAL DEFINITIVO v2 - compila con tu pos_screen + fix null
+// lib/models/local_transaction.dart
 class LocalTransactionItem {
   String type = 'service';
   String serviceId = '';

@@ -29,7 +29,9 @@ class PrinterService {
 
     final pdf = pw.Document();
     final DateTime txDate = DateTime.now(); // Usamos la hora del cobro actual
-    final folioStr = transaction.remoteId;
+    
+    // FIX CRÍTICO: Usar transaction.folio, si está vacío usar el remoteId de respaldo
+    final folioStr = transaction.folio.isNotEmpty ? transaction.folio : transaction.remoteId;
 
     pdf.addPage(
       pw.Page(
@@ -138,7 +140,9 @@ class PrinterService {
       case 'cash': return 'Efectivo';
       case 'card': return 'Tarjeta';
       case 'transfer': return 'Transferencia';
-      case 'mixed': return 'Mixto';
+      case 'mixed':
+      case 'mixto': // FIX: Aceptar ambos
+        return 'Mixto';
       default: return m;
     }
   }
