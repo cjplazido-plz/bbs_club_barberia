@@ -107,14 +107,20 @@ class TicketConfigService {
   }
 
   static Future<int> useNextFolio() async {
-    final cur = folioActual;
-    final ok = await save({'folio_actual': cur + 1});
-    
-    // FIX CRÍTICO: Si no se pudo guardar en la nube, lanzamos error para DETENER la venta
-    if (!ok) {
-      throw Exception('Error de conexión: No se pudo generar el folio en Supabase. Revisa el internet antes de cobrar.');
+    try {
+      // Llamada atómica a la base de datos (a prueba de doble clic)
+      final response = await Supabase.instance.client.rpc('get_next_folio');
+      
+      // Supabase devuelve el folio que acabamos de usar
+      final int folioUsado = response as int; 
+      
+      // Actualizamos la caché local para que la interfaz muestre el siguiente
+      _cache['folio_actual'] = folioUsado + 1;
+      _cache['folioActual'] = folioUsado + 1;
+      
+      return folioUsado;
+    } catch (e) {
+      // Si falla el internet o la base de datos, detenemos la venta
+      throw Exception('Error de conexión: No se pudo generar el folio seguro en Supabase. $e');
     }
-    
-    return cur;
   }
-}
