@@ -110,11 +110,14 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
         _startDate = DateTime(now.year, now.month, now.day);
         _endDate = now;
       } else if (type == 'week') {
-        _startDate = now.subtract(Duration(days: now.weekday - 1));
+        // FIX: Ahora filtra los últimos 7 días, no solo el inicio de la semana calendario
+        _startDate = now.subtract(const Duration(days: 7));
         _startDate = DateTime(_startDate.year, _startDate.month, _startDate.day);
         _endDate = now;
       } else if (type == 'month') {
-        _startDate = DateTime(now.year, now.month, 1);
+        // FIX: Ahora filtra los últimos 30 días
+        _startDate = now.subtract(const Duration(days: 30));
+        _startDate = DateTime(_startDate.year, _startDate.month, _startDate.day);
         _endDate = now;
       }
     });

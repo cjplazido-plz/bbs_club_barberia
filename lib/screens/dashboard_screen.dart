@@ -15,12 +15,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _isLoading = true;
   
   // --- FILTROS ---
-  // Se inicializa con la fecha del día actual, sin hora
   DateTimeRange _selectedDateRange = DateTimeRange(
     start: DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day), 
     end: DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day)
   );
-  String _activeQuickFilter = 'today'; // 'today', 'week', 'month', 'custom'
+  String _activeQuickFilter = 'today'; 
   String _selectedBarberId = 'all';
   List<Map<String, dynamic>> _barbersList = []; 
 
@@ -60,14 +59,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
           end: DateTime(now.year, now.month, now.day),
         );
       } else if (type == 'week') {
-        // Inicia el Lunes de esta semana
+        // FIX: Ahora filtra los últimos 7 días
         _selectedDateRange = DateTimeRange(
-          start: DateTime(now.year, now.month, now.day).subtract(Duration(days: now.weekday - 1)),
+          start: DateTime(now.year, now.month, now.day).subtract(const Duration(days: 7)),
           end: DateTime(now.year, now.month, now.day),
         );
       } else if (type == 'month') {
+        // FIX: Ahora filtra los últimos 30 días
         _selectedDateRange = DateTimeRange(
-          start: DateTime(now.year, now.month, 1),
+          start: DateTime(now.year, now.month, now.day).subtract(const Duration(days: 30)),
           end: DateTime(now.year, now.month, now.day),
         );
       }
@@ -233,7 +233,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Botones de filtro rápido
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -265,7 +264,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 16),
           
-          // Fila de fecha y filtro de barbero (Responsive)
           LayoutBuilder(
             builder: (context, constraints) {
               final dateWidget = InkWell(
