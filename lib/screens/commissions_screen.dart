@@ -13,14 +13,12 @@ class CommissionsScreen extends StatefulWidget {
 
 class _CommissionsScreenState extends State<CommissionsScreen> {
   bool _isLoading = true;
-  //DateTime _startDate = DateTime.now().subtract(const Duration(days: 30));
   DateTime _startDate = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
   DateTime _endDate = DateTime.now();
   List<Map<String, dynamic>> _commissions = [];
   double _totalCommissions = 0;
   double _totalSales = 0;
   String _selectedBarberId = 'all';
-  //String _activeQuickFilter = 'month'; // 'today', 'week', 'month', 'custom'
   String _activeQuickFilter = 'today';
   Map<String, String> _paidFolios = {};
 
@@ -271,11 +269,14 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
         _startDate = DateTime(now.year, now.month, now.day);
         _endDate = now;
       } else if (type == 'week') {
-        _startDate = now.subtract(Duration(days: now.weekday - 1));
+        // FIX: Filtra los últimos 7 días
+        _startDate = now.subtract(const Duration(days: 7));
         _startDate = DateTime(_startDate.year, _startDate.month, _startDate.day);
         _endDate = now;
       } else if (type == 'month') {
-        _startDate = DateTime(now.year, now.month, 1);
+        // FIX: Filtra los últimos 30 días
+        _startDate = now.subtract(const Duration(days: 30));
+        _startDate = DateTime(_startDate.year, _startDate.month, _startDate.day);
         _endDate = now;
       }
     });
@@ -484,7 +485,6 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
           ? const Center(child: CircularProgressIndicator(color: Color(0xFF6366F1)))
           : CustomScrollView(
               slivers: [
-                // === FILTROS UNIFICADOS ===
                 SliverToBoxAdapter(
                   child: Container(
                     margin: const EdgeInsets.all(16),
@@ -555,7 +555,6 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
                   ),
                 ),
                 
-                // === TARJETAS RESUMEN ===
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -568,7 +567,6 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
                 ),
                 const SliverToBoxAdapter(child: SizedBox(height: 24)),
                 
-                // === LISTA DE BARBEROS ===
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
