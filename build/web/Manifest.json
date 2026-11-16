@@ -4,20 +4,22 @@
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0F172A",
-    "theme_color": "#6366F1",
+    "theme_color": "#0F172A",
     "description": "BBS CLUB - Barbería Premium",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
         {
-            "src": "icons/Icon-192.png",
+            "src": "icons/icon-192.png",
             "sizes": "192x192",
-            "type": "image/png"
+            "type": "image/png",
+            "purpose": "any maskable"
         },
         {
-            "src": "icons/Icon-512.png",
+            "src": "icons/icon-512.png",
             "sizes": "512x512",
-            "type": "image/png"
+            "type": "image/png",
+            "purpose": "any maskable"
         }
     ]
 }
