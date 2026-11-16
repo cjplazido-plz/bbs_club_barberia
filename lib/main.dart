@@ -9,11 +9,14 @@ import 'screens/login_screen.dart';
 import 'screens/public_booking_screen.dart';
 import 'screens/appointments_screen.dart';
 import 'screens/pos_screen.dart';
+import 'widgets/inactivity_wrapper.dart'; // <-- 1. IMPORTAR EL WRAPPER
 
-// FIX: Por defecto, si falla la carga, que sea 'cashier' (cajero) por seguridad, NO admin.
 String currentUserRole = 'cashier'; 
 String currentUserName = '';
 String currentUserEmail = '';
+
+// 2. CREAR LA LLAVE GLOBAL
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,7 +32,6 @@ void main() async {
     ),
   );
   
-  // Esperar a que recupere la sesión ANTES de arrancar la app
   try {
     await Supabase.instance.client.auth.getSession();
   } catch (_) {}
@@ -46,27 +48,33 @@ class BarberFlowApp extends StatefulWidget {
 class _BarberFlowAppState extends State<BarberFlowApp> {
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: SettingsService.shopName,
-      debugShowCheckedModeBanner: false,
-      theme: ThemeService.lightTheme,
-      darkTheme: ThemeService.darkTheme,
-      themeMode: ThemeMode.dark, // Forzar modo oscuro
-      locale: const Locale('es'),
-      supportedLocales: const [Locale('es'), Locale('en')],
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      initialRoute: (Uri.base.path == '/reservar' || Uri.base.path == '/reservar/') ? '/reservar' : '/',
-      routes: {
-        '/': (context) => const AuthGate(),
-        '/login': (context) => LoginScreen(),
-        '/reservar': (context) => PublicBookingScreen(),
-        '/agenda': (context) => AppointmentsScreen(),
-        '/pos': (context) => PosScreen(),
-      },
+    // 3. ENVOLVER EL MATERIALAPP
+    return InactivityWrapper(
+      navigatorKey: navigatorKey,
+      timeout: const Duration(minutes: 10), // Los 10 minutos exactos
+      child: MaterialApp(
+        navigatorKey: navigatorKey, // <-- 4. ASIGNAR LA LLAVE AQUÍ
+        title: SettingsService.shopName,
+        debugShowCheckedModeBanner: false,
+        theme: ThemeService.lightTheme,
+        darkTheme: ThemeService.darkTheme,
+        themeMode: ThemeMode.dark,
+        locale: const Locale('es'),
+        supportedLocales: const [Locale('es'), Locale('en')],
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        initialRoute: (Uri.base.path == '/reservar' || Uri.base.path == '/reservar/') ? '/reservar' : '/',
+        routes: {
+          '/': (context) => const AuthGate(),
+          '/login': (context) => LoginScreen(),
+          '/reservar': (context) => PublicBookingScreen(),
+          '/agenda': (context) => AppointmentsScreen(),
+          '/pos': (context) => PosScreen(),
+        },
+      ),
     );
   }
 }
@@ -114,16 +122,13 @@ class _AuthGateState extends State<AuthGate> {
 
           if (profile != null) {
             currentUserRole = profile['role'] ?? 'cashier';
-            // FIX: Si el perfil no tiene full_name, usa el correo, si no, 'Usuario'
             currentUserName = profile['full_name'] ?? user.email?.split('@').first ?? 'Usuario';
           } else {
-            // FIX: Si el usuario existe en Auth pero no en la tabla profiles
             currentUserRole = 'cashier';
             currentUserName = user.email?.split('@').first ?? 'Usuario'; 
           }
         } catch (e) {
           debugPrint('Error obteniendo perfil: $e');
-          // FIX: En caso de error de red, al menos asignamos el nombre del correo
           currentUserRole = 'cashier';
           currentUserName = user.email?.split('@').first ?? 'Usuario';
         }
