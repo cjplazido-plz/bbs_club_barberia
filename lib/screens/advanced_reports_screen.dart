@@ -22,7 +22,6 @@ class AdvancedReportsScreen extends StatefulWidget {
 class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
   bool _isLoading = true;
   
-  // INICIA EN "HOY"
   String _selectedPeriod = 'today';
   DateTime _startDate = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day); 
   DateTime _endDate = DateTime.now();
@@ -251,7 +250,7 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
     if (period == 'today') _startDate = DateTime(now.year, now.month, now.day);
     if (period == 'week') _startDate = now.subtract(const Duration(days: 7));
     if (period == 'month') _startDate = now.subtract(const Duration(days: 30));
-    if (period == 'year') _startDate = now.subtract(const Duration(days: 365));
+    // ELIMINADO: if (period == 'year') _startDate = now.subtract(const Duration(days: 365));
     _endDate = now;
     _loadReportData();
   }
@@ -474,7 +473,7 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
       ),
       body: _isLoading ? const Center(child: CircularProgressIndicator(color: Color(0xFF6366F1))) : SingleChildScrollView(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         
-        // ==== SECCIÓN DE FILTROS DE FECHA (CORREGIDA PARA CELULAR) ====
+        // ==== SECCIÓN DE FILTROS DE FECHA ====
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -492,7 +491,6 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
               ]
             ),
             const SizedBox(height: 10),
-            // Botones "Hoy, Semana, Mes, Año" expandidos
             SizedBox(
               width: double.infinity,
               child: SegmentedButton<String>(
@@ -508,14 +506,13 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
                   ButtonSegment(value: 'today', label: Text('Hoy', style: TextStyle(fontSize: 11))),
                   ButtonSegment(value: 'week', label: Text('Semana', style: TextStyle(fontSize: 11))), 
                   ButtonSegment(value: 'month', label: Text('Mes', style: TextStyle(fontSize: 11))), 
-                  ButtonSegment(value: 'year', label: Text('Año', style: TextStyle(fontSize: 11)))
+                  // FIX: Se eliminó la opción 'year' de aquí
                 ], 
-                selected: {['today', 'week', 'month', 'year'].contains(_selectedPeriod) ? _selectedPeriod : 'today'}, 
+                selected: {['today', 'week', 'month'].contains(_selectedPeriod) ? _selectedPeriod : 'today'}, 
                 onSelectionChanged: (Set<String> v){ _setPeriod(v.first); }
               ),
             ),
             const SizedBox(height: 12),
-            // Selector de fecha manual
             InkWell(
               onTap: _pickDateRange, 
               borderRadius: BorderRadius.circular(12), 
@@ -685,11 +682,10 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
         ),
         const SizedBox(height: 20),
 
-        // === TARJETAS DE RESUMEN (CORREGIDAS PARA CELULAR) ===
+        // === TARJETAS DE RESUMEN ===
         LayoutBuilder(
           builder: (context, constraints) {
             if (constraints.maxWidth > 600) {
-              // Si la pantalla es ancha (Tablet/PC), muestra en fila
               return Row(children: [
                 Expanded(child: _buildSummaryCard('💵 Ventas', SettingsService.formatCurrency(_totalSales), const Color(0xFF38BDF8))),
                 const SizedBox(width: 12),
@@ -698,7 +694,6 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
                 Expanded(child: _buildSummaryCard('📈 Ganancia Neta', SettingsService.formatCurrency(_netProfit), const Color(0xFF10B981))),
               ]);
             }
-            // Si es celular, muestra en columna
             return Column(children: [
               _buildSummaryCard('💵 Ventas', SettingsService.formatCurrency(_totalSales), const Color(0xFF38BDF8)),
               const SizedBox(height: 10),
@@ -817,7 +812,7 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
 
   Widget _buildSummaryCard(String title, String value, Color color) {
     return Container(
-      width: double.infinity, // Asegura que ocupe todo el ancho en columna
+      width: double.infinity,
       padding: const EdgeInsets.all(16), 
       decoration: BoxDecoration(
         color: const Color(0xFF1E293B), 
@@ -836,4 +831,4 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
       ])
     );
   }
-} // <-- Cierre de la clase _AdvancedReportsScreenState
+}

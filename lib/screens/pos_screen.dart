@@ -617,8 +617,6 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
           _buildMenuItem('📜', 'Historial', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => SalesHistoryScreen())); }),
         if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewReports))
           _buildMenuItem('📊', 'Dashboard', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => DashboardScreen())); }),
-        if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewClients))
-          _buildMenuItem('👤', 'Clientes', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ClientsScreen())).then((_) => _loadData()); }),
              const Divider(color: Colors.white10),
         if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewBarbers))
           _buildMenuItem('💈', 'Barberos', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => BarbersScreen())).then((_) => _loadData()); }),
@@ -626,6 +624,8 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
           _buildMenuItem('✂️','Servicios', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ServicesScreen())).then((_) => _loadData()); }),
         if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewProducts))
           _buildMenuItem('📦','Productos', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ProductsScreen())).then((_) => _loadData()); }),
+        if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewClients))
+          _buildMenuItem('👤', 'Clientes', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ClientsScreen())).then((_) => _loadData()); }),
         if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewUsers))
           _buildMenuItem('👥', 'Usuarios', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => users_screen.UsersScreen())); }),
         if (RolePermissions.isAdmin(_myRole ?? currentUserRole) || RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.manageRoles))

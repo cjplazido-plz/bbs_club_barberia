@@ -15,11 +15,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _isLoading = true;
   
   // --- FILTROS ---
-  // Se inicializa con la fecha del día actual
+  // Se inicializa con la fecha del día actual, sin hora
   DateTimeRange _selectedDateRange = DateTimeRange(
-    start: DateTime.now(), 
-    end: DateTime.now()
+    start: DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day), 
+    end: DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day)
   );
+  String _activeQuickFilter = 'today'; // 'today', 'week', 'month', 'custom'
   String _selectedBarberId = 'all';
   List<Map<String, dynamic>> _barbersList = []; 
 
@@ -46,19 +47,41 @@ class _DashboardScreenState extends State<DashboardScreen> {
     } catch (e) {
       debugPrint('Error cargando barberos: $e');
     }
-    // Se llama a _loadData independientemente de si fallaron los barberos
+    _loadData();
+  }
+
+  void _setQuickDate(String type) {
+    final now = DateTime.now();
+    setState(() {
+      _activeQuickFilter = type;
+      if (type == 'today') {
+        _selectedDateRange = DateTimeRange(
+          start: DateTime(now.year, now.month, now.day),
+          end: DateTime(now.year, now.month, now.day),
+        );
+      } else if (type == 'week') {
+        // Inicia el Lunes de esta semana
+        _selectedDateRange = DateTimeRange(
+          start: DateTime(now.year, now.month, now.day).subtract(Duration(days: now.weekday - 1)),
+          end: DateTime(now.year, now.month, now.day),
+        );
+      } else if (type == 'month') {
+        _selectedDateRange = DateTimeRange(
+          start: DateTime(now.year, now.month, 1),
+          end: DateTime(now.year, now.month, now.day),
+        );
+      }
+    });
     _loadData();
   }
 
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
-      // 1. Normalizar las fechas para abarcar todo el día (00:00:00 a 23:59:59)
       final rawStart = _selectedDateRange.start;
       final rawEnd = _selectedDateRange.end;
       
       final start = DateTime(rawStart.year, rawStart.month, rawStart.day);
-      // Se suma 1 día a la fecha normalizada (el repositorio parece usar "< end")
       final end = DateTime(rawEnd.year, rawEnd.month, rawEnd.day).add(const Duration(days: 1)); 
       
       final barber = _selectedBarberId;
@@ -103,9 +126,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
     if (picked != null) {
-      setState(() => _selectedDateRange = picked);
+      setState(() {
+        _selectedDateRange = picked;
+        _activeQuickFilter = 'custom'; 
+      });
       _loadData();
     }
+  }
+
+  Widget _buildQuickDateChip(String label, String type) {
+    final isSelected = _activeQuickFilter == type;
+    return InkWell(
+      onTap: () => _setQuickDate(type),
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF6366F1) : const Color(0xFF0F172A),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: isSelected ? const Color(0xFF6366F1) : Colors.white10),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? Colors.white : Colors.white54,
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -173,61 +223,138 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildFiltersBar(bool isDesktop) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: const Color(0xFF1E293B), 
-        borderRadius: BorderRadius.circular(14), 
-        border: Border.all(color: Colors.white.withOpacity(0.06))
+        borderRadius: BorderRadius.circular(16), 
+        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))]
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: InkWell(
-              onTap: _pickDateRange,
-              borderRadius: BorderRadius.circular(8),
-              child: Row(
-                children: [
-                  const Icon(Icons.calendar_month_rounded, color: Color(0xFF818CF8), size: 18),
-                  const SizedBox(width: 8),
-                  Text(
-                    '${DateFormat('dd/MM/yyyy').format(_selectedDateRange.start)} - ${DateFormat('dd/MM/yyyy').format(_selectedDateRange.end)}',
-                    style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+          // Botones de filtro rápido
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _buildQuickDateChip('Hoy', 'today'),
+              _buildQuickDateChip('Semana', 'week'),
+              _buildQuickDateChip('Mes', 'month'),
+              InkWell(
+                onTap: _pickDateRange,
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: _activeQuickFilter == 'custom' ? const Color(0xFF6366F1) : const Color(0xFF0F172A),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: _activeQuickFilter == 'custom' ? const Color(0xFF6366F1) : Colors.white10),
                   ),
-                  const SizedBox(width: 4),
-                  const Icon(Icons.keyboard_arrow_down, color: Colors.white54, size: 16),
-                ],
-              ),
-            ),
-          ),
-          
-          if (isDesktop && _barbersList.isNotEmpty) ...[
-            const SizedBox(width: 16),
-            Container(
-              height: 30,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              decoration: BoxDecoration(
-                color: const Color(0xFF0F172A), 
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.white10)
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  value: _selectedBarberId,
-                  dropdownColor: const Color(0xFF1E293B),
-                  icon: const Icon(Icons.person_search, color: Color(0xFF818CF8), size: 16),
-                  style: const TextStyle(color: Colors.white, fontSize: 12),
-                  items: [
-                    const DropdownMenuItem(value: 'all', child: Text('Todos los Barberos')),
-                    ..._barbersList.map((b) => DropdownMenuItem(value: b['id'].toString(), child: Text(b['name'].toString())))
-                  ],
-                  onChanged: (val) {
-                    setState(() => _selectedBarberId = val ?? 'all');
-                    _loadData();
-                  },
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.date_range, size: 14, color: _activeQuickFilter == 'custom' ? Colors.white : Colors.white54),
+                      const SizedBox(width: 6),
+                      Text('Rango', style: TextStyle(color: _activeQuickFilter == 'custom' ? Colors.white : Colors.white54, fontSize: 12, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ]
+            ],
+          ),
+          const SizedBox(height: 16),
+          
+          // Fila de fecha y filtro de barbero (Responsive)
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final dateWidget = InkWell(
+                onTap: _pickDateRange,
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0F172A),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white.withOpacity(0.08)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.calendar_month_rounded, color: Color(0xFF818CF8), size: 18),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: FittedBox(
+                          alignment: Alignment.centerLeft,
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            '${DateFormat('dd/MM/yyyy').format(_selectedDateRange.start)} - ${DateFormat('dd/MM/yyyy').format(_selectedDateRange.end)}',
+                            style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF6366F1).withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Text('EDITAR', style: TextStyle(color: Color(0xFF818CF8), fontSize: 10, fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+
+              final barberWidget = Container(
+                height: 44,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0F172A),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.white.withOpacity(0.08)),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _selectedBarberId,
+                    dropdownColor: const Color(0xFF1E293B),
+                    icon: const Icon(Icons.person_search, color: Color(0xFF818CF8), size: 16),
+                    style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                    items: [
+                      const DropdownMenuItem(value: 'all', child: Text('Todos los Barberos')),
+                      ..._barbersList.map((b) => DropdownMenuItem(value: b['id'].toString(), child: Text(b['name'].toString())))
+                    ],
+                    onChanged: (val) {
+                      setState(() => _selectedBarberId = val ?? 'all');
+                      _loadData();
+                    },
+                  ),
+                ),
+              );
+
+              if (!isDesktop) {
+                return Column(
+                  children: [
+                    dateWidget,
+                    if (_barbersList.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      barberWidget,
+                    ]
+                  ],
+                );
+              }
+
+              return Row(
+                children: [
+                  Expanded(child: dateWidget),
+                  if (_barbersList.isNotEmpty) ...[
+                    const SizedBox(width: 12),
+                    barberWidget,
+                  ]
+                ],
+              );
+            }
+          )
         ],
       ),
     );
@@ -282,16 +409,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildWeekChart() {
-    // 2. Corrección del maxY para que el gráfico pinte las barras incluso si es 0
     final maxVal = _weekSales.isEmpty 
         ? 0.0 
         : _weekSales.map((e) => (e['total'] as num).toDouble()).reduce((a, b) => a > b ? a : b);
-    // Si el valor máximo es 0, asignamos un eje Y de 10 para que el gráfico se dibuje correctamente
     final maxY = maxVal == 0 ? 10.0 : maxVal * 1.3;
 
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.white.withOpacity(0.06))),
+      decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withOpacity(0.06))),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [const Text('📊 Ventas del Periodo', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)), const Spacer(), Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.15), borderRadius: BorderRadius.circular(20)), child: const Text('Rango Seleccionado', style: TextStyle(fontSize: 9, color: Color(0xFF818CF8), fontWeight: FontWeight.bold)))]),
         const SizedBox(height: 16),
@@ -323,7 +448,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildBarberRanking() {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.white.withOpacity(0.06))),
+      decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withOpacity(0.06))),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const Text('🏆 Top Barberos', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
         const SizedBox(height: 12),
@@ -348,7 +473,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildCommissions() {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.white.withOpacity(0.06))),
+      decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withOpacity(0.06))),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const Text('💰 Comisiones (Periodo)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
         const SizedBox(height: 12),
@@ -366,7 +491,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (_paymentMethods.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.white.withOpacity(0.06))),
+        decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withOpacity(0.06))),
         child: const Center(child: Padding(padding: EdgeInsets.all(20), child: Text('Sin transacciones', style: TextStyle(color: Colors.white38, fontSize: 11)))),
       );
     }
@@ -377,7 +502,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.white.withOpacity(0.06))),
+      decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withOpacity(0.06))),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const Text('💳 Métodos de Pago', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
         const SizedBox(height: 16),
