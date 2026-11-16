@@ -168,109 +168,188 @@ class _SettingsScreenState extends State<SettingsScreen> {
         elevation: 0,
         actions: [_buildSaveButton()],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            _summaryCard(),
-            const SizedBox(height: 20),
-            _section(number: '01', icon: Icons.store_rounded, color: _indigo, title: 'Datos del negocio', subtitle: 'Información que se muestra en el ticket y la app'),
-            _field('Nombre del negocio *', _shopNameCtrl, icon: Icons.store_rounded, required: true, hint: 'BBS CLUB BARBERIA'),
-            _row2(_field('RUT *', _rifCtrl, icon: Icons.badge_rounded, required: true, hint: '77.000000-0'), _field('Teléfono', _phoneCtrl, icon: Icons.phone_rounded, hint: '+56 9 6106 9670')),
-            _field('Email de contacto', _emailCtrl, icon: Icons.email_rounded, hint: 'contacto@bbsclub.cl'),
-            _field('Dirección', _addressCtrl, icon: Icons.location_on_rounded, hint: 'Manuel Montt #460, local 6 - Coronel'),
-            ... (SettingsService.canSeeReservasWhatsApp ? [
-              const SizedBox(height: 10),
-              Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: _emerald.withOpacity(0.1), borderRadius: BorderRadius.circular(14), border: Border.all(color: _emerald.withOpacity(0.3))), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Row(children: [Icon(Icons.lock, size: 16, color: _emerald), SizedBox(width: 8), Text('WhatsApp Reservas', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold))]),
-                const SizedBox(height: 6),
-                const Text('Este número recibe las confirmaciones de la web. Solo el desarrollador puede verlo y editarlo.', style: TextStyle(color: Colors.white54, fontSize: 11)),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isDesktop = constraints.maxWidth > 900;
+
+          // ==========================================
+          // COLUMNA IZQUIERDA (FORMULARIO)
+          // ==========================================
+          final formColumn = Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // SECCIÓN 01
+                _section(number: '01', icon: Icons.store_rounded, color: _indigo, title: 'Datos del negocio', subtitle: 'Información que se muestra en el ticket y la app'),
+                _field('Nombre del negocio *', _shopNameCtrl, required: true, onChanged: (_) => setState((){})),
+                _row2(
+                  _field('RUT *', _rifCtrl, required: true, onChanged: (_) => setState((){})), 
+                  _field('Teléfono', _phoneCtrl, onChanged: (_) => setState((){}))
+                ),
+                _field('Email de contacto', _emailCtrl),
+                _field('Dirección', _addressCtrl, onChanged: (_) => setState((){})),
+                ... (SettingsService.canSeeReservasWhatsApp ? [
+                  const SizedBox(height: 10),
+                  Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: _emerald.withOpacity(0.1), borderRadius: BorderRadius.circular(14), border: Border.all(color: _emerald.withOpacity(0.3))), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Row(children: [Icon(Icons.lock, size: 16, color: _emerald), SizedBox(width: 8), Text('WhatsApp Reservas', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold))]),
+                    const SizedBox(height: 6),
+                    const Text('Solo el desarrollador puede verlo y editarlo.', style: TextStyle(color: Colors.white54, fontSize: 11)),
+                    const SizedBox(height: 10),
+                    _field('', _reservasWhatsAppCtrl, icon: Icons.phone_rounded, hint: '+56972433525'),
+                  ])),
+                ] : []),
+                
+                const SizedBox(height: 20),
+                // SECCIÓN 02
+                _section(number: '02', icon: Icons.attach_money_rounded, color: _emerald, title: 'Moneda y Formato', subtitle: 'Símbolo y código en los precios'),
+                _row2(
+                  _field('Símbolo *', _currencySymbolCtrl, required: true, hint: '\$'), 
+                  _field('Código ISO *', _currencyCodeCtrl, required: true, hint: 'CLP')
+                ),
+                
+                const SizedBox(height: 20),
+                // SECCIÓN 03
+                _section(number: '03', icon: Icons.image_rounded, color: _amber, title: 'Logos de la App y Ticket', subtitle: 'Recomendado: PNG sin fondo, tamaño cuadrado'),
+                _logoField(label: 'Logo App (Color)', ctrl: _shopLogoCtrl, isTicket: false, hint: 'https://.../bbs-color.png', onChanged: (_) => setState((){})),
+                _logoField(label: 'Logo Ticket (Blanco y Negro)', ctrl: _ticketLogoCtrl, isTicket: true, hint: 'https://.../LOGOTICKET.bmp', onChanged: (_) => setState((){})),
                 const SizedBox(height: 10),
-                _field('', _reservasWhatsAppCtrl, icon: Icons.phone_rounded, hint: '+56972433525'),
-              ])),
-            ] : []),
-            
-            const SizedBox(height: 20),
-            _section(number: '02', icon: Icons.attach_money_rounded, color: _emerald, title: 'Moneda y Formato', subtitle: 'Símbolo y código que se muestran en los precios'),
-            _row2(_field('Símbolo *', _currencySymbolCtrl, icon: Icons.attach_money_rounded, required: true, hint: '\$'), _field('Código ISO *', _currencyCodeCtrl, icon: Icons.monetization_on_rounded, required: true, hint: 'CLP')),
-            
-            const SizedBox(height: 20),
-            _section(number: '03', icon: Icons.image_rounded, color: _amber, title: 'Logos de la App y Ticket', subtitle: 'Recomendado: PNG sin fondo, tamaño cuadrado'),
-            _logoField(label: 'Logo App (Color)', ctrl: _shopLogoCtrl, isTicket: false, hint: 'https://.../bbs-color.png'),
-            _logoField(label: 'Logo Ticket (Blanco y Negro)', ctrl: _ticketLogoCtrl, isTicket: true, hint: 'https://.../LOGOTICKET.bmp'),
-            const SizedBox(height: 10),
-            _logoPreviews(),
-            _bucketWarning(),
-            
-            const SizedBox(height: 20),
-            _section(number: '04', icon: Icons.receipt_long_rounded, color: _violet, title: 'Personalización del Ticket', subtitle: 'Encabezado y pie de página impresos'),
-            _field('Encabezado', _ticketHeaderCtrl, icon: Icons.title_rounded, hint: 'BBS CLUB F.C'),
-            _field('Pie de Ticket', _ticketFooterCtrl, icon: Icons.subtitles_rounded, maxLines: 2, hint: '¡Gracias por su visita!'),
-            const SizedBox(height: 16),
-            _previewTicket(),
-            
-            const SizedBox(height: 20),
-            _section(number: '05', icon: Icons.print_rounded, color: const Color(0xFF38BDF8), title: 'Folios e Impresión', subtitle: 'Ancho de papel y correlativo de facturación'),
-            _row2(
-              DropdownButtonFormField<String>(
-                value: _ancho, 
-                dropdownColor: _card, 
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13), 
-                decoration: InputDecoration(
-                  labelText: 'Ancho de papel', 
-                  labelStyle: const TextStyle(color: Colors.white54, fontSize: 12), 
-                  filled: true, 
-                  fillColor: _input, 
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.white.withOpacity(0.08))),
-                ), 
-                items: const [
-                  DropdownMenuItem(value: '58mm', child: Text('58mm')), 
-                  DropdownMenuItem(value: '80mm', child: Text('80mm'))
-                ], 
-                onChanged: (v) => setState(() => _ancho = v!)
-              ),
-              _switchTile('Auto-imprimir', _autoPrint, (v) => setState(() => _autoPrint = v)),
+                _logoPreviews(),
+                _bucketWarning(),
+                
+                const SizedBox(height: 20),
+                // SECCIÓN 04
+                _section(number: '04', icon: Icons.receipt_long_rounded, color: _violet, title: 'Personalización del Ticket', subtitle: 'Encabezado y pie de página impresos'),
+                _field('Encabezado', _ticketHeaderCtrl, onChanged: (_) => setState((){})),
+                _field('Pie de Ticket', _ticketFooterCtrl, maxLines: 2, onChanged: (_) => setState((){})),
+                
+                const SizedBox(height: 20),
+                // SECCIÓN 05
+                _section(number: '05', icon: Icons.print_rounded, color: const Color(0xFF38BDF8), title: 'Folios e Impresión', subtitle: 'Ancho de papel y correlativo'),
+                _row2(
+                  DropdownButtonFormField<String>(
+                    value: _ancho, 
+                    dropdownColor: _card, 
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13), 
+                    decoration: InputDecoration(
+                      labelText: 'Ancho de papel', 
+                      labelStyle: const TextStyle(color: Colors.white54, fontSize: 12), 
+                      filled: true, 
+                      fillColor: _input, 
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.white.withOpacity(0.08))),
+                    ), 
+                    items: const [
+                      DropdownMenuItem(value: '58mm', child: Text('58mm')), 
+                      DropdownMenuItem(value: '80mm', child: Text('80mm'))
+                    ], 
+                    onChanged: (v) => setState(() => _ancho = v!)
+                  ),
+                  _switchTile('Auto-imprimir', _autoPrint, (v) => setState(() => _autoPrint = v)),
+                ),
+                const SizedBox(height: 12),
+                _row2(
+                  _field('Prefijo de folio', _prefijoCtrl, icon: Icons.tag_rounded, hint: 'V-'), 
+                  _field('Próximo folio', _folioCtrl, icon: Icons.confirmation_number_rounded, isNumber: true, hint: '1011')
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.all(12), 
+                  decoration: BoxDecoration(color: _indigo.withOpacity(0.1), borderRadius: BorderRadius.circular(12), border: Border.all(color: _indigo.withOpacity(0.3))), 
+                  child: Row(children: [
+                    const Icon(Icons.info_outline_rounded, color: _violet, size: 18), 
+                    const SizedBox(width: 10), 
+                    Expanded(child: Text('Próximo ticket: ${_prefijoCtrl.text}${_folioCtrl.text}. Impresora térmica 80mm (72.1mm útil). En Chrome: margen 0, escala 90.', style: const TextStyle(color: Colors.white70, fontSize: 11)))
+                  ])
+                ),
+                
+                const SizedBox(height: 30),
+                SizedBox(
+                  width: double.infinity, 
+                  height: 54, 
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(colors: [_indigo, _violet]), 
+                      borderRadius: BorderRadius.circular(14), 
+                      boxShadow: [BoxShadow(color: _indigo.withOpacity(0.4), blurRadius: 16, offset: const Offset(0, 6))]
+                    ), 
+                    child: ElevatedButton.icon(
+                      onPressed: _isSaving ? null : _save, 
+                      icon: _isSaving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.save_rounded, color: Colors.white), 
+                      label: Text(_isSaving ? 'Guardando...' : 'GUARDAR CAMBIOS', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 14)), 
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, shadowColor: Colors.transparent, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)))
+                    )
+                  )
+                ),
+                const SizedBox(height: 40),
+              ],
             ),
-            const SizedBox(height: 12),
-            _row2(
-              _field('Prefijo de folio', _prefijoCtrl, icon: Icons.tag_rounded, hint: 'V-'), 
-              _field('Próximo folio', _folioCtrl, icon: Icons.confirmation_number_rounded, isNumber: true, hint: '1011')
+          );
+
+          // ==========================================
+          // COLUMNA DERECHA (VISTA PREVIA DEL TICKET)
+          // ==========================================
+          final previewColumn = Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: _card,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.white.withOpacity(0.05)),
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))],
             ),
-            const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.all(12), 
-              decoration: BoxDecoration(color: _indigo.withOpacity(0.1), borderRadius: BorderRadius.circular(12), border: Border.all(color: _indigo.withOpacity(0.3))), 
-              child: Row(children: [
-                const Icon(Icons.info_outline_rounded, color: _violet, size: 18), 
-                const SizedBox(width: 10), 
-                Expanded(child: Text('Próximo ticket: ${_prefijoCtrl.text}${_folioCtrl.text}. Impresora térmica 80mm (72.1mm útil). En Chrome: margen 0, escala 90.', style: const TextStyle(color: Colors.white70, fontSize: 11)))
-              ])
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.receipt_long_rounded, color: _violet, size: 20),
+                    SizedBox(width: 8),
+                    Text('VISTA PREVIA DEL TICKET', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14, letterSpacing: 1)),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                _previewTicket(),
+                const SizedBox(height: 20),
+                const Center(child: Text('Ejemplo con 1 producto • Total \$5.000', style: TextStyle(color: Colors.white38, fontSize: 11))),
+              ],
             ),
-            
-            const SizedBox(height: 30),
-            SizedBox(
-              width: double.infinity, 
-              height: 54, 
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(colors: [_indigo, _violet]), 
-                  borderRadius: BorderRadius.circular(14), 
-                  boxShadow: [BoxShadow(color: _indigo.withOpacity(0.4), blurRadius: 16, offset: const Offset(0, 6))]
-                ), 
-                child: ElevatedButton.icon(
-                  onPressed: _isSaving ? null : _save, 
-                  icon: _isSaving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.save_rounded, color: Colors.white), 
-                  label: Text(_isSaving ? 'Guardando...' : 'GUARDAR CAMBIOS', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 14)), 
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, shadowColor: Colors.transparent, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)))
-                )
-              )
+          );
+
+          // LAYOUT RESPONSIVO
+          if (isDesktop) {
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: 3, 
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(24), 
+                    child: formColumn
+                  )
+                ),
+                Expanded(
+                  flex: 2, 
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(0, 24, 24, 24), 
+                    child: previewColumn
+                  )
+                ),
+              ],
+            );
+          }
+
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                formColumn,
+                const SizedBox(height: 20),
+                previewColumn,
+              ],
             ),
-            const SizedBox(height: 40),
-          ]),
-        ),
-      ),
+          );
+        }
+      )
     );
   }
 
@@ -294,44 +373,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _summaryCard() {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [_indigo, Color(0xFF4F46E5)]), 
-        borderRadius: BorderRadius.circular(20), 
-        boxShadow: [BoxShadow(color: _indigo.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 8))]
-      ),
-      child: Row(children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            width: 100,
-            height: 50,
-            color: Colors.black,
-            padding: const EdgeInsets.all(6),
-            alignment: Alignment.center,
-            child: _shopLogoCtrl.text.isNotEmpty 
-                ? Image.network(
-                    _shopLogoCtrl.text, 
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => const Icon(Icons.store_rounded, color: _indigo)
-                  ) 
-                : const Icon(Icons.store_rounded, color: _indigo),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(_shopNameCtrl.text.isNotEmpty ? _shopNameCtrl.text : 'BBS CLUB', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18, letterSpacing: 0.5)),
-          const SizedBox(height: 4),
-          Text(_addressCtrl.text.isNotEmpty ? _addressCtrl.text : 'Manuel Montt #460, local 6 - Coronel', style: const TextStyle(color: Colors.white70, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
-          const SizedBox(height: 8),
-          Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(20)), child: Text('Folio: ${_prefijoCtrl.text}${_folioCtrl.text}  •  ${_ancho}', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold))),
-        ])),
-      ]),
-    );
-  }
-
   Widget _section({required String number, required IconData icon, required Color color, required String title, required String subtitle}) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -349,11 +390,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _field(String label, TextEditingController ctrl, {IconData icon = Icons.edit_rounded, bool required = false, bool isNumber = false, int maxLines = 1, String hint = ''}) {
+  Widget _field(String label, TextEditingController ctrl, {IconData icon = Icons.edit_rounded, bool required = false, bool isNumber = false, int maxLines = 1, String hint = '', ValueChanged<String>? onChanged}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: TextFormField(
         controller: ctrl,
+        onChanged: onChanged,
         style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
         maxLines: maxLines,
         keyboardType: isNumber ? TextInputType.number : TextInputType.text,
@@ -383,11 +425,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     ]); 
   }
 
-  Widget _logoField({required String label, required TextEditingController ctrl, required bool isTicket, required String hint}) {
+  Widget _logoField({required String label, required TextEditingController ctrl, required bool isTicket, required String hint, ValueChanged<String>? onChanged}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(children: [
-        Expanded(child: _field(label, ctrl, icon: Icons.link_rounded, hint: hint)),
+        Expanded(child: _field(label, ctrl, icon: Icons.link_rounded, hint: hint, onChanged: onChanged)),
         const SizedBox(width: 10),
         Container(
           height: 50,
@@ -434,45 +476,156 @@ class _SettingsScreenState extends State<SettingsScreen> {
         const Icon(Icons.warning_amber_rounded, color: _amber, size: 20),
         const SizedBox(width: 10),
         const Expanded(
-          child: Text('Si el bucket de Supabase tiene espacios en el nombre (ej. "LOGO BBSCLUB"), la URL fallará. Asegúrate de usar un bucket público sin espacios (ej. bbs-logos) y pegar la URL directa.', 
+          child: Text('Si el bucket de Supabase tiene espacios en el nombre, la URL fallará. Asegúrate de usar un bucket público sin espacios y pegar la URL directa.', 
           style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.4))),
       ]),
     );
   }
 
+  // =========================================================================
+  // VISTA PREVIA DE TICKET (TIEMPO REAL)
+  // =========================================================================
   Widget _previewTicket() {
     return Center(
       child: Container(
-        width: 320,
-        padding: const EdgeInsets.all(16),
+        width: double.infinity,
+        constraints: const BoxConstraints(maxWidth: 320), // Ancho típico de ticket 80mm
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24), // Márgenes internos del papel
         decoration: BoxDecoration(
-          color: Colors.white, 
-          borderRadius: BorderRadius.circular(12), 
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.4), blurRadius: 20, offset: const Offset(0, 8))]
-        ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.center, children: [
-        if (_ticketLogoCtrl.text.isNotEmpty)
-          Container(
-            height: 45,
-            margin: const EdgeInsets.only(bottom: 8),
-            alignment: Alignment.center,
-            child: Image.network(
-              _ticketLogoCtrl.text, 
-              fit: BoxFit.contain,
-              errorBuilder: (_, __, ___) => const SizedBox.shrink()
-            ),
+          color: const Color(0xFFF8F9FA), // Blanco roto (color papel térmico)
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(8), 
+            topRight: Radius.circular(8),
+            bottomLeft: Radius.circular(4),
+            bottomRight: Radius.circular(4),
           ),
-        Text(_ticketHeaderCtrl.text.isNotEmpty ? _ticketHeaderCtrl.text : 'BBS CLUB', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: Colors.black), textAlign: TextAlign.center),
-        if (_addressCtrl.text.isNotEmpty) Text(_addressCtrl.text, style: const TextStyle(fontSize: 10, color: Colors.black54), textAlign: TextAlign.center),
-        if (_phoneCtrl.text.isNotEmpty) Text('Tel: ${_phoneCtrl.text}', style: const TextStyle(fontSize: 10, color: Colors.black54)),
-        const SizedBox(height: 10),
-        const Divider(color: Colors.black26),
-        const Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text('Corte + Barba', style: TextStyle(fontSize: 11, color: Colors.black87)), Text('\$20.000', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black))]),
-        const Divider(color: Colors.black26),
-        const Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text('TOTAL:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Colors.black)), Text('\$20.000', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Colors.black))]),
-        const SizedBox(height: 10),
-        Text(_ticketFooterCtrl.text.isNotEmpty ? _ticketFooterCtrl.text : 'Gracias por su visita!', style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Colors.black54)),
-        ]),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.5), 
+              blurRadius: 20, 
+              spreadRadius: 1, 
+              offset: const Offset(0, 10) // Sombra caída hacia abajo
+            )
+          ],
+          border: Border.all(color: Colors.grey.withOpacity(0.3), width: 0.5),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // --- LOGO ---
+            if (_ticketLogoCtrl.text.isNotEmpty)
+              Container(
+                height: 45,
+                margin: const EdgeInsets.only(bottom: 12),
+                alignment: Alignment.center,
+                child: Image.network(
+                  _ticketLogoCtrl.text, 
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => const SizedBox.shrink()
+                ),
+              ),
+            
+            // --- ENCABEZADO ---
+            Text(
+              _ticketHeaderCtrl.text.isNotEmpty ? _ticketHeaderCtrl.text : (_shopNameCtrl.text.isNotEmpty ? _shopNameCtrl.text : 'BBS CLUB'), 
+              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Colors.black87, letterSpacing: 1.2), 
+              textAlign: TextAlign.center
+            ),
+            const SizedBox(height: 6),
+            if (_rifCtrl.text.isNotEmpty)
+              Text('RUT: ${_rifCtrl.text}', style: const TextStyle(fontSize: 10, color: Colors.black54), textAlign: TextAlign.center),
+            if (_addressCtrl.text.isNotEmpty) 
+              Text(_addressCtrl.text, style: const TextStyle(fontSize: 10, color: Colors.black54), textAlign: TextAlign.center),
+            if (_phoneCtrl.text.isNotEmpty) 
+              Text('Tel: ${_phoneCtrl.text}', style: const TextStyle(fontSize: 10, color: Colors.black54), textAlign: TextAlign.center),
+            
+            const SizedBox(height: 16),
+
+            // --- SEPARADOR PUNTEADO (Simula corte de papel) ---
+            _buildDashedDivider(),
+
+            const SizedBox(height: 12),
+
+            // --- ITEM EJEMPLO ---
+            const Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('1x Corte + Barba', style: TextStyle(fontSize: 12, color: Colors.black87)),
+                Text('\$5.000', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black87)),
+              ],
+            ),
+            const SizedBox(height: 4),
+            const Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Fecha: 16/11/2026 10:30', style: TextStyle(fontSize: 10, color: Colors.black54)),
+                Text('Cajero: Admin', style: TextStyle(fontSize: 10, color: Colors.black54)),
+              ],
+            ),
+
+            const SizedBox(height: 12),
+
+            // --- SEPARADOR PUNTEADO ---
+            _buildDashedDivider(),
+
+            const SizedBox(height: 12),
+
+            // --- TOTAL ---
+            const Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween, 
+              children: [
+                Text('TOTAL:', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: Colors.black)), 
+                Text('\$5.000', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: Colors.black))
+              ]
+            ),
+            
+            const SizedBox(height: 16),
+
+            // --- PIE DE PÁGINA ---
+            Text(
+              _ticketFooterCtrl.text.isNotEmpty ? _ticketFooterCtrl.text : '¡Gracias por su visita!', 
+              style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Colors.black54), 
+              textAlign: TextAlign.center
+            ),
+
+            const SizedBox(height: 20),
+
+            // --- CÓDIGO DE BARRAS VISUAL (Detalle Premium) ---
+            Center(
+              child: Container(
+                height: 30,
+                width: 160,
+                decoration: BoxDecoration(
+                  color: Colors.black87,
+                  borderRadius: BorderRadius.circular(2),
+                  gradient: const LinearGradient(
+                    colors: [Colors.black87, Colors.white, Colors.black87, Colors.white, Colors.black87, Colors.black87, Colors.white, Colors.black87],
+                    stops: [0.0, 0.1, 0.2, 0.3, 0.45, 0.7, 0.85, 1.0],
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text('FOLIO: ${_prefijoCtrl.text}${_folioCtrl.text}', style: const TextStyle(fontSize: 8, color: Colors.black54, letterSpacing: 3), textAlign: TextAlign.center),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Función auxiliar para dibujar líneas punteadas
+  Widget _buildDashedDivider() {
+    return Row(
+      children: List.generate(
+        40,
+        (index) => Expanded(
+          child: Container(
+            height: 1.5,
+            color: index % 2 == 0 ? Colors.black26 : Colors.transparent,
+          ),
+        ),
       ),
     );
   }
