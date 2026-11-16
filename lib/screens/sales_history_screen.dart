@@ -346,6 +346,9 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
     )));
   }
 
+  // =========================================================================
+  // NUEVO DISEÑO DE TICKET (LIMPIO, SIN CÓDIGO DE BARRAS)
+  // =========================================================================
   Future<void> _printTicket(Map<String, dynamic> transaction, List<Map<String, dynamic>> items) async {
     try {
       pw.ImageProvider? logoImage;
@@ -375,62 +378,137 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
       }
 
       final folioStr = transaction['folio']?.toString() ?? '#${transaction['id'].toString().substring(transaction['id'].toString().length - 6).toUpperCase()}';
-
+      final DateTime txDate = DateTime.parse(transaction['created_at']);
+      
       final pdf = pw.Document();
+      
       pdf.addPage(pw.Page(
         pageFormat: PdfPageFormat(80 * PdfPageFormat.mm, double.infinity, marginAll: 4 * PdfPageFormat.mm),
-        build: (_) => pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.center, children: [
+        build: (_) => pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.stretch, children: [
+          
+          // --- LOGO ---
           if (logoImage != null) ...[
-            pw.Image(logoImage, height: 40, fit: pw.BoxFit.contain),
-            pw.SizedBox(height: 4),
+            pw.Center(child: pw.Image(logoImage, height: 45, fit: pw.BoxFit.contain)),
+            pw.SizedBox(height: 6),
           ],
-          pw.Text((SettingsService.shopName.isNotEmpty ? SettingsService.shopName : 'BBS CLUB').toUpperCase(), style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14), textAlign: pw.TextAlign.center),
-          pw.Text(SettingsService.shopAddress, style: const pw.TextStyle(fontSize: 8), textAlign: pw.TextAlign.center),
+          
+          // --- ENCABEZADO DEL NEGOCIO ---
+          pw.Text((SettingsService.shopName.isNotEmpty ? SettingsService.shopName : 'BBS CLUB').toUpperCase(), 
+            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14, letterSpacing: 0.5), 
+            textAlign: pw.TextAlign.center
+          ),
+          pw.Text('${SettingsService.shopName.isNotEmpty ? SettingsService.shopName : 'BBS CLUB'} SPA', style: const pw.TextStyle(fontSize: 8), textAlign: pw.TextAlign.center),
           pw.Text('RUT: ${SettingsService.shopRif}', style: const pw.TextStyle(fontSize: 8), textAlign: pw.TextAlign.center),
+          pw.Text(SettingsService.shopAddress, style: const pw.TextStyle(fontSize: 8), textAlign: pw.TextAlign.center),
           pw.Text('Tel: ${SettingsService.shopPhone}', style: const pw.TextStyle(fontSize: 8), textAlign: pw.TextAlign.center),
+          
+          pw.SizedBox(height: 10),
+          pw.Divider(thickness: 0.5, borderStyle: pw.BorderStyle.dashed),
           pw.SizedBox(height: 6),
-          pw.Text('TICKET DE VENTA', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+
+          // --- DATOS DE LA VENTA ---
+          pw.Text('TICKET DE VENTA', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10), textAlign: pw.TextAlign.center),
+          pw.SizedBox(height: 4),
+          pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+            pw.Text('Folio:', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)), 
+            pw.Text(folioStr, style: const pw.TextStyle(fontSize: 8))
+          ]),
+          pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+            pw.Text('Fecha:', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)), 
+            pw.Text(DateFormat('dd/MM/yyyy HH:mm').format(txDate), style: const pw.TextStyle(fontSize: 8))
+          ]),
+          pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+            pw.Text('Cliente:', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)), 
+            pw.Text(transaction['client_name'] ?? 'Consumidor Final', style: const pw.TextStyle(fontSize: 8))
+          ]),
+          pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+            pw.Text('Cajero:', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)), 
+            pw.Text(transaction['cashier_name']?.toString() ?? 'N/A', style: const pw.TextStyle(fontSize: 8))
+          ]),
+          pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+            pw.Text('Barbero:', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)), 
+            pw.Text(displayBarberName.isEmpty ? 'Sin asignar' : displayBarberName, style: const pw.TextStyle(fontSize: 8))
+          ]),
+          
+          pw.SizedBox(height: 6),
           pw.Divider(thickness: 0.5, borderStyle: pw.BorderStyle.dashed),
-          
-          pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Folio:', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)), pw.Text(folioStr, style: const pw.TextStyle(fontSize: 8))]),
-          pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Fecha:', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)), pw.Text(DateFormat('dd/MM/yyyy HH:mm').format(DateTime.parse(transaction['created_at'])), style: const pw.TextStyle(fontSize: 8))]),
-          pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Cajero:', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)), pw.Text(transaction['cashier_name']?.toString() ?? 'N/A', style: const pw.TextStyle(fontSize: 8))]),
-          
-          pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Barbero:', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)), pw.Text(displayBarberName.isEmpty ? 'Sin asignar' : displayBarberName, style: const pw.TextStyle(fontSize: 8))]),
-          
-          pw.Divider(thickness: 0.5, borderStyle: pw.BorderStyle.dashed),
+          pw.SizedBox(height: 6),
+
+          // --- ITEMS ---
           pw.Row(children: [
             pw.Expanded(flex: 3, child: pw.Text('Cant  Descripción', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold))),
             pw.Expanded(flex: 1, child: pw.Text('Total', textAlign: pw.TextAlign.right, style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold))),
           ]),
-          pw.SizedBox(height: 2),
+          pw.SizedBox(height: 4),
+          
           ...items.map((it) {
             final name = it['service_name'] ?? it['product_name'] ?? 'Item';
             final qty = it['quantity'];
             final price = (it['price_at_moment'] as num).toDouble();
             final total = price * (qty as num).toInt();
+            
             return pw.Padding(
-              padding: const pw.EdgeInsets.symmetric(vertical: 1),
-              child: pw.Row(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-                pw.Expanded(flex: 3, child: pw.Text('${qty}x  ${name.length > 25 ? '${name.substring(0, 25)}...' : name}', style: const pw.TextStyle(fontSize: 8))),
-                pw.Expanded(flex: 1, child: pw.Text(SettingsService.formatCurrency(total), textAlign: pw.TextAlign.right, style: const pw.TextStyle(fontSize: 8))),
+              padding: const pw.EdgeInsets.only(bottom: 4),
+              child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+                pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+                  pw.Expanded(child: pw.Text(name, style: const pw.TextStyle(fontSize: 8))),
+                  pw.Text(SettingsService.formatCurrency(total), style: const pw.TextStyle(fontSize: 8)),
+                ]),
+                pw.Text('  ${qty} x ${SettingsService.formatCurrency(price)}', style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey700)),
               ]),
             );
           }),
+          
+          pw.SizedBox(height: 6),
           pw.Divider(thickness: 0.5, borderStyle: pw.BorderStyle.dashed),
-          pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('TOTAL:', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)), pw.Text(SettingsService.formatCurrency((transaction['total'] as num).toDouble()), style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold))]),
+          pw.SizedBox(height: 6),
+
+          // --- TOTALES ---
+          pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+            pw.Text('Subtotal', style: const pw.TextStyle(fontSize: 9)), 
+            pw.Text(SettingsService.formatCurrency((transaction['total'] as num).toDouble()), style: const pw.TextStyle(fontSize: 9))
+          ]),
           pw.SizedBox(height: 4),
           pw.Divider(thickness: 0.5, borderStyle: pw.BorderStyle.dashed),
-          pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Forma de pago:', style: const pw.TextStyle(fontSize: 8)), pw.Text(_formatPayment(transaction['payment_method']?.toString()), style: const pw.TextStyle(fontSize: 8))]),
-          if ((transaction['cash_received'] as num?) != null && (transaction['cash_received'] as num) > 0) pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Recibido:', style: const pw.TextStyle(fontSize: 8)), pw.Text(SettingsService.formatCurrency((transaction['cash_received'] as num).toDouble()), style: const pw.TextStyle(fontSize: 8))]),
-          if ((transaction['change_amount'] as num?) != null && (transaction['change_amount'] as num) > 0) pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Vuelto:', style: const pw.TextStyle(fontSize: 8)), pw.Text(SettingsService.formatCurrency((transaction['change_amount'] as num).toDouble()), style: const pw.TextStyle(fontSize: 8))]),
-          pw.SizedBox(height: 10),
-          pw.Text(SettingsService.ticketFooter.isNotEmpty ? SettingsService.ticketFooter : '¡Gracias por su visita!', style: pw.TextStyle(fontSize: 8, fontStyle: pw.FontStyle.italic), textAlign: pw.TextAlign.center),
+          pw.SizedBox(height: 4),
+          pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+            pw.Text('TOTAL', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)), 
+            pw.Text(SettingsService.formatCurrency((transaction['total'] as num).toDouble()), style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold))
+          ]),
+          pw.SizedBox(height: 4),
+          pw.Divider(thickness: 0.5, borderStyle: pw.BorderStyle.dashed),
+          pw.SizedBox(height: 6),
+
+          // --- PAGO ---
+          pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+            pw.Text('Forma de pago:', style: const pw.TextStyle(fontSize: 8)), 
+            pw.Text(_formatPayment(transaction['payment_method']?.toString()), style: const pw.TextStyle(fontSize: 8))
+          ]),
+          if ((transaction['cash_received'] as num?) != null && (transaction['cash_received'] as num) > 0) 
+            pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+              pw.Text('Recibido:', style: const pw.TextStyle(fontSize: 8)), 
+              pw.Text(SettingsService.formatCurrency((transaction['cash_received'] as num).toDouble()), style: const pw.TextStyle(fontSize: 8))
+            ]),
+          if ((transaction['change_amount'] as num?) != null && (transaction['change_amount'] as num) > 0) 
+            pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+              pw.Text('Vuelto:', style: const pw.TextStyle(fontSize: 8)), 
+              pw.Text(SettingsService.formatCurrency((transaction['change_amount'] as num).toDouble()), style: const pw.TextStyle(fontSize: 8))
+            ]),
+
+          pw.SizedBox(height: 8),
+          pw.Divider(thickness: 0.5, borderStyle: pw.BorderStyle.dashed),
+          pw.SizedBox(height: 8),
+
+          // --- PIE DE PÁGINA ---
+          pw.Text(SettingsService.ticketFooter.isNotEmpty ? SettingsService.ticketFooter : '¡Gracias por su visita!', 
+            style: pw.TextStyle(fontSize: 8, fontStyle: pw.FontStyle.italic), 
+            textAlign: pw.TextAlign.center
+          ),
+          pw.SizedBox(height: 4),
+          pw.Text(DateFormat('dd-MM-yyyy, h:mm:ss a').format(txDate), style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey700), textAlign: pw.TextAlign.center),
         ]),
       ));
 
-      // --- FIX: Generar nombre con Folio y Fecha/Hora ---
-      final DateTime txDate = DateTime.parse(transaction['created_at']);
       final String dateStr = DateFormat('yyyyMMdd_HHmm').format(txDate);
       final String fileName = 'Ticket_${folioStr.replaceAll('#', '')}_$dateStr';
 

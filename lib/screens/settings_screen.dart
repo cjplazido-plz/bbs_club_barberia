@@ -483,16 +483,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   // =========================================================================
-  // VISTA PREVIA DE TICKET (TIEMPO REAL)
+  // VISTA PREVIA DE TICKET (SIN CÓDIGO DE BARRAS)
   // =========================================================================
   Widget _previewTicket() {
     return Center(
       child: Container(
         width: double.infinity,
-        constraints: const BoxConstraints(maxWidth: 320), // Ancho típico de ticket 80mm
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24), // Márgenes internos del papel
+        constraints: const BoxConstraints(maxWidth: 320),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
         decoration: BoxDecoration(
-          color: const Color(0xFFF8F9FA), // Blanco roto (color papel térmico)
+          color: const Color(0xFFF8F9FA),
           borderRadius: const BorderRadius.only(
             topLeft: Radius.circular(8), 
             topRight: Radius.circular(8),
@@ -504,7 +504,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               color: Colors.black.withOpacity(0.5), 
               blurRadius: 20, 
               spreadRadius: 1, 
-              offset: const Offset(0, 10) // Sombra caída hacia abajo
+              offset: const Offset(0, 10)
             )
           ],
           border: Border.all(color: Colors.grey.withOpacity(0.3), width: 0.5),
@@ -541,7 +541,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             
             const SizedBox(height: 16),
 
-            // --- SEPARADOR PUNTEADO (Simula corte de papel) ---
+            // --- SEPARADOR PUNTEADO ---
             _buildDashedDivider(),
 
             const SizedBox(height: 12),
@@ -590,32 +590,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
             const SizedBox(height: 20),
 
-            // --- CÓDIGO DE BARRAS VISUAL (Detalle Premium) ---
-            Center(
-              child: Container(
-                height: 30,
-                width: 160,
-                decoration: BoxDecoration(
-                  color: Colors.black87,
-                  borderRadius: BorderRadius.circular(2),
-                  gradient: const LinearGradient(
-                    colors: [Colors.black87, Colors.white, Colors.black87, Colors.white, Colors.black87, Colors.black87, Colors.white, Colors.black87],
-                    stops: [0.0, 0.1, 0.2, 0.3, 0.45, 0.7, 0.85, 1.0],
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text('FOLIO: ${_prefijoCtrl.text}${_folioCtrl.text}', style: const TextStyle(fontSize: 8, color: Colors.black54, letterSpacing: 3), textAlign: TextAlign.center),
+            // --- FOLIO (SIN CÓDIGO DE BARRAS) ---
+            Text('FOLIO: ${_prefijoCtrl.text}${_folioCtrl.text}', style: const TextStyle(fontSize: 9, color: Colors.black54, letterSpacing: 2), textAlign: TextAlign.center),
           ],
         ),
       ),
     );
   }
 
-  // Función auxiliar para dibujar líneas punteadas
   Widget _buildDashedDivider() {
     return Row(
       children: List.generate(
