@@ -101,7 +101,7 @@ class _RolesScreenState extends State<RolesScreen> {
     if (raw.isEmpty) return;
     try {
       for (final p in RolePermissions.defaults['cashier']!) {
-        await Supabase.instance.client.from('role_permissions').insert({'role': raw, 'permission': p});
+        await Supabase.instance.client.from('role_permissions').insert({'role': raw, 'permission_key': p, 'allowed': true});
       }
       await RolePermissions.loadFromSupabase();
       await _loadRoles();
@@ -211,10 +211,10 @@ class _EditarRolScreenState extends State<_EditarRolScreen> {
       await Supabase.instance.client.from('role_permissions').delete().eq('role', widget.role);
       
       if (_checked.isEmpty) {
-        await Supabase.instance.client.from('role_permissions').insert({'role': widget.role, 'permission': 'none'});
+        await Supabase.instance.client.from('role_permissions').insert({'role': widget.role, 'permission_key': 'none', 'allowed': true});
       } else {
         for (final p in _checked) {
-          await Supabase.instance.client.from('role_permissions').insert({'role': widget.role, 'permission': p});
+          await Supabase.instance.client.from('role_permissions').insert({'role': widget.role, 'permission_key': p, 'allowed': true});
         }
       }
       

@@ -29,8 +29,6 @@ import 'login_screen.dart';
 import 'settings_screen.dart';
 import 'advanced_reports_screen.dart';
 import 'commissions_screen.dart';
-import '../services/role_permissions.dart';
-import 'roles_screen.dart';
 
 class PosScreen extends StatefulWidget {
   @override
@@ -60,6 +58,12 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
   LocalClient? _selectedClient;
   LocalAppointment? _selectedAppointment;
   double _discount = 0.0;
+  // FIX CAJA REAL: ya no es caja-001 fija, se lee de profiles.cash_register_id
+  String _miCaja = 'Cargando caja...';
+  String _miCajaId = '';
+  // FIX FOLIO VISIBLE: mostrar en carrito el folio que sigue
+  String _proximoFolio = '...';
+  int _proximoFolioNum = 0;
 
   @override
   void initState() {
@@ -74,7 +78,56 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
     super.dispose();
   }
 
+  // Ya no hay cajas por persona. Todos van a Caja 1, salvo Usuario de Pruebas que no vende.
+  String _cajaPorNombre(String nombre) {
+    final n = nombre.toUpperCase();
+    if (n.contains('PRUEBA') || n.contains('TEST') || n.contains('USUARIO DE PRUEBAS')) return 'Sin Caja';
+    return 'Caja 1';
+  }
+
+  Future<void> _cargarProximoFolio() async {
+    try {
+      await TicketConfigService.load();
+      int desdeConfig = TicketConfigService.folioActual;
+      int desdeVentas = 0;
+      int nullCount = 0;
+      try {
+        // FIX BUILD: no usar .not() ni .is_() porque esa version de Supabase no los tiene.
+        // Traemos todos los folios y filtramos en Dart.
+        final rows = await Supabase.instance.client.from('transactions').select('folio').limit(500);
+        for (final r in (rows as List)) {
+          final f = (r as Map)['folio'];
+          if (f == null) {
+            nullCount++;
+          } else {
+            final n = int.tryParse(f.toString()) ?? 0;
+            if (n > desdeVentas) desdeVentas = n;
+          }
+        }
+      } catch (_) {}
+      int proximo = desdeConfig;
+      if (desdeVentas + 1 > proximo) proximo = desdeVentas + 1;
+      // Si hay ventas con folio NULL (1078-1080), saltar a 1081 una sola vez
+      if (nullCount > 0 && desdeVentas <= 1077 && desdeConfig <= 1078) {
+        proximo = 1081;
+      }
+      if (mounted) setState(() { _proximoFolioNum = proximo; _proximoFolio = '$proximo'; });
+    } catch (_) {
+      if (mounted && _proximoFolioNum == 0) setState(() { _proximoFolio = '1081'; _proximoFolioNum = 1081; });
+    }
+  }
+
+  // MODELO REAL BBS: UNA SOLA CAJA FISICA, la maneja BRAYAN (Barbero/Cajero).
+  // ALEX y MATY registran y cobran, pero la plata entra a la misma Caja 1.
+  // No hay Caja 2 ni Caja 3 independientes.
+  Future<void> _cargarMiCaja() async {
+    // Caja única para todos: Caja 1 = Caja Principal de BRAYAN
+    if (mounted) setState(() { _miCaja = 'Caja 1'; _miCajaId = 'Caja 1'; });
+  }
+
   Future<void> _loadData() async {
+    _cargarMiCaja();
+    _cargarProximoFolio();
     final services = await _serviceRepo.getAllServices();
     final barbers = await _barberRepo.getAllBarbers();
     final clients = await _clientRepo.getAllClients();
@@ -95,11 +148,20 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
   double get _total => _subtotal - _discount;
 
   void _addServiceToCart(LocalService service) {
-    if (_selectedBarber == null) { _showBarberRequiredDialog(); return; }
+    // FIX COMISION: comisión es por TOTAL, no por 1. Si ya está en carrito, subir cantidad Y comisión.
+    final effectiveBarber = _selectedBarber ?? _barbers.firstWhere(
+      (b) => b.name.toUpperCase() == currentUserName.toUpperCase(),
+      orElse: () => _barbers.isNotEmpty ? _barbers.first : (LocalBarber()..name = currentUserName.isNotEmpty ? currentUserName : 'Recepcion'),
+    );
     setState(() {
       final idx = _cart.indexWhere((e) => e.type == 'service' && e.serviceId == service.remoteId);
-      if (idx >= 0) _cart[idx].quantity++;
-      else _cart.add(LocalTransactionItem()..type='service'..serviceId=service.remoteId??''..serviceName=service.name..barberId=_selectedBarber!.remoteId??''..barberName=_selectedBarber!.name..priceAtMoment=service.price..quantity=1..commissionEarned=(service.price*service.commissionValue)/100);
+      final unitCommission = (service.price * service.commissionValue) / 100;
+      if (idx >= 0) {
+        _cart[idx].quantity++;
+        _cart[idx].commissionEarned = unitCommission * _cart[idx].quantity;
+      } else {
+        _cart.add(LocalTransactionItem()..type='service'..serviceId=service.remoteId??''..serviceName=service.name..barberId=effectiveBarber.remoteId??''..barberName=effectiveBarber.name..priceAtMoment=service.price..quantity=1..commissionEarned=unitCommission);
+      }
     });
     _snack('✅ ${service.name} agregado');
   }
@@ -149,7 +211,22 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
     ]));
   }
 
-  void _updateQuantity(int index, int qty) { setState((){ if(qty<=0) _cart.removeAt(index); else _cart[index].quantity=qty; }); }
+  void _updateQuantity(int index, int qty) {
+    setState(() {
+      if (qty <= 0) {
+        _cart.removeAt(index);
+      } else {
+        final item = _cart[index];
+        final oldQty = item.quantity;
+        // FIX COMISION: si es servicio, comisión = comisión unitaria x nueva cantidad
+        if (item.type == 'service' && oldQty > 0) {
+          final unitCommission = item.commissionEarned / oldQty;
+          item.commissionEarned = unitCommission * qty;
+        }
+        item.quantity = qty;
+      }
+    });
+  }
 
   Future<void> _processPayment() async {
     if(_cart.isEmpty) return;
@@ -314,19 +391,49 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
   }
 
   Future<void> _completeTransaction({required double cashReceived, required double change, List<Map<String, dynamic>>? mixedPayments}) async {
+    // FIX CAJA REAL: si el usuario no tiene caja, no dejar vender con caja-001
+    if (_miCaja == 'Sin Caja' || _miCaja == 'Cargando caja...' || _miCajaId.isEmpty) {
+      await _cargarMiCaja();
+      if (_miCaja == 'Sin Caja' || _miCajaId.isEmpty) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('⚠️ Este usuario no tiene caja asignada (ej: Usuario de Pruebas). Entra con BRAYAN, ALEX, MATY o PATRICIO para vender. Todos venden a la misma Caja 1.'), backgroundColor: Colors.orange, duration: Duration(seconds: 5)));
+        return;
+      }
+    }
+    final _authUser = Supabase.instance.client.auth.currentUser;
+    final realCashierId = _authUser?.id ?? 'user-001';
+    final realCashierName = currentUserName.isNotEmpty ? currentUserName : 'Recepcion';
+    // FIX FOLIO: pedir folio correlativo real antes de guardar, si no queda NULL
+    int folioUsado = 0;
+    String folioStr = '';
+    try {
+      folioUsado = await TicketConfigService.useNextFolio();
+      folioStr = folioUsado.toString();
+      // Si el folio que da el sistema es menor que el que mostramos (por los NULL 1078-1080), saltar a 1081
+      if (_proximoFolioNum > 0 && folioUsado < _proximoFolioNum) {
+        folioUsado = _proximoFolioNum;
+        folioStr = folioUsado.toString();
+        // Dejar folioActual en el siguiente para la proxima venta
+        try { await TicketConfigService.save({'folio_actual': folioUsado + 1, 'folioActual': folioUsado + 1}); } catch (_) {}
+      }
+    } catch (e) {
+      // Si falla el RPC, usar el folio que mostramos en pantalla para no dejar NULL
+      if (_proximoFolioNum > 0) { folioUsado = _proximoFolioNum; folioStr = folioUsado.toString(); }
+      else { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error folio: $e'), backgroundColor: Colors.red)); return; }
+    }
     final transaction = LocalTransaction()
       ..remoteId='trans-${DateTime.now().millisecondsSinceEpoch}'
-      ..cashRegisterId='caja-001'
-      ..cashierId='user-001'
-      ..cashierName=currentUserName.isNotEmpty ? currentUserName : 'Recepcion'
+      ..cashRegisterId=_miCajaId
+      ..cashierId=realCashierId
+      ..cashierName=realCashierName
       ..subtotal=_subtotal
       ..total=_total
       ..paymentMethod=_paymentMethod
       ..cashReceived=cashReceived
       ..changeAmount=change
       ..items=List.from(_cart);
-    try{
-      final transResponse = await Supabase.instance.client.from('transactions').insert({'id': transaction.remoteId, 'cash_register_id': transaction.cashRegisterId, 'cashier_id': transaction.cashierId, 'cashier_name': transaction.cashierName, 'barber_id': _selectedBarber?.remoteId??'', 'subtotal': transaction.subtotal, 'total': transaction.total, 'payment_method': transaction.paymentMethod, 'cash_received': cashReceived, 'change_amount': change, 'status': 'completed', 'created_at': DateTime.now().toIso8601String()}).select().single();
+    try {
+      try { transaction.folio = folioStr; } catch (_) {}
+      final transResponse = await Supabase.instance.client.from('transactions').insert({'id': transaction.remoteId, 'folio': folioStr, 'cash_register_id': transaction.cashRegisterId, 'cashier_id': transaction.cashierId, 'cashier_name': transaction.cashierName, 'barber_id': _selectedBarber?.remoteId??'', 'barber_name': _selectedBarber?.name ?? '', 'client_name': _selectedClient?.name ?? '', 'subtotal': transaction.subtotal, 'total': transaction.total, 'payment_method': transaction.paymentMethod, 'cash_received': cashReceived, 'change_amount': change, 'status': 'completed', 'created_at': DateTime.now().toIso8601String()}).select().single();
       final transactionId = transResponse['id'] as String;
       final itemsData = transaction.items.map((item)=>{'transaction_id': transactionId, 'item_type': item.type, 'service_id': item.type=='service'?item.serviceId:null, 'service_name': item.type=='service'?item.serviceName:null, 'product_id': item.type=='product'?item.productId:null, 'product_name': item.type=='product'?item.productName:null, 'barber_id': item.barberId.isNotEmpty?item.barberId:null, 'barber_name': item.barberName.isNotEmpty?item.barberName:null, 'price_at_moment': item.priceAtMoment, 'quantity': item.quantity, 'commission_earned': item.commissionEarned}).toList();
       await Supabase.instance.client.from('transaction_items').insert(itemsData);
@@ -351,7 +458,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
         }catch(_){}
       }
       await _printer.printTicket(transaction);
-      if(mounted){ setState((){ _cart.clear(); _selectedClient=null; _selectedAppointment=null; _discount=0; _mixedPayments.clear(); }); _snack('✅ Venta registrada'); await _loadData(); }
+      if(mounted){ setState((){ _cart.clear(); _selectedClient=null; _selectedAppointment=null; _discount=0; _mixedPayments.clear(); }); _snack('✅ Venta registrada - Folio $folioStr'); await _loadData(); }
     }catch(e){ if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red)); }
   }
 
@@ -380,7 +487,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
 
   Widget _buildDesktopCart() {
     return Container(width: 360, decoration: const BoxDecoration(color: Color(0xFF1E293B), border: Border(left: BorderSide(color: Colors.white10))), child: Column(children: [
-      Container(padding: const EdgeInsets.all(14), decoration: const BoxDecoration(gradient: LinearGradient(colors: [Color(0xFF312E81), Color(0xFF1E293B)]), border: Border(bottom: BorderSide(color: Colors.white10))), child: Row(children: [const Text('🛒', style: TextStyle(fontSize: 20)), const SizedBox(width: 8), Text('Carrito (${_cart.length})', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)), const Spacer(), if(_cart.isNotEmpty) InkWell(onTap: ()=>setState(()=>_cart.clear()), child: const Text('Vaciar', style: TextStyle(color: Colors.redAccent, fontSize: 11)))])),
+      Container(padding: const EdgeInsets.all(14), decoration: const BoxDecoration(gradient: LinearGradient(colors: [Color(0xFF312E81), Color(0xFF1E293B)]), border: Border(bottom: BorderSide(color: Colors.white10))), child: Row(children: [const Text('🛒', style: TextStyle(fontSize: 20)), const SizedBox(width: 8), Text('Carrito (${_cart.length})', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)), const SizedBox(width: 6), Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.2), borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFF10B981))), child: Text('Folio $_proximoFolio', style: const TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold))), const Spacer(), if(_cart.isNotEmpty) InkWell(onTap: ()=>setState(()=>_cart.clear()), child: const Text('Vaciar', style: TextStyle(color: Colors.redAccent, fontSize: 11)))])),
       Expanded(child: _cart.isEmpty ? const Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Text('🛒', style: TextStyle(fontSize: 48)), SizedBox(height: 12), Text('Carrito vacio', style: TextStyle(color: Colors.white54, fontSize: 13))])) : ListView.builder(padding: const EdgeInsets.all(10), itemCount: _cart.length, itemBuilder: (c,i){ final it=_cart[i]; return Container(margin: const EdgeInsets.only(bottom: 8), decoration: BoxDecoration(color: const Color(0xFF0F172A), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white10)), child: ListTile(dense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), title: Text(it.serviceName.isNotEmpty?it.serviceName:it.productName??'', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis), subtitle: Text('${SettingsService.formatCurrency(it.priceAtMoment)} x ${it.quantity}', style: const TextStyle(color: Colors.white54, fontSize: 10)), trailing: Row(mainAxisSize: MainAxisSize.min, children: [IconButton(icon: const Text('➖', style: TextStyle(fontSize: 12)), onPressed: ()=>_updateQuantity(i, it.quantity-1), padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 28, minHeight: 28)), Text('${it.quantity}', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)), IconButton(icon: const Text('➕', style: TextStyle(fontSize: 12)), onPressed: ()=>_updateQuantity(i, it.quantity+1), padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 28, minHeight: 28))]))); })),
       Container(padding: const EdgeInsets.all(14), decoration: const BoxDecoration(color: Color(0xFF0F172A), border: Border(top: BorderSide(color: Colors.white10))), child: Column(children: [
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Subtotal:', style: TextStyle(color: Colors.white54, fontSize: 12)), Text(SettingsService.formatCurrency(_subtotal), style: const TextStyle(color: Colors.white, fontSize: 12))]),
@@ -404,7 +511,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
 
   Widget _buildMobileBottomBar() {
     return Container(padding: const EdgeInsets.fromLTRB(12,10,12,12), decoration: BoxDecoration(color: const Color(0xFF1E293B), border: Border(top: BorderSide(color: Colors.white.withOpacity(0.08))), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.4), blurRadius: 12, offset: const Offset(0,-4))]), child: Column(mainAxisSize: MainAxisSize.min, children: [
-      Row(children: [Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Subtotal: ${SettingsService.formatCurrency(_subtotal)}', style: const TextStyle(color: Colors.white54, fontSize: 11)), Text(SettingsService.formatCurrency(_total), style: const TextStyle(color: Color(0xFF10B981), fontSize: 18, fontWeight: FontWeight.bold))])), const SizedBox(width: 10), Expanded(child: OutlinedButton.icon(onPressed: ()=>_showCartModal(), icon: const Text('🛒', style: TextStyle(fontSize: 14)), label: Text('Carrito (${_cart.length})', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)), style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: const BorderSide(color: Colors.white24), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)))))]),
+      Row(children: [Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Subtotal: ${SettingsService.formatCurrency(_subtotal)}', style: const TextStyle(color: Colors.white54, fontSize: 11)), Text(SettingsService.formatCurrency(_total), style: const TextStyle(color: Color(0xFF10B981), fontSize: 18, fontWeight: FontWeight.bold)), const SizedBox(height: 2), Text('Folio $_proximoFolio  •  🧾 $_miCaja', style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold))])), const SizedBox(width: 10), Expanded(child: OutlinedButton.icon(onPressed: ()=>_showCartModal(), icon: const Text('🛒', style: TextStyle(fontSize: 14)), label: Text('Carrito (${_cart.length})', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)), style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: const BorderSide(color: Colors.white24), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)))))]),
       const SizedBox(height: 8),
       Row(children: [Expanded(child: _buildOptionButton(icon: '📅', label: _selectedAppointment?.clientName ?? 'Cita', onTap: _showAppointmentSelector)), const SizedBox(width: 8), Expanded(child: _buildOptionButton(icon: '👤', label: _selectedClient?.name ?? 'Cliente', onTap: _showClientSelector))]),
       const SizedBox(height: 8),
@@ -435,28 +542,23 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
   }
 
   void _showMobileMenu() {
-    // FIX PUNTO 2: Antes era if (currentUserRole == 'admin') => solo Admin veia todo.
-    // Por eso Barbero con "Ver Historial" marcado seguia viendo solo Clientes.
-    // Ahora cada opcion se muestra si el rol tiene ese permiso en Roles.
-    // Admin ve todo porque RolePermissions.can('admin', ...) siempre es true.
-    final role = currentUserRole;
     showModalBottomSheet(context: context, isScrollControlled: true, shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), backgroundColor: const Color(0xFF1E293B), builder: (context) => DraggableScrollableSheet(initialChildSize: 0.9, minChildSize: 0.5, maxChildSize: 0.95, expand: false, builder: (context, scrollController) => SingleChildScrollView(controller: scrollController, child: Column(children: [
       Container(padding: const EdgeInsets.all(20), decoration: const BoxDecoration(color: Color(0xFF6366F1), borderRadius: BorderRadius.vertical(top: Radius.circular(20))), child: Row(children: const [Text('☰', style: TextStyle(fontSize: 28, color: Colors.white)), SizedBox(width: 12), Text('Menú', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white))])),
       Column(children: [
-        if (RolePermissions.can(role, BbsPerm.viewReports)) _buildMenuItem('📝', 'Reportes Avanzados', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => AdvancedReportsScreen())); }),
-        if (RolePermissions.can(role, BbsPerm.viewCommissions)) _buildMenuItem('💰', 'Comisiones', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => CommissionsScreen())); }),
-        if (RolePermissions.can(role, BbsPerm.viewBarbers)) _buildMenuItem('💈', 'Barberos', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => BarbersScreen())).then((_) => _loadData()); }),
-        if (RolePermissions.can(role, BbsPerm.viewServices)) _buildMenuItem('✂️', 'Servicios', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ServicesScreen())).then((_) => _loadData()); }),
-        if (RolePermissions.can(role, BbsPerm.viewProducts)) _buildMenuItem('📦', 'Productos', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ProductsScreen())).then((_) => _loadData()); }),
-        if (RolePermissions.can(role, BbsPerm.viewUsers)) _buildMenuItem('👥', 'Usuarios', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => UsersScreen())); }),
-        if (RolePermissions.can(role, BbsPerm.viewAgenda)) _buildMenuItem('📅', 'Agenda', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => AppointmentsScreen())); }),
-        if (RolePermissions.can(role, BbsPerm.viewReports)) _buildMenuItem('📊', 'Dashboard', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => DashboardScreen())); }),
-        if (RolePermissions.can(role, BbsPerm.viewReports)) _buildMenuItem('📈', 'Reportes', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ReportsScreen())); }),
-        // FIX: Barbero con Ver Historial marcado ahora SI ve Historial
-        if (RolePermissions.can(role, BbsPerm.viewHistory)) _buildMenuItem('📜', 'Historial', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => SalesHistoryScreen())); }),
-        if (RolePermissions.can(role, BbsPerm.viewSettings)) _buildMenuItem('⚙️', 'Configuración', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => SettingsScreen())); }),
-        if (RolePermissions.can(role, BbsPerm.manageRoles)) _buildMenuItem('🛡️', 'Roles', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => RolesScreen())); }),
-        if (RolePermissions.can(role, BbsPerm.viewClients)) _buildMenuItem('🧑‍💼', 'Clientes', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ClientsScreen())).then((_) => _loadData()); }),
+        if (currentUserRole == 'admin') ...[
+          _buildMenuItem('📝', 'Reportes Avanzados', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => AdvancedReportsScreen())); }),
+          _buildMenuItem('💰', 'Comisiones', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => CommissionsScreen())); }),
+          _buildMenuItem('💈', 'Barberos', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => BarbersScreen())).then((_) => _loadData()); }),
+          _buildMenuItem('✂️', 'Servicios', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ServicesScreen())).then((_) => _loadData()); }),
+          _buildMenuItem('📦', 'Productos', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ProductsScreen())).then((_) => _loadData()); }),
+          _buildMenuItem('👥', 'Usuarios', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => UsersScreen())); }),
+          _buildMenuItem('📅', 'Agenda', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => AppointmentsScreen())); }),
+          _buildMenuItem('📊', 'Dashboard', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => DashboardScreen())); }),
+          _buildMenuItem('📈', 'Reportes', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ReportsScreen())); }),
+          _buildMenuItem('📜', 'Historial', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => SalesHistoryScreen())); }),
+          _buildMenuItem('⚙️', 'Configuración', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => SettingsScreen())); }),
+        ],
+        _buildMenuItem('👤', 'Clientes', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ClientsScreen())).then((_) => _loadData()); }),
         const Divider(color: Colors.white10),
         _buildMenuItem('🚪', 'Cerrar sesión', () { Navigator.pop(context); _handleLogout(); }, isLogout: true),
       ]),
@@ -486,6 +588,8 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
           Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: const Color(0xFF6366F1), borderRadius: BorderRadius.circular(10)), child: const Text('💈', style: TextStyle(fontSize: 18))),
           const SizedBox(width: 8),
           const Text('POS Premium', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+          const SizedBox(width: 8),
+          Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: _miCaja == 'Sin Caja' ? Colors.red.withOpacity(0.2) : const Color(0xFF10B981).withOpacity(0.2), borderRadius: BorderRadius.circular(20), border: Border.all(color: _miCaja == 'Sin Caja' ? Colors.red : const Color(0xFF10B981))), child: Text('🧾 $_miCaja', style: TextStyle(color: _miCaja == 'Sin Caja' ? Colors.redAccent : const Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold))),
           if(_selectedBarber!=null) ...[
             const SizedBox(width: 10),
             Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.15), borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFF6366F1).withOpacity(0.3))), child: Text('✂️ ${_selectedBarber!.name}', style: const TextStyle(color: Color(0xFF818CF8), fontSize: 11, fontWeight: FontWeight.bold))),
@@ -499,7 +603,6 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
       ),
       body: isMobile
           ? Column(children: [
-              if(_selectedBarber==null) Container(width: double.infinity, padding: const EdgeInsets.all(10), color: const Color(0xFFF59E0B).withOpacity(0.15), child: const Text('⚠️ Selecciona un barbero para vender servicios', style: TextStyle(color: Color(0xFFF59E0B), fontSize: 11, fontWeight: FontWeight.w600), textAlign: TextAlign.center)),
               Expanded(child: TabBarView(controller: _tabController, children: [
                 _services.isEmpty ? const Center(child: Text('No hay servicios', style: TextStyle(color: Colors.white54, fontSize: 13))) : GridView.builder(padding: const EdgeInsets.all(10), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, childAspectRatio: 1.02, crossAxisSpacing: 10, mainAxisSpacing: 10), itemCount: _services.length, itemBuilder: (c,i)=>_buildServiceCard(_services[i])),
                 _products.isEmpty ? const Center(child: Text('No hay productos', style: TextStyle(color: Colors.white54, fontSize: 13))) : GridView.builder(padding: const EdgeInsets.all(10), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, childAspectRatio: 1.02, crossAxisSpacing: 10, mainAxisSpacing: 10), itemCount: _products.length, itemBuilder: (c,i)=>_buildProductCard(_products[i])),
@@ -508,7 +611,6 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
             ])
           : Row(children: [
               Expanded(child: Column(children: [
-                if(_selectedBarber==null) Container(width: double.infinity, padding: const EdgeInsets.all(10), color: const Color(0xFFF59E0B).withOpacity(0.15), child: const Text('⚠️ Selecciona un barbero para vender servicios', style: TextStyle(color: Color(0xFFF59E0B), fontSize: 12), textAlign: TextAlign.center)),
                 Expanded(child: TabBarView(controller: _tabController, children: [
                   _services.isEmpty ? const Center(child: Text('No hay servicios', style: TextStyle(color: Colors.white54))) : GridView.builder(padding: const EdgeInsets.all(16), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, childAspectRatio: 1.08, crossAxisSpacing: 12, mainAxisSpacing: 12), itemCount: _services.length, itemBuilder: (c,i)=>_buildServiceCard(_services[i])),
                   _products.isEmpty ? const Center(child: Text('No hay productos', style: TextStyle(color: Colors.white54))) : GridView.builder(padding: const EdgeInsets.all(16), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, childAspectRatio: 1.08, crossAxisSpacing: 12, mainAxisSpacing: 12), itemCount: _products.length, itemBuilder: (c,i)=>_buildProductCard(_products[i])),
