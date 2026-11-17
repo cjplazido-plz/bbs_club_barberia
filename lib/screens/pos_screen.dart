@@ -13,6 +13,8 @@ import '../repositories/client_repository.dart';
 import '../repositories/product_repository.dart';
 import '../repositories/appointment_repository.dart';
 import '../services/printer_service.dart';
+import '../services/ticket_easton.dart';
+import 'package:printing/printing.dart';
 import '../services/settings_service.dart';
 import '../services/ticket_config_service.dart';
 import '../main.dart';
@@ -457,7 +459,43 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
           }
         }catch(_){}
       }
-      await _printer.printTicket(transaction);
+      // --- TICKET EASTON (80mm, Courier Bold, derecha + guiones) ---
+      try {
+        final barberName = _selectedBarber?.name ?? (transaction.items.isNotEmpty ? transaction.items.first.barberName : '');
+        final clientName = _selectedClient?.name ?? 'Consumidor Final';
+        final data = EastonTicketData(
+          shopName: SettingsService.shopName.isNotEmpty ? SettingsService.shopName : 'BBS CLUB BARBERIA',
+          shopRif: SettingsService.shopRif,
+          shopAddress: SettingsService.shopAddress,
+          shopPhone: SettingsService.shopPhone,
+          folio: folioStr,
+          date: DateTime.now(),
+          clientName: clientName,
+          cashierName: realCashierName,
+          cashRegister: _miCaja,
+          barberName: barberName.isEmpty ? 'Sin asignar' : barberName,
+          items: transaction.items.map((it) => EastonTicketItem(
+            name: it.serviceName.isNotEmpty ? it.serviceName : (it.productName ?? 'Item'),
+            qty: it.quantity,
+            price: it.priceAtMoment,
+          )).toList(),
+          subtotal: _subtotal,
+          discount: _discount,
+          total: _total,
+          paymentLabel: _labelForMethod(_paymentMethod),
+          cashReceived: cashReceived,
+          change: change,
+          mixedPayments: mixedPayments,
+          footer: SettingsService.ticketFooter.isNotEmpty ? SettingsService.ticketFooter : '¡Gracias por su visita!',
+          isReprint: false,
+          logoUrl: SettingsService.ticketLogoUrl.isNotEmpty ? SettingsService.ticketLogoUrl : SettingsService.shopLogoUrl,
+        );
+        final bytes = await EastonTicket.build(data: data);
+        await Printing.sharePdf(bytes: bytes, filename: 'Ticket_$folioStr');
+      } catch (e) {
+        debugPrint('Error ticket Easton: $e');
+        try { await _printer.printTicket(transaction); } catch (_) {}
+      }
       if(mounted){ setState((){ _cart.clear(); _selectedClient=null; _selectedAppointment=null; _discount=0; _mixedPayments.clear(); }); _snack('✅ Venta registrada - Folio $folioStr'); await _loadData(); }
     }catch(e){ if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red)); }
   }
