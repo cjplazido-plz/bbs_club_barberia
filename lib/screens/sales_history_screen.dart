@@ -7,7 +7,6 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:http/http.dart' as http;
 import '../services/settings_service.dart';
-import '../services/ticket_easton.dart';
 import '../main.dart'; 
 import '../services/role_permissions.dart'; 
 
@@ -188,7 +187,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
                 const Text('Detalle de Venta', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
                 Text(DateFormat('dd/MM/yyyy HH:mm').format(DateTime.parse(transaction['created_at'])), style: const TextStyle(color: Colors.white70, fontSize: 11)),
               ])),
-              Container(decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), borderRadius: BorderRadius.circular(10)), child: IconButton(icon: const Icon(Icons.print_rounded, color: Colors.white, size: 20), tooltip: 'Reimprimir', onPressed: () => _printTicket(transaction, items, isReprint: true))),
+              Container(decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), borderRadius: BorderRadius.circular(10)), child: IconButton(icon: const Icon(Icons.print_rounded, color: Colors.white, size: 20), tooltip: 'Imprimir 80mm', onPressed: () => _printTicket(transaction, items))),
             ]),
           ),
           Expanded(
@@ -235,16 +234,16 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
                 ]),
               ),
               const SizedBox(height: 20),
-              if (RolePermissions.isAdmin(currentUserRole)) ...[
+              if (RolePermissions.can(currentUserRole, BbsPerm.editPayment) || RolePermissions.can(currentUserRole, BbsPerm.voidSale)) ...[
                 Row(children: [
-                  Expanded(child: OutlinedButton.icon(onPressed: () { Navigator.pop(context); _showEditPaymentDialog(transaction); }, icon: const Icon(Icons.edit_rounded, size: 16, color: Color(0xFF818CF8)), label: const Text('Editar Pago', style: TextStyle(color: Color(0xFF818CF8), fontSize: 12, fontWeight: FontWeight.bold)), style: OutlinedButton.styleFrom(side: const BorderSide(color: Color(0xFF6366F1)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 13)))),
+                  if (RolePermissions.can(currentUserRole, BbsPerm.editPayment)) Expanded(child: OutlinedButton.icon(onPressed: () { Navigator.pop(context); _showEditPaymentDialog(transaction); }, icon: const Icon(Icons.edit_rounded, size: 16, color: Color(0xFF818CF8)), label: const Text('Editar Pago', style: TextStyle(color: Color(0xFF818CF8), fontSize: 12, fontWeight: FontWeight.bold)), style: OutlinedButton.styleFrom(side: const BorderSide(color: Color(0xFF6366F1)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 13)))),
                   const SizedBox(width: 8),
-                  Expanded(child: OutlinedButton.icon(onPressed: transaction['status'] == 'cancelled' ? null : () { Navigator.pop(context); _showAnularDialog(transaction, items); }, icon: const Icon(Icons.cancel_rounded, size: 16, color: Colors.redAccent), label: const Text('Anular', style: TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.bold)), style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.redAccent), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 13)))),
+                  if (RolePermissions.can(currentUserRole, BbsPerm.voidSale)) Expanded(child: OutlinedButton.icon(onPressed: transaction['status'] == 'cancelled' ? null : () { Navigator.pop(context); _showAnularDialog(transaction, items); }, icon: const Icon(Icons.cancel_rounded, size: 16, color: Colors.redAccent), label: const Text('Anular', style: TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.bold)), style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.redAccent), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 13)))),
                 ]),
                 const SizedBox(height: 10),
               ],
               Row(children: [
-                Expanded(child: OutlinedButton.icon(onPressed: () => _printTicket(transaction, items, isReprint: true), icon: const Icon(Icons.print_rounded, size: 18, color: Colors.white70), label: const Text('Reimprimir', style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold)), style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.white24), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 14)))),
+                Expanded(child: OutlinedButton.icon(onPressed: () => _printTicket(transaction, items), icon: const Icon(Icons.print_rounded, size: 18, color: Colors.white70), label: const Text('Imprimir 80mm', style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold)), style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.white24), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 14)))),
                 const SizedBox(width: 10),
                 Expanded(child: Container(decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF818CF8)]), borderRadius: BorderRadius.circular(12)), child: ElevatedButton.icon(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.check_rounded, size: 16), label: const Text('Cerrar', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)), style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, shadowColor: Colors.transparent, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 14))))),
               ]),
@@ -357,26 +356,191 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
     )));
   }
 
-  Future<void> _printTicket(Map<String, dynamic> transaction, List<Map<String, dynamic>> items, {bool isReprint = true}) async {
-    // En Historial SIEMPRE es reimpresion: sale *** REIMPRESION *** en el ticket
+  Future<void> _printTicket(Map<String, dynamic> transaction, List<Map<String, dynamic>> items) async {
     try {
-      final data = EastonTicket.fromHistory(
-        transaction: transaction,
-        items: items,
-        shopName: SettingsService.shopName.isNotEmpty ? SettingsService.shopName : 'BBS CLUB BARBERIA',
-        shopRif: SettingsService.shopRif,
-        shopAddress: SettingsService.shopAddress,
-        shopPhone: SettingsService.shopPhone,
-        footer: SettingsService.ticketFooter.isNotEmpty ? SettingsService.ticketFooter : '¡Gracias por su visita!',
-        logoUrl: SettingsService.ticketLogoUrl.isNotEmpty ? SettingsService.ticketLogoUrl : SettingsService.shopLogoUrl,
-        isReprint: isReprint,
+      pw.ImageProvider? logoImage;
+      final logoUrl = SettingsService.ticketLogoUrl.isNotEmpty ? SettingsService.ticketLogoUrl : SettingsService.shopLogoUrl;
+
+      if (logoUrl.isNotEmpty) {
+        try {
+          final response = await http.get(Uri.parse(logoUrl));
+          if (response.statusCode == 200) {
+            logoImage = pw.MemoryImage(response.bodyBytes);
+          }
+        } catch (e) {
+          debugPrint('Error al cargar el logo del ticket: $e');
+        }
+      }
+
+      String displayBarberName = (transaction['barber_name'] ?? '').toString();
+      if (displayBarberName.isEmpty && items.isNotEmpty) {
+        final itemBarbers = items
+            .map((i) => i['barber_name']?.toString())
+            .where((b) => b != null && b.isNotEmpty && b != 'null')
+            .toSet()
+            .toList();
+        if (itemBarbers.isNotEmpty) {
+          displayBarberName = itemBarbers.join(', ');
+        }
+      }
+
+      final folioStr = transaction['folio']?.toString() ?? '#${transaction['id'].toString().substring(transaction['id'].toString().length - 6).toUpperCase()}';
+      final DateTime txDate = DateTime.parse(transaction['created_at']);
+      
+      final pdf = pw.Document();
+      
+      pdf.addPage(pw.Page(
+        pageFormat: PdfPageFormat(80 * PdfPageFormat.mm, double.infinity, marginAll: 4 * PdfPageFormat.mm),
+        build: (_) => pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.stretch, children: [
+          
+          // --- LOGO ---
+          if (logoImage != null) ...[
+            pw.Center(child: pw.Image(logoImage, height: 45, fit: pw.BoxFit.contain)),
+            pw.SizedBox(height: 6),
+          ],
+          
+          // --- ENCABEZADO DEL NEGOCIO ---
+          pw.Text((SettingsService.shopName.isNotEmpty ? SettingsService.shopName : 'BBS CLUB').toUpperCase(), 
+            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14, letterSpacing: 0.5), 
+            textAlign: pw.TextAlign.center
+          ),
+          pw.Text('${SettingsService.shopName.isNotEmpty ? SettingsService.shopName : 'BBS CLUB'} SPA', style: const pw.TextStyle(fontSize: 8), textAlign: pw.TextAlign.center),
+          pw.Text('RUT: ${SettingsService.shopRif}', style: const pw.TextStyle(fontSize: 8), textAlign: pw.TextAlign.center),
+          pw.Text(SettingsService.shopAddress, style: const pw.TextStyle(fontSize: 8), textAlign: pw.TextAlign.center),
+          pw.Text('Tel: ${SettingsService.shopPhone}', style: const pw.TextStyle(fontSize: 8), textAlign: pw.TextAlign.center),
+          
+          pw.SizedBox(height: 10),
+          pw.Divider(thickness: 0.5, borderStyle: pw.BorderStyle.dashed),
+          pw.SizedBox(height: 6),
+
+          // --- DATOS DE LA VENTA ---
+          pw.Text('TICKET DE VENTA', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10), textAlign: pw.TextAlign.center),
+          pw.SizedBox(height: 4),
+          pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+            pw.Text('Folio:', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)), 
+            pw.Text(folioStr, style: const pw.TextStyle(fontSize: 8))
+          ]),
+          pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+            pw.Text('Fecha:', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)), 
+            pw.Text(DateFormat('dd/MM/yyyy HH:mm:ss').format(txDate), style: const pw.TextStyle(fontSize: 8))
+          ]),
+          pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+            pw.Text('Cliente:', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)), 
+            pw.Text(transaction['client_name'] ?? 'Consumidor Final', style: const pw.TextStyle(fontSize: 8))
+          ]),
+          pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+            pw.Text('Cajero:', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)), 
+            pw.Text(transaction['cashier_name']?.toString() ?? 'N/A', style: const pw.TextStyle(fontSize: 8))
+          ]),
+          pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+            pw.Text('Caja:', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)), 
+            pw.Text(transaction['cash_register_id']?.toString() ?? 'N/A', style: const pw.TextStyle(fontSize: 8))
+          ]),
+          pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+            pw.Text('Barbero:', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)), 
+            pw.Text(displayBarberName.isEmpty ? 'Sin asignar' : displayBarberName, style: const pw.TextStyle(fontSize: 8))
+          ]),
+          
+          pw.SizedBox(height: 6),
+          pw.Divider(thickness: 0.5, borderStyle: pw.BorderStyle.dashed),
+          pw.SizedBox(height: 6),
+
+          // --- ITEMS ---
+          pw.Table(
+            columnWidths: {
+              0: const pw.FlexColumnWidth(3),
+              1: const pw.FlexColumnWidth(1),
+            },
+            children: [
+              pw.TableRow(
+                children: [
+                  pw.Text('Cant  Descripción', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
+                  pw.Text('Total', textAlign: pw.TextAlign.right, style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
+                ],
+              ),
+              ...items.map((it) {
+                final name = it['service_name'] ?? it['product_name'] ?? 'Item';
+                final qty = it['quantity'];
+                final price = (it['price_at_moment'] as num).toDouble();
+                final total = price * (qty as num).toInt();
+                
+                return pw.TableRow(
+                  children: [
+                    pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text(name, style: const pw.TextStyle(fontSize: 8)),
+                        pw.Text('  ${qty} x ${SettingsService.formatCurrency(price)}', style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey700)),
+                      ],
+                    ),
+                    pw.Text(SettingsService.formatCurrency(total), textAlign: pw.TextAlign.right, style: const pw.TextStyle(fontSize: 8)),
+                  ],
+                );
+              }),
+            ],
+          ),
+          
+          pw.SizedBox(height: 6),
+          pw.Divider(thickness: 0.5, borderStyle: pw.BorderStyle.dashed),
+          pw.SizedBox(height: 6),
+
+          // --- TOTALES ---
+          pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+            pw.Text('Subtotal', style: const pw.TextStyle(fontSize: 9)), 
+            // FIX: Se usa 'subtotal' en vez de 'total'
+            pw.Text(SettingsService.formatCurrency((transaction['subtotal'] as num).toDouble()), style: const pw.TextStyle(fontSize: 9))
+          ]),
+          pw.SizedBox(height: 4),
+          pw.Divider(thickness: 0.5, borderStyle: pw.BorderStyle.dashed),
+          pw.SizedBox(height: 4),
+          pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+            pw.Text('TOTAL', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)), 
+            pw.Text(SettingsService.formatCurrency((transaction['total'] as num).toDouble()), style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold))
+          ]),
+          pw.SizedBox(height: 4),
+          pw.Divider(thickness: 0.5, borderStyle: pw.BorderStyle.dashed),
+          pw.SizedBox(height: 6),
+
+          // --- PAGO ---
+          pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+            pw.Text('Forma de pago:', style: const pw.TextStyle(fontSize: 8)), 
+            pw.Text(_formatPayment(transaction['payment_method']?.toString()), style: const pw.TextStyle(fontSize: 8))
+          ]),
+          if ((transaction['cash_received'] as num?) != null && (transaction['cash_received'] as num) > 0) 
+            pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+              pw.Text('Recibido:', style: const pw.TextStyle(fontSize: 8)), 
+              pw.Text(SettingsService.formatCurrency((transaction['cash_received'] as num).toDouble()), style: const pw.TextStyle(fontSize: 8))
+            ]),
+          if ((transaction['change_amount'] as num?) != null && (transaction['change_amount'] as num) > 0) 
+            pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+              pw.Text('Vuelto:', style: const pw.TextStyle(fontSize: 8)), 
+              pw.Text(SettingsService.formatCurrency((transaction['change_amount'] as num).toDouble()), style: const pw.TextStyle(fontSize: 8))
+            ]),
+
+          pw.SizedBox(height: 8),
+          pw.Divider(thickness: 0.5, borderStyle: pw.BorderStyle.dashed),
+          pw.SizedBox(height: 8),
+
+          // --- PIE DE PÁGINA ---
+          pw.Text(SettingsService.ticketFooter.isNotEmpty ? SettingsService.ticketFooter : '¡Gracias por su visita!', 
+            style: pw.TextStyle(fontSize: 8, fontStyle: pw.FontStyle.italic), 
+            textAlign: pw.TextAlign.center
+          ),
+          pw.SizedBox(height: 4),
+          pw.Text(DateFormat('dd-MM-yyyy, h:mm:ss a').format(txDate), style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey700), textAlign: pw.TextAlign.center),
+        ]),
+      ));
+
+      final String dateStr = DateFormat('yyyyMMdd_HHmmss').format(txDate);
+      final String cleanFolio = folioStr.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '');
+      final String fileName = 'Ticket_${cleanFolio}_$dateStr';
+
+      final bytes = await pdf.save();
+      await Printing.sharePdf(
+        bytes: bytes,
+        filename: fileName,
       );
-      final bytes = await EastonTicket.build(data: data);
-      final folioStr = transaction['folio']?.toString() ?? transaction['id'].toString().substring(transaction['id'].toString().length - 6).toUpperCase();
-      final dateStr = DateFormat('yyyyMMdd_HHmmss').format(DateTime.parse(transaction['created_at'].toString()));
-      final cleanFolio = folioStr.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '');
-      final fileName = isReprint ? 'Reimpresion_Ticket_${cleanFolio}_$dateStr' : 'Ticket_${cleanFolio}_$dateStr';
-      await Printing.sharePdf(bytes: bytes, filename: fileName);
+      
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ Error al imprimir: $e'), backgroundColor: Colors.red));
     }
