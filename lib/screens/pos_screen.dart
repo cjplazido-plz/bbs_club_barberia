@@ -121,14 +121,34 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
     _snack('✅ ${service.name} agregado');
   }
 
-  void _addProductToCart(LocalProduct product) {
+ void _addProductToCart(LocalProduct product) {
+    // 1. Verificamos cuánto hay en el carrito actualmente
+    final idx = _cart.indexWhere((e) => e.type=='product' && e.productId==product.remoteId);
+    final int enCarrito = idx >= 0 ? _cart[idx].quantity : 0;
+
+    // 2. Verificamos si el stock alcanza
+    if (product.stock <= enCarrito) {
+      _snack('⚠️ No hay stock suficiente de ${product.name}');
+      return; // Detiene la función y no agrega nada
+    }
+
+    // 3. Si hay stock, lo agregamos
     setState(() {
-      final idx = _cart.indexWhere((e) => e.type=='product' && e.productId==product.remoteId);
-      if (idx>=0) _cart[idx].quantity++; else _cart.add(LocalTransactionItem()..type='product'..productId=product.remoteId??''..productName=product.name..priceAtMoment=product.price..quantity=1);
+      if (idx >= 0) {
+        _cart[idx].quantity++; 
+      } else {
+        _cart.add(LocalTransactionItem()
+          ..type='product'
+          ..productId=product.remoteId??''
+          ..productName=product.name
+          ..priceAtMoment=product.price
+          ..quantity=1
+        );
+      }
     });
     _snack('✅ ${product.name} agregado');
   }
-
+  
   void _snack(String msg) { 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -478,18 +498,20 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
   
   Widget _buildServiceCard(LocalService s) {
     final price = SettingsService.formatCurrency(s.price);
+    final goldColor = const Color(0xFFFBBF24); // Dorado Premium
+    
     return InkWell(onTap: ()=>_addServiceToCart(s), child: Container(
       decoration: BoxDecoration(
         gradient: const LinearGradient(colors: [Color(0xFF1E293B), Color(0xFF0F172A)], begin: Alignment.topLeft, end: Alignment.bottomRight),
         borderRadius: BorderRadius.circular(16), 
-        border: Border.all(color: Colors.white.withOpacity(0.08)), 
+        border: Border.all(color: goldColor.withOpacity(0.2)), // Borde dorado tenue
         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 10, offset: const Offset(0,4))]
       ), 
       child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
-        Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.15), shape: BoxShape.circle), child: const Icon(Icons.content_cut_rounded, size: 18, color: Color(0xFF818CF8))), 
+        Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: goldColor.withOpacity(0.15), shape: BoxShape.circle), child: Icon(Icons.content_cut_rounded, size: 18, color: goldColor)), 
         const Spacer(), 
-        Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.15), borderRadius: BorderRadius.circular(20)), child: Text(price, style: const TextStyle(color: Color(0xFF10B981), fontSize: 12, fontWeight: FontWeight.bold)))
+        Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: goldColor.withOpacity(0.15), borderRadius: BorderRadius.circular(20)), child: Text(price, style: TextStyle(color: goldColor, fontSize: 12, fontWeight: FontWeight.bold)))
       ]),
       const SizedBox(height: 12),
       Flexible(child: Text(s.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold, height: 1.1))),
@@ -498,6 +520,31 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
     ]))));
   }
 
+  Widget _buildProductCard(LocalProduct p) {
+    final price = SettingsService.formatCurrency(p.price);
+    final isLow = p.stock <= p.minStock;
+    final redColor = const Color(0xFFEF4444); // Rojo intenso
+    
+    return InkWell(onTap: ()=>_addProductToCart(p), child: Container(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(colors: [Color(0xFF1E293B), Color(0xFF0F172A)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+        borderRadius: BorderRadius.circular(16), 
+        border: Border.all(color: isLow ? redColor : redColor.withOpacity(0.2)),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 10, offset: const Offset(0,4))]
+      ), 
+      child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: redColor.withOpacity(0.15), shape: BoxShape.circle), child: Icon(Icons.inventory_2_rounded, size: 18, color: redColor)), 
+        const Spacer(), 
+        Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: redColor.withOpacity(0.15), borderRadius: BorderRadius.circular(20)), child: Text(price, style: TextStyle(color: redColor, fontSize: 12, fontWeight: FontWeight.bold)))
+      ]),
+      const SizedBox(height: 12),
+      Flexible(child: Text(p.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold, height: 1.1))),
+      const SizedBox(height: 4),
+      Text('Stock: ${p.stock}', style: TextStyle(color: isLow ? redColor : Colors.white38, fontSize: 11, fontWeight: FontWeight.w600)),
+    ]))));
+  }
+  
   Widget _buildProductCard(LocalProduct p) {
     final price = SettingsService.formatCurrency(p.price);
     final isLow = p.stock <= p.minStock;
