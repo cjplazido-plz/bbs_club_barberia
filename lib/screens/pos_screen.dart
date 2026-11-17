@@ -13,6 +13,8 @@ import '../repositories/client_repository.dart';
 import '../repositories/product_repository.dart';
 import '../repositories/appointment_repository.dart';
 import '../services/printer_service.dart';
+import '../services/ticket_easton.dart';
+import 'package:printing/printing.dart';
 import '../services/settings_service.dart';
 import '../services/ticket_config_service.dart';
 import '../main.dart';
@@ -486,7 +488,44 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
         }catch(_){}
       }
       
-      await _printer.printTicket(transaction);
+      // --- TICKET ESTILO EASTON (80mm, Courier, guiones) ---
+      try {
+        final barberName = _selectedBarber?.name ?? (transaction.items.isNotEmpty ? transaction.items.first.barberName : '');
+        final clientName = _selectedClient?.name ?? 'Consumidor Final';
+        final data = EastonTicketData(
+          shopName: SettingsService.shopName.isNotEmpty ? SettingsService.shopName : 'BBS CLUB BARBERIA',
+          shopRif: SettingsService.shopRif,
+          shopAddress: SettingsService.shopAddress,
+          shopPhone: SettingsService.shopPhone,
+          folio: folioStr,
+          date: DateTime.now(),
+          clientName: clientName,
+          cashierName: realCashierName,
+          cashRegister: cajaAsignada,
+          barberName: barberName.isEmpty ? 'Sin asignar' : barberName,
+          items: transaction.items.map((it) => EastonTicketItem(
+            name: it.serviceName.isNotEmpty ? it.serviceName : (it.productName ?? 'Item'),
+            qty: it.quantity,
+            price: it.priceAtMoment,
+          )).toList(),
+          subtotal: _subtotal,
+          discount: _discount,
+          total: _total,
+          paymentLabel: _labelForMethod(_paymentMethod),
+          cashReceived: cashReceived,
+          change: change,
+          mixedPayments: mixedPayments,
+          footer: SettingsService.ticketFooter.isNotEmpty ? SettingsService.ticketFooter : '¡Gracias por su visita!',
+          isReprint: false,
+          logoUrl: SettingsService.ticketLogoUrl.isNotEmpty ? SettingsService.ticketLogoUrl : SettingsService.shopLogoUrl,
+        );
+        final bytes = await EastonTicket.build(data: data);
+        await Printing.sharePdf(bytes: bytes, filename: 'Ticket_$folioStr');
+      } catch (e) {
+        debugPrint('Error ticket Easton: $e');
+        // Fallback: intento con printer viejo si falla el nuevo
+        try { await _printer.printTicket(transaction); } catch (_) {}
+      }
       
       if(mounted){ 
         setState((){ _cart.clear(); _selectedClient=null; _selectedAppointment=null; _discount=0; _mixedPayments.clear(); }); 
@@ -517,31 +556,6 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
       Flexible(child: Text(s.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold, height: 1.1))),
       const SizedBox(height: 4),
       Text('${s.durationMinutes} min • ${s.commissionValue.toStringAsFixed(0)}% Com.', style: const TextStyle(color: Colors.white38, fontSize: 11)),
-    ]))));
-  }
-
-  Widget _buildProductCard(LocalProduct p) {
-    final price = SettingsService.formatCurrency(p.price);
-    final isLow = p.stock <= p.minStock;
-    final redColor = const Color(0xFFEF4444); // Rojo intenso
-    
-    return InkWell(onTap: ()=>_addProductToCart(p), child: Container(
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [Color(0xFF1E293B), Color(0xFF0F172A)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-        borderRadius: BorderRadius.circular(16), 
-        border: Border.all(color: isLow ? redColor : redColor.withOpacity(0.2)),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 10, offset: const Offset(0,4))]
-      ), 
-      child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(children: [
-        Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: redColor.withOpacity(0.15), shape: BoxShape.circle), child: Icon(Icons.inventory_2_rounded, size: 18, color: redColor)), 
-        const Spacer(), 
-        Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: redColor.withOpacity(0.15), borderRadius: BorderRadius.circular(20)), child: Text(price, style: TextStyle(color: redColor, fontSize: 12, fontWeight: FontWeight.bold)))
-      ]),
-      const SizedBox(height: 12),
-      Flexible(child: Text(p.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold, height: 1.1))),
-      const SizedBox(height: 4),
-      Text('Stock: ${p.stock}', style: TextStyle(color: isLow ? redColor : Colors.white38, fontSize: 11, fontWeight: FontWeight.w600)),
     ]))));
   }
   
