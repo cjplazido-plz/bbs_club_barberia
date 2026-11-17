@@ -1,8 +1,11 @@
-// ticket_easton.dart - VERSION BOLD / MAS NEGRO PARA TERMICA 80mm
-// Cambio clave: TODO en Courier Bold + negro puro #000000.
-// Nada en gris, nada en Courier normal. La termica no imprime grises,
-// los deja lavados. Por eso salia ilegilble.
-// Tamanos subidos: cuerpo 9 -> 10, TOTAL 12 -> 14, encabezado 14 -> 16.
+// ticket_easton.dart - FINAL: BOLD + ALINEADO A LA DERECHA + LINEAS DE SEPARACION
+// Cambios vs version anterior:
+// 1. Folio / Fecha / Cliente / Cajero / Caja / Barbero ahora son 2 columnas:
+//    etiqueta a la IZQUIERDA, valor a la DERECHA, como Easton.
+//    Antes era una sola linea "Folio: 1067" pegada.
+// 2. Linea de separacion despues de TICKET DE VENTA / REIMPRESION (la que faltaba)
+//    y linea despues de los datos, antes de Cant/Descripcion.
+// 3. Se mantiene TODO Bold + negro puro para termica.
 import 'dart:typed_data';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
@@ -66,12 +69,10 @@ class EastonTicketData {
 
 class EastonTicket {
   static const String dash = '--------------------------------';
-
   static String fmt(double v) {
     final f = NumberFormat('#,##0', 'es_CL');
     return '\$ ${f.format(v.round())}';
   }
-
   static String labelForMethod(String m) {
     switch (m) {
       case 'cash': return 'Efectivo';
@@ -84,10 +85,8 @@ class EastonTicket {
   }
 
   static Future<Uint8List> build({required EastonTicketData data}) async {
-    // SOLO Bold + negro puro. Nada de gris.
     final monoBold = pw.Font.courierBold();
     const black = PdfColors.black;
-
     pw.ImageProvider? logoImage;
     final logoUrl = (data.logoUrl ?? '').trim();
     if (logoUrl.isNotEmpty) {
@@ -96,9 +95,18 @@ class EastonTicket {
         if (res.statusCode == 200) logoImage = pw.MemoryImage(res.bodyBytes);
       } catch (_) {}
     }
-
-    // Helper para no repetir: todo bold + negro
     pw.TextStyle st(double size) => pw.TextStyle(font: monoBold, fontSize: size, color: black);
+
+    // Fila de datos estilo Easton: etiqueta izquierda, valor derecha
+    pw.Widget datoRow(String label, String value) {
+      return pw.Padding(
+        padding: const pw.EdgeInsets.symmetric(vertical: 1),
+        child: pw.Row(children: [
+          pw.Text(label, style: st(10)),
+          pw.Expanded(child: pw.Text(value, style: st(10), textAlign: pw.TextAlign.right)),
+        ]),
+      );
+    }
 
     final pdf = pw.Document();
     pdf.addPage(
@@ -111,7 +119,6 @@ class EastonTicket {
               pw.Center(child: pw.Image(logoImage, height: 38, fit: pw.BoxFit.contain)),
               pw.SizedBox(height: 4),
             ],
-            // ENCABEZADO - mas grande y todo Bold
             pw.Text("BBSCLUB'", style: pw.TextStyle(font: monoBold, fontSize: 16, color: black, letterSpacing: 1.0), textAlign: pw.TextAlign.center),
             pw.Text(data.shopName.toUpperCase(), style: st(12), textAlign: pw.TextAlign.center),
             pw.Text('${data.shopName} SPA', style: st(10), textAlign: pw.TextAlign.center),
@@ -121,6 +128,7 @@ class EastonTicket {
             pw.SizedBox(height: 4),
             pw.Text(dash, style: st(10), textAlign: pw.TextAlign.center),
 
+            // TICKET DE VENTA
             pw.SizedBox(height: 4),
             pw.Text('TICKET DE VENTA', style: st(12), textAlign: pw.TextAlign.center),
             if (data.isReprint) ...[
@@ -128,15 +136,20 @@ class EastonTicket {
               pw.Text('*** REIMPRESION ***', style: st(11), textAlign: pw.TextAlign.center),
               pw.Text('Copia - No valido como boleta', style: st(8.5), textAlign: pw.TextAlign.center),
             ],
+            // --- LINEA DE SEPARACION QUE FALTABA (despues de TICKET / REIMPRESION) ---
+            pw.SizedBox(height: 4),
+            pw.Text(dash, style: st(10), textAlign: pw.TextAlign.center),
             pw.SizedBox(height: 4),
 
-            // DATOS - todo Bold 10, negro puro
-            pw.Text('Folio: ${data.folio}', style: st(10)),
-            pw.Text('Fecha: ${DateFormat('dd/MM/yyyy HH:mm:ss').format(data.date)}', style: st(10)),
-            pw.Text('Cliente: ${data.clientName}', style: st(10)),
-            pw.Text('Cajero: ${data.cashierName}', style: st(10)),
-            pw.Text('Caja: ${data.cashRegister}', style: st(10)),
-            pw.Text('Barbero: ${data.barberName}', style: st(10)),
+            // --- DATOS ALINEADOS A LA DERECHA, COMO EASTON ---
+            datoRow('Folio', data.folio),
+            datoRow('Fecha', DateFormat('dd/MM/yyyy HH:mm:ss').format(data.date)),
+            datoRow('Cliente', data.clientName),
+            datoRow('Cajero', data.cashierName),
+            datoRow('Caja', data.cashRegister),
+            datoRow('Barbero', data.barberName),
+
+            // --- LINEA DE SEPARACION DESPUES DE DATOS ---
             pw.SizedBox(height: 4),
             pw.Text(dash, style: st(10), textAlign: pw.TextAlign.center),
             pw.SizedBox(height: 4),
@@ -154,7 +167,6 @@ class EastonTicket {
                     pw.Expanded(child: pw.Text(it.name, style: st(10))),
                     pw.Text(fmt(it.total), style: st(10)),
                   ]),
-                  // ANTES era gris -> ahora negro Bold, por eso se veia lavado
                   pw.Text('  ${it.qty} x ${fmt(it.price)}', style: st(9)),
                   pw.SizedBox(height: 1),
                 ],
@@ -178,7 +190,6 @@ class EastonTicket {
             pw.SizedBox(height: 4),
             pw.Text(dash, style: st(10), textAlign: pw.TextAlign.center),
             pw.SizedBox(height: 4),
-            // TOTAL mas grande y mas negro
             pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
               pw.Text('TOTAL', style: st(14)),
               pw.Text(fmt(data.total), style: st(14)),
@@ -218,7 +229,6 @@ class EastonTicket {
 
             pw.Text(data.footer, style: st(9.5), textAlign: pw.TextAlign.center),
             pw.SizedBox(height: 4),
-            // ANTES gris -> ahora negro Bold
             pw.Text(DateFormat('dd-MM-yyyy, h:mm:ss a').format(data.date), style: st(8.5), textAlign: pw.TextAlign.center),
             pw.SizedBox(height: 10),
             pw.Text('', style: st(4)),
