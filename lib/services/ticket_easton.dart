@@ -1,10 +1,8 @@
-// ticket_easton.dart
-// Formato Easton Outlet Mall - termica 80mm
-// Monoespaciado Courier + lineas de guiones como la impresora termica.
-// Un solo builder para POS (Carrito) y para Historial (Reimpresion).
-// Uso:
-//   final bytes = await EastonTicket.build(data: EastonTicketData(...));
-//   await Printing.sharePdf(bytes: bytes, filename: 'Ticket_1067');
+// ticket_easton.dart - VERSION BOLD / MAS NEGRO PARA TERMICA 80mm
+// Cambio clave: TODO en Courier Bold + negro puro #000000.
+// Nada en gris, nada en Courier normal. La termica no imprime grises,
+// los deja lavados. Por eso salia ilegilble.
+// Tamanos subidos: cuerpo 9 -> 10, TOTAL 12 -> 14, encabezado 14 -> 16.
 import 'dart:typed_data';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
@@ -20,10 +18,10 @@ class EastonTicketItem {
 }
 
 class EastonTicketData {
-  final String shopName; // BBS CLUB BARBERIA
-  final String shopRif; // 77.000000-0
-  final String shopAddress; // Manuel Montt 460 - local 6 - Coronel
-  final String shopPhone; // +56 9 6106 3670
+  final String shopName;
+  final String shopRif;
+  final String shopAddress;
+  final String shopPhone;
   final String folio;
   final DateTime date;
   final String clientName;
@@ -34,14 +32,13 @@ class EastonTicketData {
   final double subtotal;
   final double discount;
   final double total;
-  final String paymentLabel; // Efectivo / Transferencia / Tarjeta / Mixto
+  final String paymentLabel;
   final double? cashReceived;
   final double? change;
-  final List<Map<String, dynamic>>? mixedPayments; // [{method:'cash', amount: 6000}]
-  final String footer; // ¡Gracias por su visita!
+  final List<Map<String, dynamic>>? mixedPayments;
+  final String footer;
   final bool isReprint;
   final String? logoUrl;
-
   const EastonTicketData({
     required this.shopName,
     required this.shopRif,
@@ -68,11 +65,9 @@ class EastonTicketData {
 }
 
 class EastonTicket {
-  // 32 guiones = ancho exacto 80mm en Courier 9pt. Igual que Easton.
   static const String dash = '--------------------------------';
 
   static String fmt(double v) {
-    // $ 12.000 - formato chileno con punto de miles
     final f = NumberFormat('#,##0', 'es_CL');
     return '\$ ${f.format(v.round())}';
   }
@@ -89,10 +84,9 @@ class EastonTicket {
   }
 
   static Future<Uint8List> build({required EastonTicketData data}) async {
-    final mono = pw.Font.courier();
+    // SOLO Bold + negro puro. Nada de gris.
     final monoBold = pw.Font.courierBold();
-    // Courier oblique no existe en pdf pkg, se simula con italic=false + estilo
-    // Para el footer usamos courier normal.
+    const black = PdfColors.black;
 
     pw.ImageProvider? logoImage;
     final logoUrl = (data.logoUrl ?? '').trim();
@@ -103,6 +97,9 @@ class EastonTicket {
       } catch (_) {}
     }
 
+    // Helper para no repetir: todo bold + negro
+    pw.TextStyle st(double size) => pw.TextStyle(font: monoBold, fontSize: size, color: black);
+
     final pdf = pw.Document();
     pdf.addPage(
       pw.Page(
@@ -110,58 +107,43 @@ class EastonTicket {
         build: (_) => pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.stretch,
           children: [
-            // ---- LOGO (opcional, chico como Easton sin logo) ----
             if (logoImage != null) ...[
               pw.Center(child: pw.Image(logoImage, height: 38, fit: pw.BoxFit.contain)),
               pw.SizedBox(height: 4),
             ],
-            // ---- ENCABEZADO - centrado, Courier bold como Easton ----
-            pw.Text(
-              'BBSCLUB\'',
-              style: pw.TextStyle(font: monoBold, fontSize: 14, letterSpacing: 1.0),
-              textAlign: pw.TextAlign.center,
-            ),
-            pw.Text(
-              data.shopName.toUpperCase(),
-              style: pw.TextStyle(font: monoBold, fontSize: 11),
-              textAlign: pw.TextAlign.center,
-            ),
-            pw.Text(
-              '${data.shopName} SPA',
-              style: pw.TextStyle(font: mono, fontSize: 9),
-              textAlign: pw.TextAlign.center,
-            ),
-            pw.Text('RUT: ${data.shopRif}', style: pw.TextStyle(font: mono, fontSize: 9), textAlign: pw.TextAlign.center),
-            pw.Text(data.shopAddress, style: pw.TextStyle(font: mono, fontSize: 8.5), textAlign: pw.TextAlign.center),
-            pw.Text('Tel: ${data.shopPhone}', style: pw.TextStyle(font: mono, fontSize: 8.5), textAlign: pw.TextAlign.center),
+            // ENCABEZADO - mas grande y todo Bold
+            pw.Text("BBSCLUB'", style: pw.TextStyle(font: monoBold, fontSize: 16, color: black, letterSpacing: 1.0), textAlign: pw.TextAlign.center),
+            pw.Text(data.shopName.toUpperCase(), style: st(12), textAlign: pw.TextAlign.center),
+            pw.Text('${data.shopName} SPA', style: st(10), textAlign: pw.TextAlign.center),
+            pw.Text('RUT: ${data.shopRif}', style: st(10), textAlign: pw.TextAlign.center),
+            pw.Text(data.shopAddress, style: st(9.5), textAlign: pw.TextAlign.center),
+            pw.Text('Tel: ${data.shopPhone}', style: st(9.5), textAlign: pw.TextAlign.center),
             pw.SizedBox(height: 4),
-            pw.Text(dash, style: pw.TextStyle(font: mono, fontSize: 9), textAlign: pw.TextAlign.center),
+            pw.Text(dash, style: st(10), textAlign: pw.TextAlign.center),
 
-            // ---- TITULO ----
             pw.SizedBox(height: 4),
-            pw.Text('TICKET DE VENTA', style: pw.TextStyle(font: monoBold, fontSize: 11), textAlign: pw.TextAlign.center),
+            pw.Text('TICKET DE VENTA', style: st(12), textAlign: pw.TextAlign.center),
             if (data.isReprint) ...[
               pw.SizedBox(height: 2),
-              pw.Text('*** REIMPRESION ***', style: pw.TextStyle(font: monoBold, fontSize: 10), textAlign: pw.TextAlign.center),
-              pw.Text('Copia - No valido como boleta', style: pw.TextStyle(font: mono, fontSize: 7.5), textAlign: pw.TextAlign.center),
+              pw.Text('*** REIMPRESION ***', style: st(11), textAlign: pw.TextAlign.center),
+              pw.Text('Copia - No valido como boleta', style: st(8.5), textAlign: pw.TextAlign.center),
             ],
             pw.SizedBox(height: 4),
 
-            // ---- DATOS - una sola linea por campo, como Easton: "Folio: V-1116" ----
-            pw.Text('Folio: ${data.folio}', style: pw.TextStyle(font: mono, fontSize: 9)),
-            pw.Text('Fecha: ${DateFormat('dd/MM/yyyy HH:mm:ss').format(data.date)}', style: pw.TextStyle(font: mono, fontSize: 9)),
-            pw.Text('Cliente: ${data.clientName}', style: pw.TextStyle(font: mono, fontSize: 9)),
-            pw.Text('Cajero: ${data.cashierName}', style: pw.TextStyle(font: mono, fontSize: 9)),
-            pw.Text('Caja: ${data.cashRegister}', style: pw.TextStyle(font: mono, fontSize: 9)),
-            pw.Text('Barbero: ${data.barberName}', style: pw.TextStyle(font: mono, fontSize: 9)),
+            // DATOS - todo Bold 10, negro puro
+            pw.Text('Folio: ${data.folio}', style: st(10)),
+            pw.Text('Fecha: ${DateFormat('dd/MM/yyyy HH:mm:ss').format(data.date)}', style: st(10)),
+            pw.Text('Cliente: ${data.clientName}', style: st(10)),
+            pw.Text('Cajero: ${data.cashierName}', style: st(10)),
+            pw.Text('Caja: ${data.cashRegister}', style: st(10)),
+            pw.Text('Barbero: ${data.barberName}', style: st(10)),
             pw.SizedBox(height: 4),
-            pw.Text(dash, style: pw.TextStyle(font: mono, fontSize: 9), textAlign: pw.TextAlign.center),
+            pw.Text(dash, style: st(10), textAlign: pw.TextAlign.center),
             pw.SizedBox(height: 4),
 
-            // ---- ITEMS - encabezado ----
             pw.Row(children: [
-              pw.Expanded(child: pw.Text('Cant  Descripcion', style: pw.TextStyle(font: monoBold, fontSize: 9))),
-              pw.Text('Total', style: pw.TextStyle(font: monoBold, fontSize: 9)),
+              pw.Expanded(child: pw.Text('Cant  Descripcion', style: st(10))),
+              pw.Text('Total', style: st(10)),
             ]),
             pw.SizedBox(height: 2),
             ...data.items.map((it) {
@@ -169,79 +151,77 @@ class EastonTicket {
                 crossAxisAlignment: pw.CrossAxisAlignment.stretch,
                 children: [
                   pw.Row(children: [
-                    pw.Expanded(child: pw.Text(it.name, style: pw.TextStyle(font: mono, fontSize: 9))),
-                    pw.Text(fmt(it.total), style: pw.TextStyle(font: mono, fontSize: 9)),
+                    pw.Expanded(child: pw.Text(it.name, style: st(10))),
+                    pw.Text(fmt(it.total), style: st(10)),
                   ]),
-                  pw.Text('  ${it.qty} x ${fmt(it.price)}', style: pw.TextStyle(font: mono, fontSize: 8, color: PdfColors.grey700)),
+                  // ANTES era gris -> ahora negro Bold, por eso se veia lavado
+                  pw.Text('  ${it.qty} x ${fmt(it.price)}', style: st(9)),
                   pw.SizedBox(height: 1),
                 ],
               );
             }),
             pw.SizedBox(height: 4),
-            pw.Text(dash, style: pw.TextStyle(font: mono, fontSize: 9), textAlign: pw.TextAlign.center),
+            pw.Text(dash, style: st(10), textAlign: pw.TextAlign.center),
             pw.SizedBox(height: 4),
 
-            // ---- TOTALES ----
             pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
-              pw.Text('Subtotal', style: pw.TextStyle(font: mono, fontSize: 9)),
-              pw.Text(fmt(data.subtotal), style: pw.TextStyle(font: mono, fontSize: 9)),
+              pw.Text('Subtotal', style: st(10)),
+              pw.Text(fmt(data.subtotal), style: st(10)),
             ]),
             if (data.discount > 0) ...[
               pw.SizedBox(height: 2),
               pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
-                pw.Text('Descuento', style: pw.TextStyle(font: mono, fontSize: 9)),
-                pw.Text('- ${fmt(data.discount)}', style: pw.TextStyle(font: mono, fontSize: 9)),
+                pw.Text('Descuento', style: st(10)),
+                pw.Text('- ${fmt(data.discount)}', style: st(10)),
               ]),
             ],
             pw.SizedBox(height: 4),
-            pw.Text(dash, style: pw.TextStyle(font: mono, fontSize: 9), textAlign: pw.TextAlign.center),
+            pw.Text(dash, style: st(10), textAlign: pw.TextAlign.center),
             pw.SizedBox(height: 4),
+            // TOTAL mas grande y mas negro
             pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
-              pw.Text('TOTAL', style: pw.TextStyle(font: monoBold, fontSize: 12)),
-              pw.Text(fmt(data.total), style: pw.TextStyle(font: monoBold, fontSize: 12)),
+              pw.Text('TOTAL', style: st(14)),
+              pw.Text(fmt(data.total), style: st(14)),
             ]),
             pw.SizedBox(height: 4),
-            pw.Text(dash, style: pw.TextStyle(font: mono, fontSize: 9), textAlign: pw.TextAlign.center),
+            pw.Text(dash, style: st(10), textAlign: pw.TextAlign.center),
             pw.SizedBox(height: 4),
 
-            // ---- PAGO - estilo Easton: Pago / Paga / Vuelto ----
             pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
-              pw.Text('Forma de pago:', style: pw.TextStyle(font: mono, fontSize: 9)),
-              pw.Text(data.paymentLabel, style: pw.TextStyle(font: mono, fontSize: 9)),
+              pw.Text('Forma de pago:', style: st(10)),
+              pw.Text(data.paymentLabel, style: st(10)),
             ]),
-            // Si es mixto, listar cada pago como en Easton (una linea por pago)
             if (data.mixedPayments != null && data.mixedPayments!.isNotEmpty)
               ...data.mixedPayments!.map((p) => pw.Padding(
                     padding: const pw.EdgeInsets.only(top: 1),
                     child: pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
-                      pw.Text('  ${labelForMethod((p['method'] ?? '').toString())}:', style: pw.TextStyle(font: mono, fontSize: 8.5)),
-                      pw.Text(fmt((p['amount'] as num).toDouble()), style: pw.TextStyle(font: mono, fontSize: 8.5)),
+                      pw.Text('  ${labelForMethod((p['method'] ?? '').toString())}:', style: st(9.5)),
+                      pw.Text(fmt((p['amount'] as num).toDouble()), style: st(9.5)),
                     ]),
                   )),
             if (data.cashReceived != null && data.cashReceived! > 0)
               pw.Padding(
                 padding: const pw.EdgeInsets.only(top: 1),
                 child: pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
-                  pw.Text('Recibido:', style: pw.TextStyle(font: mono, fontSize: 9)),
-                  pw.Text(fmt(data.cashReceived!), style: pw.TextStyle(font: mono, fontSize: 9)),
+                  pw.Text('Recibido:', style: st(10)),
+                  pw.Text(fmt(data.cashReceived!), style: st(10)),
                 ]),
               ),
             if (data.change != null && data.change! > 0)
               pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
-                pw.Text('Vuelto:', style: pw.TextStyle(font: mono, fontSize: 9)),
-                pw.Text(fmt(data.change!), style: pw.TextStyle(font: mono, fontSize: 9)),
+                pw.Text('Vuelto:', style: st(10)),
+                pw.Text(fmt(data.change!), style: st(10)),
               ]),
             pw.SizedBox(height: 6),
-            pw.Text(dash, style: pw.TextStyle(font: mono, fontSize: 9), textAlign: pw.TextAlign.center),
+            pw.Text(dash, style: st(10), textAlign: pw.TextAlign.center),
             pw.SizedBox(height: 6),
 
-            // ---- PIE - igual que Easton ----
-            pw.Text(data.footer, style: pw.TextStyle(font: mono, fontSize: 8.5), textAlign: pw.TextAlign.center),
+            pw.Text(data.footer, style: st(9.5), textAlign: pw.TextAlign.center),
             pw.SizedBox(height: 4),
-            pw.Text(DateFormat('dd-MM-yyyy, h:mm:ss a').format(data.date), style: pw.TextStyle(font: mono, fontSize: 7.5, color: PdfColors.grey700), textAlign: pw.TextAlign.center),
+            // ANTES gris -> ahora negro Bold
+            pw.Text(DateFormat('dd-MM-yyyy, h:mm:ss a').format(data.date), style: st(8.5), textAlign: pw.TextAlign.center),
             pw.SizedBox(height: 10),
-            // Espacio para corte de papel
-            pw.Text('', style: pw.TextStyle(font: mono, fontSize: 4)),
+            pw.Text('', style: st(4)),
           ],
         ),
       ),
@@ -249,7 +229,6 @@ class EastonTicket {
     return pdf.save();
   }
 
-  // Helper para Historial: construye desde Map de Supabase (transactions + transaction_items)
   static EastonTicketData fromHistory({
     required Map<String, dynamic> transaction,
     required List<Map<String, dynamic>> items,
