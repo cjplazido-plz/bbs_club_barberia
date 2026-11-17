@@ -67904,20 +67904,19 @@ s=$.HA
 r.b=s.length!==0?s:"Recepcion"}return r},
 $S:421}
 A.b6j.prototype={
-$0(){var s,r,q,p=this.a.ay,o=this.b,n=B.l.Xm(p,new A.b6i(o))
-if(n>=0)++p[n].x
-else{s=new A.kR()
-r=o.a
+$0(){var s,r,q=this.a.ay,p=this.b,o=B.l.Xm(q,new A.b6i(p)),n=p.c,m=n*p.r/100
+if(o>=0){q=q[o]
+q.y=m*++q.x}else{s=new A.kR()
+r=p.a
 s.b=r==null?"":r
-s.c=o.b
-r=this.c
-q=r.a
-s.f=q==null?"":q
-s.r=r.b
-r=o.c
-s.w=r
-s.y=r*o.r/100
-p.push(s)}},
+s.c=p.b
+p=this.c
+r=p.a
+s.f=r==null?"":r
+s.r=p.b
+s.w=n
+s.y=m
+q.push(s)}},
 $S:0}
 A.b6i.prototype={
 $1(a){return a.a==="service"&&a.b===this.a.a},
@@ -68034,9 +68033,12 @@ s.c=r==null?"":r
 return s},
 $S:282}
 A.b8d.prototype={
-$0(){var s=this.b,r=this.c,q=this.a.ay
-if(s<=0)B.l.fe(q,r)
-else q[r].x=s},
+$0(){var s,r,q=this.b,p=this.c,o=this.a.ay
+if(q<=0)B.l.fe(o,p)
+else{s=o[p]
+r=s.x
+if(s.a==="service"&&r>0)s.y=s.y/r*q
+s.x=q}},
 $S:0}
 A.b7F.prototype={
 $1(a){return A.j4(a,t.N,t.z)},
