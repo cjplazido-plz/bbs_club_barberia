@@ -158,6 +158,10 @@ class EastonTicket {
               pw.Expanded(child: pw.Text('Cant  Descripcion', style: st(10))),
               pw.Text('Total', style: st(10)),
             ]),
+            pw.SizedBox(height: 4),
+            pw.Text(dash, style: st(10), textAlign: pw.TextAlign.center),
+            pw.SizedBox(height: 4),
+            
             pw.SizedBox(height: 2),
             ...data.items.map((it) {
               return pw.Column(

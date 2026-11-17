@@ -83,6 +83,8 @@ class PrinterWindows {
       bytes += generator.text('--------------------------------', styles: _boldCenter);
       bytes += generator.text('Cant  Descripcion          Total', styles: _bold);
       for (var it in trx.items) {
+      bytes += generator.text('--------------------------------', styles: _boldCenter);
+        
         final name = (it.type == 'service' ? it.serviceName : it.productName).toString();
         final qty = it.quantity as int;
         final price = it.priceAtMoment as double;
