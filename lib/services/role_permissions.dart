@@ -1,42 +1,48 @@
+// role_permissions.dart - FIX 2AM V2 - Menu obedece a Roles de Supabase
+// REEMPLAZA a lib/services/role_permissions.dart
+// FIX V2: Agrega isAdmin() y BbsPerm.confirmCancel que usan las otras pantallas
+// y que faltaban en V1 y por eso no compilaba.
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class BbsPerm {
-  static const sell = 'sell';
-  static const viewAgenda = 'viewAgenda';
-  static const createEditAppointment = 'createEditAppointment';
-  static const confirmCancel = 'confirmCancel';
-  static const blockHours = 'blockHours';
-  static const viewClients = 'viewClients';
-  static const createEditClient = 'createEditClient';
-  static const deleteClient = 'deleteClient';
-  static const viewCommissions = 'viewCommissions';
-  static const markPaid = 'markPaid';
-  static const viewClosure = 'viewClosure';
-  static const viewHistory = 'viewHistory';
-  static const viewReports = 'viewReports'; 
-  static const viewUsers = 'viewUsers';
-  static const manageRoles = 'manageRoles';
-  static const viewSettings = 'viewSettings';
-  
-  // NUEVOS PERMISOS
-  static const viewBarbers = 'viewBarbers';
-  static const viewServices = 'viewServices';
-  static const viewProducts = 'viewProducts';
-  static const editPayment = 'editPayment';
-  static const voidSale = 'voidSale';
+  static const String sell = 'vender';
+  static const String viewAgenda = 'ver_agenda';
+  static const String createEditAppointment = 'crear_editar_cita';
+  static const String confirmCancelAppointment = 'confirmar_cancelar_cita';
+  // Alias que usan otras pantallas (appointments_screen usa confirmCancel)
+  static const String confirmCancel = 'confirmar_cancelar_cita';
+  static const String blockHours = 'bloquear_horas';
+  static const String viewClients = 'ver_clientes';
+  static const String createEditClient = 'crear_editar_cliente';
+  static const String deleteClient = 'eliminar_cliente';
+  static const String viewCommissions = 'ver_comisiones';
+  static const String markPaid = 'marcar_pagado';
+  static const String viewClosure = 'ver_cierre_cuadratura';
+  static const String viewCierre = 'ver_cierre_cuadratura';
+  static const String viewHistory = 'ver_historial';
+  static const String viewReports = 'ver_reportes';
+  static const String viewUsers = 'ver_usuarios';
+  static const String manageRoles = 'roles';
+  static const String viewSettings = 'ver_configuracion';
+  static const String viewBarbers = 'ver_barberos';
+  static const String viewServices = 'ver_servicios';
+  static const String viewProducts = 'ver_productos';
+  static const String editPayment = 'editar_pago';
+  static const String voidSale = 'anular_venta';
 
-  static const all = [
-    sell, viewAgenda, createEditAppointment, confirmCancel, blockHours,
+  static const List<String> all = [
+    sell, viewAgenda, createEditAppointment, confirmCancelAppointment, blockHours,
     viewClients, createEditClient, deleteClient, viewCommissions, markPaid,
-    viewClosure, viewHistory, viewReports, viewUsers, manageRoles, viewSettings,
-    viewBarbers, viewServices, viewProducts, editPayment, voidSale,
+    viewClosure, viewHistory, viewReports, viewUsers, manageRoles,
+    viewSettings, viewBarbers, viewServices, viewProducts, editPayment, voidSale,
   ];
 
-  static const labels = {
+  static const Map<String, String> labels = {
     sell: 'Vender (cobrar)',
     viewAgenda: 'Ver Agenda',
     createEditAppointment: 'Crear-Editar Cita',
-    confirmCancel: 'Confirmar-Cancelar Cita',
+    confirmCancelAppointment: 'Confirmar-Cancelar Cita',
     blockHours: 'Bloquear Horas',
     viewClients: 'Ver Clientes',
     createEditClient: 'Crear-Editar Cliente',
@@ -45,12 +51,12 @@ class BbsPerm {
     markPaid: 'Marcar Pagado',
     viewClosure: 'Ver Cierre-Cuadratura',
     viewHistory: 'Ver Historial',
-    viewReports: 'Ver Reportes', 
+    viewReports: 'Ver Reportes',
     viewUsers: 'Ver Usuarios',
     manageRoles: 'Roles',
     viewSettings: 'Ver Configuración',
-    viewBarbers: 'Ver Barberos',   // <-- NUEVO
-    viewServices: 'Ver Servicios', // <-- NUEVO
+    viewBarbers: 'Ver Barberos',
+    viewServices: 'Ver Servicios',
     viewProducts: 'Ver Productos',
     editPayment: 'Editar Pago',
     voidSale: 'Anular Venta',
@@ -58,37 +64,6 @@ class BbsPerm {
 }
 
 class RolePermissions {
-  // MODELO REAL BBS: Barbero (ALEX/MATY) vende y ve historial, pero NO edita pago, NO anula, NO ve cierre, NO marca pagado.
-  // Barbero/Cajero (BRAYAN) maneja la Caja 1 unica: vende, ve cierre, marca pagado, edita pago, anula.
-  // Admin todo. Si el Admin cambia algo en Roles, manda la DB, no estos defaults.
-  static const Map<String, Set<String>> defaults = {
-    'admin': {
-      BbsPerm.sell, BbsPerm.viewAgenda, BbsPerm.createEditAppointment,
-      BbsPerm.confirmCancel, BbsPerm.blockHours, BbsPerm.viewClients, BbsPerm.createEditClient,
-      BbsPerm.deleteClient, BbsPerm.viewCommissions, BbsPerm.markPaid, BbsPerm.viewClosure,
-      BbsPerm.viewHistory, BbsPerm.viewReports, BbsPerm.viewUsers,
-      BbsPerm.manageRoles, BbsPerm.viewSettings,
-      BbsPerm.viewBarbers, BbsPerm.viewServices, BbsPerm.viewProducts,
-      BbsPerm.editPayment, BbsPerm.voidSale,
-    },
-    'cashier': {
-      BbsPerm.sell, BbsPerm.viewAgenda, BbsPerm.createEditAppointment,
-      BbsPerm.confirmCancel, BbsPerm.viewClients, BbsPerm.viewClosure, BbsPerm.viewHistory,
-      BbsPerm.viewServices, BbsPerm.viewProducts, BbsPerm.markPaid,
-      BbsPerm.editPayment, BbsPerm.voidSale,
-    },
-    'barber': {
-      BbsPerm.sell, BbsPerm.viewAgenda, BbsPerm.viewClients, BbsPerm.viewCommissions, BbsPerm.viewHistory,
-      BbsPerm.viewServices, BbsPerm.viewProducts,
-    },
-    'barber_cashier': {
-      BbsPerm.sell, BbsPerm.viewAgenda, BbsPerm.createEditAppointment,
-      BbsPerm.confirmCancel, BbsPerm.viewClients, BbsPerm.viewCommissions, BbsPerm.viewClosure,
-      BbsPerm.viewHistory, BbsPerm.viewServices, BbsPerm.viewProducts,
-      BbsPerm.markPaid, BbsPerm.editPayment, BbsPerm.voidSale,
-    },
-  };
-
   static const Map<String, String> roleNames = {
     'admin': 'Administrador',
     'cashier': 'Cajero',
@@ -96,107 +71,92 @@ class RolePermissions {
     'barber_cashier': 'Barbero/Cajero',
   };
 
+  // Colores que usa roles_screen.dart:153 - faltaba en V2
   static const Map<String, int> roleColors = {
-    'admin': 0xFF6C5CE7,
-    'cashier': 0xFF3B82F6,
+    'admin': 0xFF6366F1,
+    'cashier': 0xFF10B981,
     'barber': 0xFFF59E0B,
-    'barber_cashier': 0xFF10B981,
+    'barber_cashier': 0xFFEC4899,
   };
 
-  static Map<String, Set<String>> _custom = {};
+  static const Map<String, String> roleDescriptions = {
+    'admin': 'Acceso total',
+    'cashier': 'Cobra, ve cierre, no edita ni borra',
+    'barber': 'Solo sus citas, no edita clientes',
+    'barber_cashier': 'Corta y cobra, no edita clientes',
+  };
+
+  static const List<String> allRoles = ['admin', 'cashier', 'barber', 'barber_cashier'];
+
+  static const Map<String, Set<String>> defaults = {
+    'admin': {
+      'vender','ver_agenda','crear_editar_cita','confirmar_cancelar_cita','bloquear_horas',
+      'ver_clientes','crear_editar_cliente','eliminar_cliente','ver_comisiones','marcar_pagado',
+      'ver_cierre_cuadratura','ver_historial','ver_reportes','ver_usuarios','roles',
+      'ver_configuracion','ver_barberos','ver_servicios','ver_productos','editar_pago','anular_venta',
+    },
+    'barber_cashier': {
+      'vender','ver_comisiones','ver_cierre_cuadratura','ver_historial','editar_pago','anular_venta',
+    },
+    'barber': {
+      'vender','ver_historial','ver_comisiones','ver_agenda','ver_clientes','ver_servicios','ver_productos',
+    },
+    'cashier': {
+      'vender','ver_cierre_cuadratura','ver_historial','marcar_pagado','ver_clientes','ver_servicios','ver_productos','ver_agenda',
+    },
+  };
+
+  static Map<String, Set<String>> _perms = {};
   static bool _loaded = false;
-  static bool get loaded => _loaded;
 
-  static Set<String> getPermissions(String role) {
-    final r = role.trim().toLowerCase();
-    // FIX OBEDECE ROLES 100%: si ya cargamos de DB, manda la DB aunque el rol tenga 0 permisos.
-    if (_loaded && _custom.containsKey(r)) {
-      final perms = Set<String>.from(_custom[r]!);
-      perms.remove('none');
-      return perms;
-    }
-    if (_custom.containsKey(r)) {
-      final perms = Set<String>.from(_custom[r]!);
-      perms.remove('none');
-      return perms;
-    }
-    return Set<String>.from(defaults[r] ?? defaults['cashier']!);
-  }
-  
-  static bool can(String? role, String perm) {
-    final r = (role ?? '').trim().toLowerCase();
-    if (r == 'admin') return true;
-    // Si ya cargamos de DB y el rol existe en DB, manda la DB: si el permiso no está, es false aunque el default lo tenga.
-    if (_loaded && _custom.containsKey(r)) return _custom[r]!.contains(perm);
-    if (_custom.containsKey(r)) return _custom[r]!.contains(perm);
-    return defaults[r]?.contains(perm) ?? false;
-  }
-
-  static bool isAdmin(String? role) => (role ?? '').toLowerCase() == 'admin';
-
-
-  // Mapa BD -> codigo: la tabla usa ver_agenda, vender... el codigo usa viewAgenda, sell...
-  static String _dbKeyToCode(String db) {
-    const m = {
-      'vender': 'sell',
-      'ver_agenda': 'viewAgenda',
-      'crear_editar_cita': 'createEditAppointment',
-      'confirmar_cancelar_cita': 'confirmCancel',
-      'bloquear_horas': 'blockHours',
-      'ver_clientes': 'viewClients',
-      'crear_editar_cliente': 'createEditClient',
-      'eliminar_cliente': 'deleteClient',
-      'ver_comisiones': 'viewCommissions',
-      'marcar_pagado': 'markPaid',
-      'ver_cierre_cuadratura': 'viewClosure',
-      'ver_historial': 'viewHistory',
-      'ver_reportes': 'viewReports',
-      'ver_usuarios': 'viewUsers',
-      'roles': 'manageRoles',
-      'ver_configuracion': 'viewSettings',
-      'ver_barberos': 'viewBarbers',
-      'ver_servicios': 'viewServices',
-      'ver_productos': 'viewProducts',
-      'editar_pago': 'editPayment',
-      'anular_venta': 'voidSale',
-    };
-    return m[db] ?? db;
-  }
+  // Metodos que usan las otras pantallas y faltaban en V1
+  static bool isAdmin(String role) => role == 'admin';
+  static bool isCashier(String role) => role == 'cashier';
+  static bool isBarber(String role) => role == 'barber';
+  static bool isBarberCashier(String role) => role == 'barber_cashier';
 
   static Future<void> loadFromSupabase() async {
     try {
-      // FIX 400: la tabla tiene permission_key + allowed, NO 'permission'
-      final res = await Supabase.instance.client.from('role_permissions').select('role, permission_key, allowed');
-      final Map<String, Set<String>> map = {};
-      // Asegurar que cada rol que aparece en DB quede en el mapa aunque no tenga permisos marcados
+      final res = await Supabase.instance.client.from('role_permissions').select();
+      final Map<String, Set<String>> next = {};
       for (final row in (res as List)) {
-        final rr = (row['role'] ?? '').toString();
-        if (rr.isNotEmpty) map.putIfAbsent(rr, () => {});
+        final m = row as Map;
+        final role = (m['role'] ?? '').toString().trim();
+        if (role.isEmpty) continue;
+        String perm = '';
+        if (m.containsKey('permission') && m['permission'] != null) {
+          perm = m['permission'].toString();
+        } else if (m.containsKey('permission_key') && m['permission_key'] != null) {
+          perm = m['permission_key'].toString();
+        }
+        perm = perm.trim();
+        if (perm.isEmpty) continue;
+        if (perm == 'none') continue;
+        if (m.containsKey('allowed')) {
+          final allowed = m['allowed'];
+          if (allowed == false || allowed == 0 || allowed == 'false' || allowed == 'f') continue;
+        }
+        next.putIfAbsent(role, () => <String>{}).add(perm);
       }
-      _loaded = true;
-      for (final row in (res as List)) {
-        final r = (row['role'] ?? '').toString();
-        final p = (row['permission_key'] ?? '').toString();
-        final allowed = row['allowed'] == true;
-        if (p.isEmpty) continue;
-        if (!allowed) continue; // solo los marcados true cuentan como permiso
-        // Traducir nombres de BD (vender, ver_agenda...) a claves del codigo (sell, viewAgenda...)
-        final p2 = _dbKeyToCode(p);
-        if (p2.isEmpty) continue;
-        map.putIfAbsent(r, () => {}).add(p2);
+      if (next.isNotEmpty) {
+        _perms = next;
+        _loaded = true;
       }
-      _custom = map;
     } catch (_) {}
   }
 
-  static Future<String?> currentRole() async {
-    try {
-      final uid = Supabase.instance.client.auth.currentUser?.id;
-      if (uid == null) return null;
-      final res = await Supabase.instance.client.from('profiles').select('role').eq('id', uid).maybeSingle();
-      return (res?['role'] ?? '').toString();
-    } catch (_) {
-      return null;
+  static Set<String> getPermissions(String role) {
+    if (role == 'admin') return Set.from(defaults['admin']!);
+    if (_loaded && _perms.containsKey(role)) return Set.from(_perms[role]!);
+    if (_perms.containsKey(role)) return Set.from(_perms[role]!);
+    return Set.from(defaults[role] ?? {});
+  }
+
+  static bool can(String role, String perm) {
+    if (role == 'admin') return true;
+    if (_loaded) {
+      return _perms[role]?.contains(perm) ?? false;
     }
+    return (defaults[role] ?? {}).contains(perm);
   }
 }
