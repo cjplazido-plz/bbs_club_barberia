@@ -600,7 +600,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
             Column(children: [
               // FIX: El menú ahora obedece a los permisos reales de cada rol
               if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewReports))
-                _buildMenuItem(Icons.trending_up, 'Reportes Avanzados', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ReportsScreen())); }),  
+                _buildMenuItem(Icons.trending_up, 'Reportes Avanzados', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => AdvancedReportsScreen())); }),
               if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewCommissions))
                 _buildMenuItem(Icons.monetization_on, 'Comisiones', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => CommissionsScreen())); }),
               if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewReports))
