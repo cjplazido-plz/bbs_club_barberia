@@ -579,31 +579,64 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
   }
 
   void _showMobileMenu() {
-    showModalBottomSheet(context: context, isScrollControlled: true, shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), backgroundColor: const Color(0xFF1E293B), builder: (context) => DraggableScrollableSheet(initialChildSize: 0.9, minChildSize: 0.5, maxChildSize: 0.95, expand: false, builder: (context, scrollController) => SingleChildScrollView(controller: scrollController, child: Column(children: [
-      Container(padding: const EdgeInsets.all(20), decoration: const BoxDecoration(color: Color(0xFF6366F1), borderRadius: BorderRadius.vertical(top: Radius.circular(20))), child: Row(children: const [Icon(Icons.menu, color: Colors.white, size: 28), SizedBox(width: 12), Text('Menú', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white))])),
-      Column(children: [
-        if (currentUserRole == 'admin' || currentUserEmail.toLowerCase().trim() == 'cjplazido@gmail.com') ...[
-          _buildMenuItem(Icons.analytics, 'Reportes Avanzados', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => AdvancedReportsScreen())); }),
-          _buildMenuItem(Icons.monetization_on, 'Comisiones', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => CommissionsScreen())); }),
-          _buildMenuItem(Icons.cut, 'Barberos', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => BarbersScreen())).then((_) => _loadData()); }),
-          _buildMenuItem(Icons.content_cut, 'Servicios', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ServicesScreen())).then((_) => _loadData()); }),
-          _buildMenuItem(Icons.inventory_2, 'Productos', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ProductsScreen())).then((_) => _loadData()); }),
-          _buildMenuItem(Icons.group, 'Usuarios', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => users_screen.UsersScreen())); }),
-          _buildMenuItem(Icons.security, 'Roles', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => roles_screen.RolesScreen())); }),
-          _buildMenuItem(Icons.calendar_month, 'Agenda', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => AppointmentsScreen())); }),
-          _buildMenuItem(Icons.dashboard, 'Dashboard', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => DashboardScreen())); }),
-          _buildMenuItem(Icons.trending_up, 'Reportes', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ReportsScreen())); }),
-          _buildMenuItem(Icons.receipt_long, 'Historial', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => SalesHistoryScreen())); }),
-          _buildMenuItem(Icons.settings, 'Configuración', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => SettingsScreen())); }),
-        ],
-        _buildMenuItem(Icons.person, 'Clientes', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ClientsScreen())).then((_) => _loadData()); }),
-        const Divider(color: Colors.white10),
-        _buildMenuItem(Icons.logout, 'Cerrar sesión', () { Navigator.pop(context); _handleLogout(); }, isLogout: true),
-      ]),
-      const SizedBox(height: 20),
-    ])))) ;
+    showModalBottomSheet(
+      context: context, 
+      isScrollControlled: true, 
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), 
+      backgroundColor: const Color(0xFF1E293B), 
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.9, 
+        minChildSize: 0.5, 
+        maxChildSize: 0.95, 
+        expand: false, 
+        builder: (context, scrollController) => SingleChildScrollView(
+          controller: scrollController, 
+          child: Column(children: [
+            Container(
+              padding: const EdgeInsets.all(20), 
+              decoration: const BoxDecoration(color: Color(0xFF6366F1), borderRadius: BorderRadius.vertical(top: Radius.circular(20))), 
+              child: Row(children: const [Icon(Icons.menu, color: Colors.white, size: 28), SizedBox(width: 12), Text('Menú', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white))])
+            ),
+            Column(children: [
+              // FIX: El menú ahora obedece a los permisos reales de cada rol
+              if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewReports))
+                _buildMenuItem(Icons.trending_up, 'Reportes', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ReportsScreen())); }),  
+              if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewCommissions))
+                _buildMenuItem(Icons.monetization_on, 'Comisiones', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => CommissionsScreen())); }),
+              if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewAgenda))
+                _buildMenuItem(Icons.calendar_month, 'Agenda', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => AppointmentsScreen())); }),  
+              if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewHistory))
+                _buildMenuItem(Icons.receipt_long, 'Historial', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => SalesHistoryScreen())); }),
+              if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewReports)) // Dashboard requiere permisos de reportes
+                _buildMenuItem(Icons.dashboard, 'Dashboard', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => DashboardScreen())); }),
+              
+              const Divider(color: Colors.white10),
+              
+              if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewBarbers))
+                _buildMenuItem(Icons.cut, 'Barberos', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => BarbersScreen())).then((_) => _loadData()); }),
+              if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewServices))
+                _buildMenuItem(Icons.content_cut, 'Servicios', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ServicesScreen())).then((_) => _loadData()); }),
+              if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewProducts))
+                _buildMenuItem(Icons.inventory_2, 'Productos', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ProductsScreen())).then((_) => _loadData()); }),
+              if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewClients))
+                _buildMenuItem(Icons.person, 'Clientes', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ClientsScreen())).then((_) => _loadData()); }),
+              if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewUsers))
+                _buildMenuItem(Icons.group, 'Usuarios', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => users_screen.UsersScreen())); }),
+              if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.manageRoles))
+                _buildMenuItem(Icons.security, 'Roles', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => roles_screen.RolesScreen())); }),
+              if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewSettings))
+                _buildMenuItem(Icons.settings, 'Configuración', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => SettingsScreen())); }),
+                
+              const Divider(color: Colors.white10),
+              _buildMenuItem(Icons.logout, 'Cerrar sesión', () { Navigator.pop(context); _handleLogout(); }, isLogout: true),
+            ]),
+            const SizedBox(height: 20),
+          ])
+        )
+      )
+    );
   }
-
+  
   Widget _buildMenuItem(IconData icon, String text, VoidCallback onTap, {bool isLogout = false}) {
     return ListTile(leading: Icon(icon, color: isLogout ? Colors.redAccent : Colors.white, size: 20), title: Text(text, style: TextStyle(fontSize: 14, color: isLogout ? Colors.redAccent : Colors.white, fontWeight: FontWeight.w500)), onTap: onTap);
   }
