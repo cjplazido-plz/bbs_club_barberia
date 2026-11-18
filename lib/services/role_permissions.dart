@@ -71,6 +71,23 @@ class RolePermissions {
     'barber_cashier': 'Barbero/Cajero',
   };
 
+    // --- NUEVO MÉTODO: Obtiene el rol del usuario actual desde la base de datos ---
+  static Future<String?> currentRole() async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return null;
+    try {
+      final profile = await Supabase.instance.client
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .maybeSingle();
+      return profile?['role']?.toString();
+    } catch (_) {
+      return null;
+    }
+  }
+  
+
   // Colores que usa roles_screen.dart:153 - faltaba en V2
   static const Map<String, int> roleColors = {
     'admin': 0xFF6366F1,
