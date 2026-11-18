@@ -447,7 +447,11 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
       ..items=List.from(_cart);
     try {
       try { transaction.folio = folioStr; } catch (_) {}
-      final transResponse = await Supabase.instance.client.from('transactions').insert({'id': transaction.remoteId, 'folio': folioStr, 'cash_register_id': transaction.cashRegisterId, 'cashier_id': transaction.cashierId, 'cashier_name': transaction.cashierName, 'barber_id': _selectedBarber?.remoteId??'', 'barber_name': _selectedBarber?.name ?? '', 'client_name': _selectedClient?.name ?? '', 'subtotal': transaction.subtotal, 'total': transaction.total, 'payment_method': transaction.paymentMethod, 'cash_received': cashReceived, 'change_amount': change, 'status': 'completed', 'created_at': DateTime.now().toIso8601String()}).select().single();
+      // FIX BARBER NULL: el header antes usaba solo _selectedBarber, si no tocabas barbero quedaba '' -> NULL en Supabase.
+      // Ahora usa el mismo effectiveBarber que usan los items: si no elegiste barbero, usa tu propio nombre si eres barbero, si no el primer barbero.
+      // Así nunca queda NULL, sin pedir que elijas barbero con aviso, como en el backup.
+      final effectiveBarberHeader = _selectedBarber ?? _barbers.firstWhere((b) => b.name.toUpperCase() == realCashierName.toUpperCase(), orElse: () => _barbers.isNotEmpty ? _barbers.first : (LocalBarber()..name = realCashierName));
+            final transResponse = await Supabase.instance.client.from('transactions').insert({'id': transaction.remoteId, 'folio': folioStr, 'cash_register_id': transaction.cashRegisterId, 'cashier_id': transaction.cashierId, 'cashier_name': transaction.cashierName, 'barber_id': effectiveBarberHeader.remoteId ?? '', 'barber_name': effectiveBarberHeader.name, 'client_name': _selectedClient?.name ?? '', 'subtotal': transaction.subtotal, 'total': transaction.total, 'payment_method': transaction.paymentMethod, 'cash_received': cashReceived, 'change_amount': change, 'status': 'completed', 'created_at': DateTime.now().toIso8601String()}).select().single();
       final transactionId = transResponse['id'] as String;
       final itemsData = transaction.items.map((item)=>{'transaction_id': transactionId, 'item_type': item.type, 'service_id': item.type=='service'?item.serviceId:null, 'service_name': item.type=='service'?item.serviceName:null, 'product_id': item.type=='product'?item.productId:null, 'product_name': item.type=='product'?item.productName:null, 'barber_id': item.barberId.isNotEmpty?item.barberId:null, 'barber_name': item.barberName.isNotEmpty?item.barberName:null, 'price_at_moment': item.priceAtMoment, 'quantity': item.quantity, 'commission_earned': item.commissionEarned}).toList();
       await Supabase.instance.client.from('transaction_items').insert(itemsData);
@@ -637,16 +641,18 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
         title: Row(children: [
           Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: const Color(0xFF6366F1), borderRadius: BorderRadius.circular(10)), child: const Text('💈', style: TextStyle(fontSize: 18))),
           const SizedBox(width: 8),
-          const Text('POS Premium', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+          Text(isMobile ? 'POS' : 'POS Premium', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
           const SizedBox(width: 8),
           Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: _miCaja == 'Sin Caja' ? Colors.red.withOpacity(0.2) : const Color(0xFF10B981).withOpacity(0.2), borderRadius: BorderRadius.circular(20), border: Border.all(color: _miCaja == 'Sin Caja' ? Colors.red : const Color(0xFF10B981))), child: Text('🧾 $_miCaja', style: TextStyle(color: _miCaja == 'Sin Caja' ? Colors.redAccent : const Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold))),
-          if(_selectedBarber!=null) ...[
+          // FIX MOVIL: en celular no mostrar el badge del barbero arriba, porque es lo que se montaba encima del carrito y la P.
+          // En celular la Caja 1 y el Folio ya salen abajo, arriba solo POS + Caja 1 + avatar.
+          if(!isMobile && _selectedBarber!=null) ...[
             const SizedBox(width: 10),
             Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.15), borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFF6366F1).withOpacity(0.3))), child: Text('✂️ ${_selectedBarber!.name}', style: const TextStyle(color: Color(0xFF818CF8), fontSize: 11, fontWeight: FontWeight.bold))),
           ]
         ]),
         actions: [
-          if(isMobile) Stack(children: [IconButton(icon: const Icon(Icons.shopping_cart_rounded, color: Colors.white), onPressed: _showCartModal), if(_cart.isNotEmpty) Positioned(right: 6, top: 6, child: Container(padding: const EdgeInsets.all(4), decoration: const BoxDecoration(color: Color(0xFF10B981), shape: BoxShape.circle), child: Text('${_cart.length}', style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold))))]),
+          // FIX MOVIL: no mostrar carrito arriba en celular, ya está abajo. Era lo que se montaba encima de POS Premium.
           // FIX HEADER: mostrar Caja 1 a la izquierda (ya está en title) + usuario a la derecha.
           // Antes en una versión salía la caja pero no el nombre, y en otra salía el nombre pero no la caja.
           // Ahora salen las 2 juntas: Caja 1 + Placido Ortiz Mc / ADMIN, BRAYAN / BARBERO-CAJERO, etc.
