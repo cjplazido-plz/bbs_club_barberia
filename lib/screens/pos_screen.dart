@@ -393,6 +393,18 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
   }
 
   Future<void> _completeTransaction({required double cashReceived, required double change, List<Map<String, dynamic>>? mixedPayments}) async {
+    // FIX SESION 10 MIN: en Supabase el token JWT vence a los 600 seg (10 min) si está así configurado.
+    // En un salón eso es imposible: BRAYAN está 30 min cortando y cuando va a cobrar le dice "Sesión expirada" y pierde la venta.
+    // Antes de cobrar, intentamos refrescar la sesión. Así la caja queda abierta todo el día, sin botar el carrito.
+    try {
+      final sess = Supabase.instance.client.auth.currentSession;
+      final ahora = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      if (sess == null || sess.expiresAt == null || ahora > (sess.expiresAt! - 60)) {
+        await Supabase.instance.client.auth.refreshSession();
+      }
+    } catch (_) {
+      // Si el refresh falla, seguimos igual: el error real saldrá en el insert y no borramos el carrito.
+    }
     // FIX CAJA REAL: si el usuario no tiene caja, no dejar vender con caja-001
     if (_miCaja == 'Sin Caja' || _miCaja == 'Cargando caja...' || _miCajaId.isEmpty) {
       await _cargarMiCaja();
@@ -635,6 +647,44 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
         ]),
         actions: [
           if(isMobile) Stack(children: [IconButton(icon: const Icon(Icons.shopping_cart_rounded, color: Colors.white), onPressed: _showCartModal), if(_cart.isNotEmpty) Positioned(right: 6, top: 6, child: Container(padding: const EdgeInsets.all(4), decoration: const BoxDecoration(color: Color(0xFF10B981), shape: BoxShape.circle), child: Text('${_cart.length}', style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold))))]),
+          // FIX HEADER: mostrar Caja 1 a la izquierda (ya está en title) + usuario a la derecha.
+          // Antes en una versión salía la caja pero no el nombre, y en otra salía el nombre pero no la caja.
+          // Ahora salen las 2 juntas: Caja 1 + Placido Ortiz Mc / ADMIN, BRAYAN / BARBERO-CAJERO, etc.
+          Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: Row(children: [
+              CircleAvatar(
+                radius: 14,
+                backgroundColor: const Color(0xFF6366F1),
+                child: Text(
+                  currentUserName.isNotEmpty ? currentUserName.trim()[0].toUpperCase() : '?',
+                  style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                ),
+              ),
+              if (!isMobile) ...[
+                const SizedBox(width: 7),
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: 130,
+                      child: Text(
+                        currentUserName.isNotEmpty ? currentUserName : 'Usuario',
+                        style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Text(
+                      currentUserRole.toUpperCase() == 'ADMIN' ? 'ADMIN' : currentUserRole.toUpperCase() == 'BARBER_CASHIER' ? 'BARBERO/CAJERO' : currentUserRole.toUpperCase() == 'BARBER' ? 'BARBERO' : currentUserRole.toUpperCase() == 'CASHIER' ? 'CAJERO' : currentUserRole.toUpperCase(),
+                      style: const TextStyle(color: Colors.white54, fontSize: 9, fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+              ],
+            ]),
+          ),
           IconButton(icon: const Icon(Icons.person_rounded, color: Colors.white70), onPressed: _showBarberSelector),
         ],
         bottom: TabBar(controller: _tabController, indicatorColor: const Color(0xFF6366F1), indicatorWeight: 3, labelColor: Colors.white, unselectedLabelColor: Colors.white54, labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold), tabs: const [Tab(icon: Text('✂️', style: TextStyle(fontSize: 16)), text: 'Servicios'), Tab(icon: Text('📦', style: TextStyle(fontSize: 16)), text: 'Productos')]),

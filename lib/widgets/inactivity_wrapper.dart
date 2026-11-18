@@ -12,7 +12,7 @@ class InactivityWrapper extends StatefulWidget {
     super.key,
     required this.child,
     required this.navigatorKey, // <-- NUEVO
-    this.timeout = const Duration(minutes: 10),
+    this.timeout = const Duration(hours: 8), // FIX: 8 horas, no 10 min. Un corte dura 30-45 min sin tocar el POS.
   });
 
   @override

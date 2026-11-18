@@ -51,7 +51,7 @@ class _BarberFlowAppState extends State<BarberFlowApp> {
     // 3. ENVOLVER EL MATERIALAPP
     return InactivityWrapper(
       navigatorKey: navigatorKey,
-      timeout: const Duration(minutes: 10), // Los 10 minutos exactos
+      timeout: const Duration(hours: 8), // FIX SESION: POS queda abierto todo el día, no 10 min. Si BRAYAN corta 30 min sin tocar, no se cierra.
       child: MaterialApp(
         navigatorKey: navigatorKey, // <-- 4. ASIGNAR LA LLAVE AQUÍ
         title: SettingsService.shopName,
