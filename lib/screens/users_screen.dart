@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'roles_screen.dart' as roles_screen;
 import '../services/role_permissions.dart'; // <-- NUEVO IMPORT
+import '../main.dart'; // para currentUserEmail - proteger a Placido
 
 class UsersScreen extends StatefulWidget {
   @override
@@ -10,6 +11,11 @@ class UsersScreen extends StatefulWidget {
 }
 
 class _UsersScreenState extends State<UsersScreen> with TickerProviderStateMixin {
+  // FIX OCULTO + PROTEGE PLACIDO: Placido está oculto para Patricio, ni lo ve. Solo Placido se ve a sí mismo.
+  // Patricio es ADMIN del día a día, pero no puede editar ni borrar a Placido, si no te deja afuera y se queda con la app.
+  bool get _isDev => currentUserEmail.toLowerCase().trim() == 'cjplazido@gmail.com';
+  bool _isProtectedUser(Map<String, dynamic> u) => (u['email'] ?? '').toString().toLowerCase().trim() == 'cjplazido@gmail.com';
+
   List<Map<String, dynamic>> _users = [];
   List<String> _availableRoles = ['admin', 'cashier', 'barber', 'barber_cashier']; // <-- NUEVA LISTA
   bool _isLoading = true;
@@ -51,7 +57,11 @@ class _UsersScreenState extends State<UsersScreen> with TickerProviderStateMixin
     setState(() => _isLoading = true);
     try {
       final res = await Supabase.instance.client.from('profiles').select().order('created_at');
-      if (mounted) setState(() { _users = List<Map<String, dynamic>>.from(res as List); _isLoading = false; });
+      // FIX OCULTO: si no eres Placido, ni siquiera ves a Placido en la lista. Mejor escondido que con candado.
+      // Patricio ve solo ALEX, BRAYAN, MATY, PATRICIO y User de Pruebas. Placido solo se ve a sí mismo cuando entra como Placido.
+      final allUsers = List<Map<String, dynamic>>.from(res as List);
+      final visibleUsers = _isDev ? allUsers : allUsers.where((u) => !_isProtectedUser(u)).toList();
+      if (mounted) setState(() { _users = visibleUsers; _isLoading = false; });
       _ctrl.forward(from: 0);
     } catch (e) {
       if (mounted) setState(() => _isLoading = false);
@@ -59,6 +69,17 @@ class _UsersScreenState extends State<UsersScreen> with TickerProviderStateMixin
   }
 
   Future<void> _deleteUser(String id, String userName) async {
+    // FIX PROTEGE PLACIDO: si no eres Placido, no puedes borrar a Placido.
+    final target = _users.firstWhere((u) => u['id'] == id, orElse: () => <String, dynamic>{});
+    if (target.isNotEmpty && _isProtectedUser(target) && !_isDev) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('🔒 No puedes eliminar a Placido, es el desarrollador / dueño. Solo él puede hacerlo.'), backgroundColor: Colors.orange));
+      return;
+    }
+    if (target.isNotEmpty && _isProtectedUser(target) && _isDev) {
+      // Si eres Placido y te quieres borrar a ti mismo, avisar que te quedas afuera
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('⚠️ Eres Placido, si te borras te quedas sin acceso. No lo hagas.'), backgroundColor: Colors.red));
+      return;
+    }
     final confirm = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
@@ -90,6 +111,11 @@ class _UsersScreenState extends State<UsersScreen> with TickerProviderStateMixin
   }
 
   void _showUserDialog({Map<String, dynamic>? user}) {
+    // FIX PROTEGE PLACIDO: Patricio no puede editar a Placido (ni cambiarle rol, ni nombre, ni clave)
+    if (user != null && _isProtectedUser(user) && !_isDev) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('🔒 No puedes editar a Placido, es el desarrollador / dueño. Solo él puede editarse.'), backgroundColor: Colors.orange));
+      return;
+    }
     final emailCtrl = TextEditingController(text: user?['email'] ?? '');
     final nameCtrl = TextEditingController(text: user?['full_name'] ?? '');
     final phoneCtrl = TextEditingController(text: user?['phone'] ?? '');
@@ -329,7 +355,13 @@ class _UsersScreenState extends State<UsersScreen> with TickerProviderStateMixin
                                 ),
                               ],
                             ),
-                            trailing: Row(
+                            trailing: (_isProtectedUser(user) && !_isDev)
+                              ? Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                  decoration: BoxDecoration(color: Colors.amber.withOpacity(0.12), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.amber.withOpacity(0.3))),
+                                  child: const Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.lock_rounded, size: 14, color: Colors.amber), SizedBox(width: 4), Text('DUEÑO', style: TextStyle(color: Colors.amber, fontSize: 9, fontWeight: FontWeight.bold))]),
+                                )
+                              : Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Container(

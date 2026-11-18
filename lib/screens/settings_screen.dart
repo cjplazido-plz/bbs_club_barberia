@@ -12,6 +12,12 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  // FIX BLOQUEO: SOLO Placido (cjplazido@gmail.com) puede cambiar folio, prefijo, logo, nombre y moneda. Patricio ve los valores pero no los puede editar. Si Patricio lo pide, entras tú y lo cambias.
+  // FIX CORREGIDO: tú eres cjplazido@gmail.com (Placido), no user@user.com.
+  // user@user.com es solo tu cuenta de prueba BARBERO para ver rol Barbero y ticket, no para cambiar ajustes.
+  // Solo Placido puede cambiar folio, prefijo, logo y moneda. Patricio queda bloqueado.
+  bool get _isDev => currentUserEmail.toLowerCase().trim() == 'cjplazido@gmail.com'; // SOLO Placido, nadie más
+
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = true;
   bool _isSaving = false;
@@ -75,15 +81,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _isSaving = true);
     try {
       final ok1 = await SettingsService.updateMultiple({
-        'shop_name': _shopNameCtrl.text.trim(),
+        'shop_name': _isDev ? _shopNameCtrl.text.trim() : SettingsService.shopName,
         'shop_rif': _rifCtrl.text.trim(),
         'shop_address': _addressCtrl.text.trim(),
         'shop_phone': _phoneCtrl.text.trim(),
         'shop_email': _emailCtrl.text.trim(),
-        'shop_logo_url': _shopLogoCtrl.text.trim(),
-        'ticket_logo_url': _ticketLogoCtrl.text.trim(),
-        'currency_symbol': _currencySymbolCtrl.text.trim(),
-        'currency_code': _currencyCodeCtrl.text.trim(),
+        'shop_logo_url': _isDev ? _shopLogoCtrl.text.trim() : SettingsService.shopLogoUrl,
+        'ticket_logo_url': _isDev ? _ticketLogoCtrl.text.trim() : SettingsService.ticketLogoUrl,
+        'currency_symbol': _isDev ? _currencySymbolCtrl.text.trim() : SettingsService.currencySymbol,
+        'currency_code': _isDev ? _currencyCodeCtrl.text.trim() : SettingsService.currencyCode,
         'ticket_header': _ticketHeaderCtrl.text.trim(),
         'ticket_footer': _ticketFooterCtrl.text.trim(),
         if (SettingsService.canSeeReservasWhatsApp) 'reservas_whatsapp': _reservasWhatsAppCtrl.text.trim(),
@@ -98,12 +104,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
         'direccion': _addressCtrl.text.trim(),
         'sii_direccion': _addressCtrl.text.trim(),
         'telefono': _phoneCtrl.text.trim(),
-        'logo_url': _shopLogoCtrl.text.trim(),
-        'logo_url_app': _shopLogoCtrl.text.trim(),
-        'logo_url_ticket': _ticketLogoCtrl.text.trim(),
+        'logo_url': _isDev ? _shopLogoCtrl.text.trim() : SettingsService.shopLogoUrl,
+        'logo_url_app': _isDev ? _shopLogoCtrl.text.trim() : SettingsService.shopLogoUrl,
+        'logo_url_ticket': _isDev ? _ticketLogoCtrl.text.trim() : SettingsService.ticketLogoUrl,
         'mensaje': _ticketFooterCtrl.text.trim(),
-        'folio_prefijo': _prefijoCtrl.text.trim(),
-        'folio_actual': int.tryParse(_folioCtrl.text) ?? 1011,
+        'folio_prefijo': _isDev ? _prefijoCtrl.text.trim() : TicketConfigService.prefijo,
+        'folio_actual': _isDev ? (int.tryParse(_folioCtrl.text) ?? 1011) : TicketConfigService.folioActual,
         'ancho': _ancho,
         'auto_print': _autoPrint,
         'sii_razon': '${_shopNameCtrl.text.trim()} SPA',
@@ -182,7 +188,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               children: [
                 // SECCIÓN 01
                 _section(number: '01', icon: Icons.store_rounded, color: _indigo, title: 'Datos del negocio', subtitle: 'Información que se muestra en el ticket y la app'),
-                _field('Nombre del negocio *', _shopNameCtrl, required: true, onChanged: (_) => setState((){})),
+                _field('Nombre del negocio *', _shopNameCtrl, required: true, onChanged: (_) => setState((){}), locked: !_isDev),
                 _row2(
                   _field('RUT *', _rifCtrl, required: true, onChanged: (_) => setState((){})), 
                   _field('Teléfono', _phoneCtrl, onChanged: (_) => setState((){}))
@@ -204,15 +210,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 // SECCIÓN 02
                 _section(number: '02', icon: Icons.attach_money_rounded, color: _emerald, title: 'Moneda y Formato', subtitle: 'Símbolo y código en los precios'),
                 _row2(
-                  _field('Símbolo *', _currencySymbolCtrl, required: true, hint: '\$'), 
-                  _field('Código ISO *', _currencyCodeCtrl, required: true, hint: 'CLP')
+                  _field('Símbolo *', _currencySymbolCtrl, required: true, hint: '\$', locked: !_isDev), 
+                  _field('Código ISO *', _currencyCodeCtrl, required: true, hint: 'CLP', locked: !_isDev)
                 ),
                 
                 const SizedBox(height: 20),
                 // SECCIÓN 03
                 _section(number: '03', icon: Icons.image_rounded, color: _amber, title: 'Logos de la App y Ticket', subtitle: 'Recomendado: PNG sin fondo, tamaño cuadrado'),
-                _logoField(label: 'Logo App (Color)', ctrl: _shopLogoCtrl, isTicket: false, hint: 'https://.../bbs-color.png', onChanged: (_) => setState((){})),
-                _logoField(label: 'Logo Ticket (Blanco y Negro)', ctrl: _ticketLogoCtrl, isTicket: true, hint: 'https://.../LOGOTICKET.bmp', onChanged: (_) => setState((){})),
+                _logoField(label: 'Logo App (Color)', ctrl: _shopLogoCtrl, isTicket: false, hint: 'https://.../bbs-color.png', onChanged: (_) => setState((){}), locked: !_isDev),
+                _logoField(label: 'Logo Ticket (Blanco y Negro)', ctrl: _ticketLogoCtrl, isTicket: true, hint: 'https://.../LOGOTICKET.bmp', onChanged: (_) => setState((){}), locked: !_isDev),
                 const SizedBox(height: 10),
                 _logoPreviews(),
                 _bucketWarning(),
@@ -249,8 +255,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 const SizedBox(height: 12),
                 _row2(
-                  _field('Prefijo de folio', _prefijoCtrl, icon: Icons.tag_rounded, hint: 'V-'), 
-                  _field('Próximo folio', _folioCtrl, icon: Icons.confirmation_number_rounded, isNumber: true, hint: '1011')
+                  _field('Prefijo de folio', _prefijoCtrl, icon: Icons.tag_rounded, hint: 'V-', locked: !_isDev), 
+                  _field('Próximo folio', _folioCtrl, icon: Icons.confirmation_number_rounded, isNumber: true, hint: '1011', locked: !_isDev)
                 ),
                 const SizedBox(height: 10),
                 Container(
@@ -390,22 +396,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _field(String label, TextEditingController ctrl, {IconData icon = Icons.edit_rounded, bool required = false, bool isNumber = false, int maxLines = 1, String hint = '', ValueChanged<String>? onChanged}) {
+  Widget _field(String label, TextEditingController ctrl, {IconData icon = Icons.edit_rounded, bool required = false, bool isNumber = false, int maxLines = 1, String hint = '', ValueChanged<String>? onChanged, bool locked = false}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: TextFormField(
         controller: ctrl,
+        enabled: !locked,
         onChanged: onChanged,
         style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
         maxLines: maxLines,
         keyboardType: isNumber ? TextInputType.number : TextInputType.text,
         validator: required ? (v) => v == null || v.trim().isEmpty ? 'Obligatorio' : null : null,
         decoration: InputDecoration(
-          labelText: label,
           hintText: hint.isNotEmpty ? hint : null,
           hintStyle: const TextStyle(color: Colors.white24, fontSize: 12),
           labelStyle: const TextStyle(color: Colors.white54, fontSize: 12),
           prefixIcon: Icon(icon, color: _violet, size: 20),
+          suffixIcon: locked ? const Icon(Icons.lock_rounded, color: Colors.amber, size: 18) : null,
+          helperText: locked ? '🔒 Solo desarrollador - pídelo y lo cambio yo' : null,
+          helperStyle: const TextStyle(color: Colors.amber, fontSize: 10),
+          labelText: locked ? label + '  🔒' : label,
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
           enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: Colors.white.withOpacity(0.08))),
           focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: _indigo, width: 1.5)),
@@ -425,18 +435,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
     ]); 
   }
 
-  Widget _logoField({required String label, required TextEditingController ctrl, required bool isTicket, required String hint, ValueChanged<String>? onChanged}) {
+  Widget _logoField({required String label, required TextEditingController ctrl, required bool isTicket, required String hint, ValueChanged<String>? onChanged, bool locked = false}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(children: [
-        Expanded(child: _field(label, ctrl, icon: Icons.link_rounded, hint: hint, onChanged: onChanged)),
+        Expanded(child: _field(label, ctrl, icon: Icons.link_rounded, hint: hint, onChanged: onChanged, locked: locked)),
         const SizedBox(width: 10),
         Container(
           height: 50,
           decoration: BoxDecoration(color: const Color(0xFF334155), borderRadius: BorderRadius.circular(14)), 
           child: TextButton(
-            onPressed: () => _pickLogo(isTicket), 
-            child: const Text('URL', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13))
+            onPressed: locked ? null : () => _pickLogo(isTicket), 
+            child: Text(locked ? '🔒' : 'URL', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13))
           )
         ),
       ]),
