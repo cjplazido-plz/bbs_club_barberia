@@ -146,10 +146,17 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
   double get _total => _subtotal - _discount;
 
   void _addServiceToCart(LocalService service) {
-    final effectiveBarber = _selectedBarber ?? _barbers.firstWhere(
-      (b) => b.name.toUpperCase() == currentUserName.toUpperCase(),
-      orElse: () => _barbers.isNotEmpty ? _barbers.first : (LocalBarber()..name = currentUserName.isNotEmpty ? currentUserName : 'Recepcion'),
-    );
+    // FIX: usa tu mismo mensaje de _processPayment - no toca colores ni otros mensajes
+    if (!RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.sell)) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('⛔ No tienes permiso para vender.'), backgroundColor: Colors.redAccent));
+      return;
+    }
+    // FIX: barbero obligatorio - sin fallback a Recepcion / primer barbero
+    if (_selectedBarber == null) {
+      _showBarberRequiredDialog();
+      return;
+    }
+    final effectiveBarber = _selectedBarber!;
     setState(() {
       final idx = _cart.indexWhere((e) => e.type == 'service' && e.serviceId == service.remoteId);
       final unitCommission = (service.price * service.commissionValue) / 100;
@@ -164,6 +171,11 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
   }
 
   void _addProductToCart(LocalProduct product) {
+    // FIX: producto tampoco entra al carrito sin Vender - era lo que faltaba, por eso salia 'Cera boffel agregado'
+    if (!RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.sell)) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('⛔ No tienes permiso para vender.'), backgroundColor: Colors.redAccent));
+      return;
+    }
     final idx = _cart.indexWhere((e) => e.type=='product' && e.productId==product.remoteId);
     final int enCarrito = idx >= 0 ? _cart[idx].quantity : 0;
 
