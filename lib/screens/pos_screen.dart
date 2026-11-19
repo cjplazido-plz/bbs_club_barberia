@@ -232,6 +232,11 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
   }
 
   Future<void> _processPayment() async {
+    // NEGACION VENDER: Si Patricio quita Vender en Roles, NO puede cobrar aunque aprete el boton
+    if (!RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.sell)) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('⛔ No tienes permiso para vender.'), backgroundColor: Colors.redAccent));
+      return;
+    }
     if(_cart.isEmpty) return;
     if(_paymentMethod=='mixed'){
       final result = await _showMixedDialog();
@@ -538,7 +543,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
         const SizedBox(height: 8),
         _buildPaymentMethodSelector(),
         const SizedBox(height: 12),
-        SizedBox(width: double.infinity, height: 48, child: ElevatedButton(onPressed: _cart.isEmpty?null:_processPayment, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981), disabledBackgroundColor: Colors.white10, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), child: Text(_cart.isEmpty ? 'COBRAR' : 'COBRAR ${SettingsService.formatCurrency(_total)}${_paymentMethod=='mixed' ? ' - MIXED' : _paymentMethod=='cash' ? ' - CASH' : ''}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white))))
+        SizedBox(width: double.infinity, height: 48, child: ElevatedButton(onPressed: (_cart.isEmpty || !RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.sell))?null:_processPayment, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981), disabledBackgroundColor: Colors.white10, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), child: Text(!RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.sell) ? 'SIN PERMISO PARA VENDER' : _cart.isEmpty ? 'COBRAR' : 'COBRAR ${SettingsService.formatCurrency(_total)}${_paymentMethod=='mixed' ? ' - MIXED' : _paymentMethod=='cash' ? ' - CASH' : ''}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white))))
       ]))
     ]));
   }
@@ -548,12 +553,16 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
   }
 
   Widget _buildMobileBottomBar() {
+    // Banner si no tiene permiso para vender
+    if (!RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.sell)) {
+      return Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.red.withOpacity(0.12), border: Border(top: BorderSide(color: Colors.red.withOpacity(0.4)))), child: Row(children: const [Icon(Icons.block_rounded, color: Colors.redAccent, size: 20), SizedBox(width: 8), Expanded(child: Text('Solo lectura no puedes cobrar.', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)))]));
+    }
     return Container(padding: const EdgeInsets.fromLTRB(12,10,12,12), decoration: BoxDecoration(color: const Color(0xFF1E293B), border: Border(top: BorderSide(color: Colors.white.withOpacity(0.08))), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.4), blurRadius: 12, offset: const Offset(0,-4))]), child: Column(mainAxisSize: MainAxisSize.min, children: [
       Row(children: [Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Subtotal: ${SettingsService.formatCurrency(_subtotal)}', style: const TextStyle(color: Colors.white54, fontSize: 11)), Text(SettingsService.formatCurrency(_total), style: const TextStyle(color: Color(0xFF10B981), fontSize: 18, fontWeight: FontWeight.bold)), const SizedBox(height: 2), Text('Folio $_proximoFolio  •  ${_miCaja}', style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold))])), const SizedBox(width: 10), Expanded(child: OutlinedButton.icon(onPressed: ()=>_showCartModal(), icon: const Icon(Icons.shopping_cart, size: 16), label: Text('Carrito (${_cart.length})', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)), style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: const BorderSide(color: Colors.white24), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)))))]),
       const SizedBox(height: 8),
       Row(children: [Expanded(child: _buildOptionButton(icon: Icons.calendar_month, label: _selectedAppointment?.clientName ?? 'Cita', onTap: _showAppointmentSelector)), const SizedBox(width: 8), Expanded(child: _buildOptionButton(icon: Icons.person, label: _selectedClient?.name ?? 'Cliente', onTap: _showClientSelector))]),
       const SizedBox(height: 8),
-      SizedBox(width: double.infinity, height: 48, child: ElevatedButton(onPressed: _cart.isEmpty?null:_processPayment, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981), disabledBackgroundColor: Colors.white10, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), child: Text(_cart.isEmpty ? 'CARRITO VACIO' : 'COBRAR ${SettingsService.formatCurrency(_total)}${_paymentMethod=='mixed' ? ' - MIXED' : _paymentMethod=='cash' ? ' - CASH' : ''}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.white))))
+      SizedBox(width: double.infinity, height: 48, child: ElevatedButton(onPressed: (_cart.isEmpty || !RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.sell))?null:_processPayment, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981), disabledBackgroundColor: Colors.white10, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), child: Text(!RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.sell) ? 'SIN PERMISO PARA VENDER' : _cart.isEmpty ? 'CARRITO VACIO' : 'COBRAR ${SettingsService.formatCurrency(_total)}${_paymentMethod=='mixed' ? ' - MIXED' : _paymentMethod=='cash' ? ' - CASH' : ''}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.white))))
     ]));
   }
 
@@ -571,7 +580,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
               const SizedBox(height: 12),
               _buildPaymentMethodSelector(onChanged: (){ setModal((){}); }),
               const SizedBox(height: 12),
-              SizedBox(width: double.infinity, height: 48, child: ElevatedButton(onPressed: _cart.isEmpty?null:(){ Navigator.pop(c); _processPayment(); }, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), child: Text('COBRAR ${SettingsService.formatCurrency(_total)}${_paymentMethod=='mixed' ? ' - MIXED' : _paymentMethod=='cash' ? ' - CASH' : ''}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white))))
+              SizedBox(width: double.infinity, height: 48, child: ElevatedButton(onPressed: (_cart.isEmpty || !RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.sell))?null:(){ Navigator.pop(c); _processPayment(); }, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), child: Text(!RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.sell) ? 'SIN PERMISO PARA VENDER' : 'COBRAR ${SettingsService.formatCurrency(_total)}${_paymentMethod=='mixed' ? ' - MIXED' : _paymentMethod=='cash' ? ' - CASH' : ''}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white))))
             ]))
           ]);
         });

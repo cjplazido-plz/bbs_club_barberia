@@ -39,6 +39,8 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
   static const String _bankRut = '14.212.434-3';
   static const String _bankHolder = 'Patricio Sánchez';
 
+  // Link de Google Maps de BBS Club - lo dio Patricio
+  static const String _mapsUrl = 'https://maps.app.goo.gl/9GB1F9anB6sbrNtD7';
   String _depositMethod = 'Transferencia'; 
   bool _depositAlreadyTransferred = false;
   double get _depositAmount => (_totalPrice * 0.5).roundToDouble();
@@ -134,6 +136,15 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
 
   void _showError(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ $msg'), backgroundColor: Colors.redAccent, behavior: SnackBarBehavior.floating));
+  }
+
+  Future<void> _openMaps() async {
+    final uri = Uri.parse(_mapsUrl);
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+    } catch (_) {}
   }
 
   String _digits(String p) => p.replaceAll(RegExp(r'[^0-9]'), '');
@@ -325,6 +336,58 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
                         Text(SettingsService.shopName.toUpperCase(), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 1.2), textAlign: TextAlign.center),
                         const SizedBox(height: 4),
                         Text('Barbería Premium', style: TextStyle(fontSize: 12, color: _goldColor.withOpacity(0.8), fontWeight: FontWeight.w500)),
+                        // --- DIRECCION + UBICACION PREMIUM ---
+                        // Usa la direccion que esta en Settings (Configuracion > Direccion).
+                        // Si esta vacia, muestra solo el boton de Maps.
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.03),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: _goldColor.withOpacity(0.2)),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(color: _goldColor.withOpacity(0.12), borderRadius: BorderRadius.circular(10)),
+                                child: const Icon(Icons.location_on_rounded, color: _goldColor, size: 18),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text('ENCUENTRANOS EN', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white38, letterSpacing: 1.2)),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      SettingsService.shopAddress.isNotEmpty ? SettingsService.shopAddress : 'Ver ubicacion en Google Maps',
+                                      style: const TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w600),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              InkWell(
+                                onTap: _openMaps,
+                                borderRadius: BorderRadius.circular(10),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  decoration: BoxDecoration(color: _goldColor, borderRadius: BorderRadius.circular(10)),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text('Como llegar', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black)),
+                                      SizedBox(width: 4),
+                                      Icon(Icons.navigation_rounded, size: 14, color: Colors.black),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ])
                     ),
                     const SizedBox(height: 24),

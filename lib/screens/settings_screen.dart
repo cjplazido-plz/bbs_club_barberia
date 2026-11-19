@@ -200,7 +200,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: _emerald.withOpacity(0.1), borderRadius: BorderRadius.circular(14), border: Border.all(color: _emerald.withOpacity(0.3))), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     const Row(children: [Icon(Icons.lock, size: 16, color: _emerald), SizedBox(width: 8), Text('WhatsApp Reservas', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold))]),
                     const SizedBox(height: 6),
-                    const Text('Solo el desarrollador puede verlo y editarlo.', style: TextStyle(color: Colors.white54, fontSize: 11)),
+                    const Text('🗝️ Administrador de Sistema ', style: TextStyle(color: Colors.white54, fontSize: 11)),
                     const SizedBox(height: 10),
                     _field('', _reservasWhatsAppCtrl, icon: Icons.phone_rounded, hint: '+56972433525'),
                   ])),
@@ -221,7 +221,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _logoField(label: 'Logo Ticket (Blanco y Negro)', ctrl: _ticketLogoCtrl, isTicket: true, hint: 'https://.../LOGOTICKET.bmp', onChanged: (_) => setState((){}), locked: !_isDev),
                 const SizedBox(height: 10),
                 _logoPreviews(),
-                _bucketWarning(),
+                //_bucketWarning(),
                 
                 const SizedBox(height: 20),
                 // SECCIÓN 04
@@ -413,7 +413,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           labelStyle: const TextStyle(color: Colors.white54, fontSize: 12),
           prefixIcon: Icon(icon, color: _violet, size: 20),
           suffixIcon: locked ? const Icon(Icons.lock_rounded, color: Colors.amber, size: 18) : null,
-          helperText: locked ? '🔒 Solo desarrollador - pídelo y lo cambio yo' : null,
+          helperText: locked ? '🗝️ Administrador de Sistema' : null,
           helperStyle: const TextStyle(color: Colors.amber, fontSize: 10),
           labelText: locked ? label + '  🔒' : label,
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
@@ -477,20 +477,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _bucketWarning() {
-    return Container(
-      margin: const EdgeInsets.only(top: 12),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: _amber.withOpacity(0.1), borderRadius: BorderRadius.circular(14), border: Border.all(color: _amber.withOpacity(0.3))),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Icon(Icons.warning_amber_rounded, color: _amber, size: 20),
-        const SizedBox(width: 10),
-        const Expanded(
-          child: Text('Si el bucket de Supabase tiene espacios en el nombre, la URL fallará. Asegúrate de usar un bucket público sin espacios y pegar la URL directa.', 
-          style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.4))),
-      ]),
-    );
-  }
+  //Widget _bucketWarning() { return Container( margin: const EdgeInsets.only(top: 12), padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: _amber.withOpacity(0.1), borderRadius: BorderRadius.circular(14), border: Border.all(color: _amber.withOpacity(0.3))), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [ const Icon(Icons.warning_amber_rounded, color: _amber, size: 20), const SizedBox(width: 10), const Expanded( child: Text('Si el bucket de Supabase tiene espacios en el nombre, la URL fallará. Asegúrate de usar un bucket público sin espacios y pegar la URL directa.', style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.4))), ]), ); }
 
   // =========================================================================
   // VISTA PREVIA DE TICKET (SIN CÓDIGO DE BARRAS)
