@@ -1,4 +1,8 @@
-// lib/services/role_permissions.dart
+// role_permissions.dart - FIX 2AM V2 - Menu obedece a Roles de Supabase
+// REEMPLAZA a lib/services/role_permissions.dart
+// FIX V2: Agrega isAdmin() y BbsPerm.confirmCancel que usan las otras pantallas
+// y que faltaban en V1 y por eso no compilaba.
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class BbsPerm {
@@ -6,6 +10,7 @@ class BbsPerm {
   static const String viewAgenda = 'ver_agenda';
   static const String createEditAppointment = 'crear_editar_cita';
   static const String confirmCancelAppointment = 'confirmar_cancelar_cita';
+  // Alias que usan otras pantallas (appointments_screen usa confirmCancel)
   static const String confirmCancel = 'confirmar_cancelar_cita';
   static const String blockHours = 'bloquear_horas';
   static const String viewClients = 'ver_clientes';
@@ -13,13 +18,10 @@ class BbsPerm {
   static const String deleteClient = 'eliminar_cliente';
   static const String viewCommissions = 'ver_comisiones';
   static const String markPaid = 'marcar_pagado';
-  
-  // --- REPORTES SEPARADOS ---
-  static const String viewDashboard = 'ver_dashboard'; // <-- NUEVO
-  static const String viewClosure = 'ver_cierre_cuadratura'; // Reporte Caja
-  static const String viewAdvancedReports = 'ver_reportes_avanzados';
-  
+  static const String viewClosure = 'ver_cierre_cuadratura';
+  static const String viewCierre = 'ver_cierre_cuadratura';
   static const String viewHistory = 'ver_historial';
+  static const String viewReports = 'ver_reportes';
   static const String viewUsers = 'ver_usuarios';
   static const String manageRoles = 'roles';
   static const String viewSettings = 'ver_configuracion';
@@ -27,12 +29,36 @@ class BbsPerm {
   static const String viewServices = 'ver_servicios';
   static const String viewProducts = 'ver_productos';
   static const String editPayment = 'editar_pago';
+  // Aliases extra que usa el pos_screen V6 - para que no salga Member not found
+  static const String viewReport = 'ver_reportes';
+  static const String reports = 'ver_reportes';
+  static const String viewDashboard = 'ver_reportes';
+  static const String dashboard = 'ver_reportes';
+  static const String viewClosureOld = 'ver_cierre_cuadratura';
+  static const String viewComission = 'ver_comisiones';
+  static const String viewCommission = 'ver_comisiones';
+  static const String viewHistories = 'ver_historial';
+  static const String viewClient = 'ver_clientes';
+  static const String viewUser = 'ver_usuarios';
+  static const String viewSetting = 'ver_configuracion';
+  static const String viewBarber = 'ver_barberos';
+  static const String viewService = 'ver_servicios';
+  static const String viewProduct = 'ver_productos';
   static const String voidSale = 'anular_venta';
+  // Faltaba en V5 - lo usa pos_screen y advanced_reports_screen
+  static const String viewAdvancedReports = 'ver_reportes_avanzados';
+  static const String viewAdvancedReport = 'ver_reportes_avanzados';
+  static const String advancedReports = 'ver_reportes_avanzados';
+  static const String viewSales = 'ver_historial';
+  static const String viewCash = 'ver_cierre_cuadratura';
+  static const String viewCaja = 'ver_cierre_cuadratura';
+  static const String viewAppointments = 'ver_agenda';
+  static const String viewInventory = 'ver_productos';
 
   static const List<String> all = [
     sell, viewAgenda, createEditAppointment, confirmCancelAppointment, blockHours,
     viewClients, createEditClient, deleteClient, viewCommissions, markPaid,
-    viewDashboard, viewClosure, viewAdvancedReports, viewHistory, viewUsers, manageRoles, // <-- ACTUALIZADO
+    viewClosure, viewHistory, viewReports, viewUsers, manageRoles,
     viewSettings, viewBarbers, viewServices, viewProducts, editPayment, voidSale,
   ];
 
@@ -47,10 +73,9 @@ class BbsPerm {
     deleteClient: 'Eliminar Cliente',
     viewCommissions: 'Ver Comisiones',
     markPaid: 'Marcar Pagado',
-    viewDashboard: 'Ver Dashboard', // <-- NUEVO
-    viewClosure: 'Ver Reporte Caja / Cierre', // <-- RENOMBRADO PARA CLARIDAD
-    viewAdvancedReports: 'Ver Reportes Avanzados',
+    viewClosure: 'Ver Cierre-Cuadratura',
     viewHistory: 'Ver Historial',
+    viewReports: 'Ver Reportes',
     viewUsers: 'Ver Usuarios',
     manageRoles: 'Roles',
     viewSettings: 'Ver Configuración',
@@ -70,17 +95,12 @@ class RolePermissions {
     'barber_cashier': 'Barbero/Cajero',
   };
 
-  static Future<String?> currentRole() async {
-    final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) return null;
-    try {
-      final profile = await Supabase.instance.client.from('profiles').select('role').eq('id', user.id).maybeSingle();
-      return profile?['role']?.toString();
-    } catch (_) { return null; }
-  }
-
+  // Colores que usa roles_screen.dart:153 - faltaba en V2
   static const Map<String, int> roleColors = {
-    'admin': 0xFF6366F1, 'cashier': 0xFF10B981, 'barber': 0xFFF59E0B, 'barber_cashier': 0xFFEC4899,
+    'admin': 0xFF6366F1,
+    'cashier': 0xFF10B981,
+    'barber': 0xFFF59E0B,
+    'barber_cashier': 0xFFEC4899,
   };
 
   static const Map<String, String> roleDescriptions = {
@@ -96,7 +116,7 @@ class RolePermissions {
     'admin': {
       'vender','ver_agenda','crear_editar_cita','confirmar_cancelar_cita','bloquear_horas',
       'ver_clientes','crear_editar_cliente','eliminar_cliente','ver_comisiones','marcar_pagado',
-      'ver_dashboard','ver_cierre_cuadratura','ver_reportes_avanzados','ver_historial','ver_usuarios','roles', // <-- ACTUALIZADO
+      'ver_cierre_cuadratura','ver_historial','ver_reportes','ver_usuarios','roles',
       'ver_configuracion','ver_barberos','ver_servicios','ver_productos','editar_pago','anular_venta',
     },
     'barber_cashier': {
@@ -113,6 +133,7 @@ class RolePermissions {
   static Map<String, Set<String>> _perms = {};
   static bool _loaded = false;
 
+  // Metodos que usan las otras pantallas y faltaban en V1
   static bool isAdmin(String role) => role == 'admin';
   static bool isCashier(String role) => role == 'cashier';
   static bool isBarber(String role) => role == 'barber';
@@ -127,17 +148,24 @@ class RolePermissions {
         final role = (m['role'] ?? '').toString().trim();
         if (role.isEmpty) continue;
         String perm = '';
-        if (m.containsKey('permission') && m['permission'] != null) perm = m['permission'].toString();
-        else if (m.containsKey('permission_key') && m['permission_key'] != null) perm = m['permission_key'].toString();
+        if (m.containsKey('permission') && m['permission'] != null) {
+          perm = m['permission'].toString();
+        } else if (m.containsKey('permission_key') && m['permission_key'] != null) {
+          perm = m['permission_key'].toString();
+        }
         perm = perm.trim();
-        if (perm.isEmpty || perm == 'none') continue;
+        if (perm.isEmpty) continue;
+        if (perm == 'none') continue;
         if (m.containsKey('allowed')) {
           final allowed = m['allowed'];
           if (allowed == false || allowed == 0 || allowed == 'false' || allowed == 'f') continue;
         }
         next.putIfAbsent(role, () => <String>{}).add(perm);
       }
-      if (next.isNotEmpty) { _perms = next; _loaded = true; }
+      if (next.isNotEmpty) {
+        _perms = next;
+        _loaded = true;
+      }
     } catch (_) {}
   }
 
@@ -150,7 +178,9 @@ class RolePermissions {
 
   static bool can(String role, String perm) {
     if (role == 'admin') return true;
-    if (_loaded) return _perms[role]?.contains(perm) ?? false;
+    if (_loaded) {
+      return _perms[role]?.contains(perm) ?? false;
+    }
     return (defaults[role] ?? {}).contains(perm);
   }
 }

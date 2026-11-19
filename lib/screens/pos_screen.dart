@@ -34,6 +34,7 @@ import 'commissions_screen.dart';
 import 'roles_screen.dart' as roles_screen; // <-- Restaurado
 import '../services/role_permissions.dart'; // <-- EL IMPORT QUE FALTABA Y CAUSABA EL ERROR
 
+
 class PosScreen extends StatefulWidget {
   @override
   State<PosScreen> createState() => _PosScreenState();
@@ -603,7 +604,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
                 _buildMenuItem(Icons.dashboard, 'Dashboard', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => DashboardScreen())); }),                 const Divider(color: Colors.white10),
               if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewAdvancedReports))
                 _buildMenuItem(Icons.analytics, 'Reportes Avanzados', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => AdvancedReportsScreen())); }),
-             if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewClosure))
+             if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewReports))
                 _buildMenuItem(Icons.trending_up, 'Reporte Caja', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ReportsScreen())); }),   
               if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewCommissions))
                 _buildMenuItem(Icons.monetization_on, 'Comisiones', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => CommissionsScreen())); }),

@@ -486,7 +486,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (!RolePermissions.isAdmin(currentUserRole) && !RolePermissions.can(currentUserRole, BbsPerm.viewReports)) {
+    //if (!RolePermissions.can(currentUserRole, BbsPerm.viewAdvancedReports) && !RolePermissions.isAdmin(currentUserRole)) {
+    if (!RolePermissions.can(currentUserRole,BbsPerm.viewReports) && !RolePermissions.isAdmin(currentUserRole, )) {
       return const Scaffold(backgroundColor: Color(0xFF0F172A), body: Center(child: Text('No tienes permisos para ver esta sección', style: TextStyle(color: Colors.white))));
     }
 
