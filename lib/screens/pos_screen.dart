@@ -599,19 +599,18 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
             ),
             Column(children: [
               // FIX: El menú ahora obedece a los permisos reales de cada rol
+              if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewDashboard))
+                _buildMenuItem(Icons.dashboard, 'Dashboard', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => DashboardScreen())); }),                 const Divider(color: Colors.white10),
               if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewAdvancedReports))
                 _buildMenuItem(Icons.analytics, 'Reportes Avanzados', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => AdvancedReportsScreen())); }),
+             if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewClosure))
+                _buildMenuItem(Icons.trending_up, 'Reporte Caja', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ReportsScreen())); }),   
               if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewCommissions))
                 _buildMenuItem(Icons.monetization_on, 'Comisiones', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => CommissionsScreen())); }),
-              if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewClosure))
-                 _buildMenuItem(Icons.trending_up, 'Reporte Caja', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ReportsScreen())); }),
               if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewAgenda))
                 _buildMenuItem(Icons.calendar_month, 'Agenda', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => AppointmentsScreen())); }),  
               if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewHistory))
                 _buildMenuItem(Icons.receipt_long, 'Historial', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => SalesHistoryScreen())); }),
-              if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewReports)) // Dashboard requiere permisos de reportes
-                _buildMenuItem(Icons.dashboard, 'Dashboard', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => DashboardScreen())); }),
-                 const Divider(color: Colors.white10),
               if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewBarbers))
                 _buildMenuItem(Icons.cut, 'Barberos', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => BarbersScreen())).then((_) => _loadData()); }),
               if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewServices))

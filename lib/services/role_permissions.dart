@@ -13,11 +13,13 @@ class BbsPerm {
   static const String deleteClient = 'eliminar_cliente';
   static const String viewCommissions = 'ver_comisiones';
   static const String markPaid = 'marcar_pagado';
-  static const String viewClosure = 'ver_cierre_cuadratura';
-  static const String viewCierre = 'ver_cierre_cuadratura';
+  
+  // --- REPORTES SEPARADOS ---
+  static const String viewDashboard = 'ver_dashboard'; // <-- NUEVO
+  static const String viewClosure = 'ver_cierre_cuadratura'; // Reporte Caja
+  static const String viewAdvancedReports = 'ver_reportes_avanzados';
+  
   static const String viewHistory = 'ver_historial';
-  static const String viewReports = 'ver_reportes';
-  static const String viewAdvancedReports = 'ver_reportes_avanzados'; // <-- NUEVO
   static const String viewUsers = 'ver_usuarios';
   static const String manageRoles = 'roles';
   static const String viewSettings = 'ver_configuracion';
@@ -30,7 +32,7 @@ class BbsPerm {
   static const List<String> all = [
     sell, viewAgenda, createEditAppointment, confirmCancelAppointment, blockHours,
     viewClients, createEditClient, deleteClient, viewCommissions, markPaid,
-    viewClosure, viewHistory, viewReports, viewAdvancedReports, viewUsers, manageRoles, // <-- AGREGADO
+    viewDashboard, viewClosure, viewAdvancedReports, viewHistory, viewUsers, manageRoles, // <-- ACTUALIZADO
     viewSettings, viewBarbers, viewServices, viewProducts, editPayment, voidSale,
   ];
 
@@ -45,10 +47,10 @@ class BbsPerm {
     deleteClient: 'Eliminar Cliente',
     viewCommissions: 'Ver Comisiones',
     markPaid: 'Marcar Pagado',
-    viewClosure: 'Ver Cierre-Cuadratura',
+    viewDashboard: 'Ver Dashboard', // <-- NUEVO
+    viewClosure: 'Ver Reporte Caja / Cierre', // <-- RENOMBRADO PARA CLARIDAD
+    viewAdvancedReports: 'Ver Reportes Avanzados',
     viewHistory: 'Ver Historial',
-    viewReports: 'Ver Reportes (Básicos)',
-    viewAdvancedReports: 'Ver Reportes Avanzados', // <-- NUEVO
     viewUsers: 'Ver Usuarios',
     manageRoles: 'Roles',
     viewSettings: 'Ver Configuración',
@@ -72,22 +74,13 @@ class RolePermissions {
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) return null;
     try {
-      final profile = await Supabase.instance.client
-          .from('profiles')
-          .select('role')
-          .eq('id', user.id)
-          .maybeSingle();
+      final profile = await Supabase.instance.client.from('profiles').select('role').eq('id', user.id).maybeSingle();
       return profile?['role']?.toString();
-    } catch (_) {
-      return null;
-    }
+    } catch (_) { return null; }
   }
 
   static const Map<String, int> roleColors = {
-    'admin': 0xFF6366F1,
-    'cashier': 0xFF10B981,
-    'barber': 0xFFF59E0B,
-    'barber_cashier': 0xFFEC4899,
+    'admin': 0xFF6366F1, 'cashier': 0xFF10B981, 'barber': 0xFFF59E0B, 'barber_cashier': 0xFFEC4899,
   };
 
   static const Map<String, String> roleDescriptions = {
@@ -103,7 +96,7 @@ class RolePermissions {
     'admin': {
       'vender','ver_agenda','crear_editar_cita','confirmar_cancelar_cita','bloquear_horas',
       'ver_clientes','crear_editar_cliente','eliminar_cliente','ver_comisiones','marcar_pagado',
-      'ver_cierre_cuadratura','ver_historial','ver_reportes','ver_reportes_avanzados','ver_usuarios','roles', // <-- AGREGADO
+      'ver_dashboard','ver_cierre_cuadratura','ver_reportes_avanzados','ver_historial','ver_usuarios','roles', // <-- ACTUALIZADO
       'ver_configuracion','ver_barberos','ver_servicios','ver_productos','editar_pago','anular_venta',
     },
     'barber_cashier': {
@@ -134,24 +127,17 @@ class RolePermissions {
         final role = (m['role'] ?? '').toString().trim();
         if (role.isEmpty) continue;
         String perm = '';
-        if (m.containsKey('permission') && m['permission'] != null) {
-          perm = m['permission'].toString();
-        } else if (m.containsKey('permission_key') && m['permission_key'] != null) {
-          perm = m['permission_key'].toString();
-        }
+        if (m.containsKey('permission') && m['permission'] != null) perm = m['permission'].toString();
+        else if (m.containsKey('permission_key') && m['permission_key'] != null) perm = m['permission_key'].toString();
         perm = perm.trim();
-        if (perm.isEmpty) continue;
-        if (perm == 'none') continue;
+        if (perm.isEmpty || perm == 'none') continue;
         if (m.containsKey('allowed')) {
           final allowed = m['allowed'];
           if (allowed == false || allowed == 0 || allowed == 'false' || allowed == 'f') continue;
         }
         next.putIfAbsent(role, () => <String>{}).add(perm);
       }
-      if (next.isNotEmpty) {
-        _perms = next;
-        _loaded = true;
-      }
+      if (next.isNotEmpty) { _perms = next; _loaded = true; }
     } catch (_) {}
   }
 
@@ -164,9 +150,7 @@ class RolePermissions {
 
   static bool can(String role, String perm) {
     if (role == 'admin') return true;
-    if (_loaded) {
-      return _perms[role]?.contains(perm) ?? false;
-    }
+    if (_loaded) return _perms[role]?.contains(perm) ?? false;
     return (defaults[role] ?? {}).contains(perm);
   }
 }
