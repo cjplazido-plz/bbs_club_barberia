@@ -1,3 +1,6 @@
+// roles_screen.dart - CORREGIDO permission_key
+// FIX: Tu tabla es (role, permission_key, allowed), NO (role, permission). Por eso fallaba con 42703.
+// Se cambiaron los 3 inserts a permission_key + allowed.
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/role_permissions.dart';
@@ -211,7 +214,7 @@ class _EditarRolScreenState extends State<_EditarRolScreen> {
       await Supabase.instance.client.from('role_permissions').delete().eq('role', widget.role);
       
       if (_checked.isEmpty) {
-        await Supabase.instance.client.from('role_permissions').insert({'role': widget.role, 'permission_key': 'none', 'allowed': true});
+        await Supabase.instance.client.from('role_permissions').insert({'role': widget.role, 'permission_key': 'none', 'allowed': false});
       } else {
         for (final p in _checked) {
           await Supabase.instance.client.from('role_permissions').insert({'role': widget.role, 'permission_key': p, 'allowed': true});

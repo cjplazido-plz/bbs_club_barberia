@@ -1,0 +1,17 @@
+role,permission_key,allowed
+admin,crear_editar_producto,true
+admin,crear_editar_servicio,true
+admin,ver_dashboard,true
+admin,ver_reportes_avanzados,true
+barber,crear_editar_producto,false
+barber,crear_editar_servicio,false
+barber,ver_dashboard,false
+barber,ver_reportes_avanzados,false
+barber_cashier,crear_editar_producto,false
+barber_cashier,crear_editar_servicio,false
+barber_cashier,ver_dashboard,false
+barber_cashier,ver_reportes_avanzados,false
+cashier,crear_editar_producto,false
+cashier,crear_editar_servicio,false
+cashier,ver_dashboard,false
+cashier,ver_reportes_avanzados,false
