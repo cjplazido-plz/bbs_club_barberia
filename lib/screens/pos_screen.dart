@@ -432,7 +432,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
     try {
       try { transaction.folio = folioStr; } catch (_) {}
       final effectiveBarberHeader = _selectedBarber ?? _barbers.firstWhere((b) => b.name.toUpperCase() == realCashierName.toUpperCase(), orElse: () => _barbers.isNotEmpty ? _barbers.first : (LocalBarber()..name = realCashierName));
-            final transResponse = await Supabase.instance.client.from('transactions').insert({'id': transaction.remoteId, 'folio': folioStr, 'cash_register_id': transaction.cashRegisterId, 'cashier_id': transaction.cashierId, 'cashier_name': transaction.cashierName, 'barber_id': effectiveBarberHeader.remoteId ?? '', 'barber_name': effectiveBarberHeader.name, 'client_name': _selectedClient?.name ?? '', 'subtotal': transaction.subtotal, 'total': transaction.total, 'payment_method': transaction.paymentMethod, 'cash_received': cashReceived, 'change_amount': change, 'status': 'completed', 'created_at': DateTime.now().toIso8601String()}).select().single();
+      final transResponse = await Supabase.instance.client.from('transactions').insert({'id': transaction.remoteId, 'folio': folioStr, 'cash_register_id': transaction.cashRegisterId, 'cashier_id': transaction.cashierId, 'cashier_name': transaction.cashierName, 'barber_id': effectiveBarberHeader.remoteId ?? '', 'barber_name': effectiveBarberHeader.name, 'client_name': _selectedClient?.name ?? '', 'subtotal': transaction.subtotal, 'total': transaction.total, 'payment_method': transaction.paymentMethod, 'cash_received': cashReceived, 'change_amount': change, 'status': 'completed', 'created_at': DateTime.now().toIso8601String()}).select().single();
       final transactionId = transResponse['id'] as String;
       final itemsData = transaction.items.map((item)=>{'transaction_id': transactionId, 'item_type': item.type, 'service_id': item.type=='service'?item.serviceId:null, 'service_name': item.type=='service'?item.serviceName:null, 'product_id': item.type=='product'?item.productId:null, 'product_name': item.type=='product'?item.productName:null, 'barber_id': item.barberId.isNotEmpty?item.barberId:null, 'barber_name': item.barberName.isNotEmpty?item.barberName:null, 'price_at_moment': item.priceAtMoment, 'quantity': item.quantity, 'commission_earned': item.commissionEarned}).toList();
       await Supabase.instance.client.from('transaction_items').insert(itemsData);
@@ -599,21 +599,19 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
             ),
             Column(children: [
               // FIX: El menú ahora obedece a los permisos reales de cada rol
-              if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewReports))
-                _buildMenuItem(Icons.trending_up, 'Reportes Avanzados', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => AdvancedReportsScreen())); }),
+              if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewAdvancedReports))
+                _buildMenuItem(Icons.analytics, 'Reportes Avanzados', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => AdvancedReportsScreen())); }),
               if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewCommissions))
                 _buildMenuItem(Icons.monetization_on, 'Comisiones', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => CommissionsScreen())); }),
-              if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewReports))
-                _buildMenuItem(Icons.trending_up, 'Reporte caja', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ReportsScreen())); }),  
+              if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewClosure))
+                 _buildMenuItem(Icons.trending_up, 'Reporte Caja', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ReportsScreen())); }),
               if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewAgenda))
                 _buildMenuItem(Icons.calendar_month, 'Agenda', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => AppointmentsScreen())); }),  
               if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewHistory))
                 _buildMenuItem(Icons.receipt_long, 'Historial', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => SalesHistoryScreen())); }),
               if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewReports)) // Dashboard requiere permisos de reportes
                 _buildMenuItem(Icons.dashboard, 'Dashboard', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => DashboardScreen())); }),
-              
-              const Divider(color: Colors.white10),
-              
+                 const Divider(color: Colors.white10),
               if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewBarbers))
                 _buildMenuItem(Icons.cut, 'Barberos', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => BarbersScreen())).then((_) => _loadData()); }),
               if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewServices))

@@ -1,8 +1,4 @@
-// role_permissions.dart - FIX 2AM V2 - Menu obedece a Roles de Supabase
-// REEMPLAZA a lib/services/role_permissions.dart
-// FIX V2: Agrega isAdmin() y BbsPerm.confirmCancel que usan las otras pantallas
-// y que faltaban en V1 y por eso no compilaba.
-
+// lib/services/role_permissions.dart
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class BbsPerm {
@@ -10,7 +6,6 @@ class BbsPerm {
   static const String viewAgenda = 'ver_agenda';
   static const String createEditAppointment = 'crear_editar_cita';
   static const String confirmCancelAppointment = 'confirmar_cancelar_cita';
-  // Alias que usan otras pantallas (appointments_screen usa confirmCancel)
   static const String confirmCancel = 'confirmar_cancelar_cita';
   static const String blockHours = 'bloquear_horas';
   static const String viewClients = 'ver_clientes';
@@ -22,6 +17,7 @@ class BbsPerm {
   static const String viewCierre = 'ver_cierre_cuadratura';
   static const String viewHistory = 'ver_historial';
   static const String viewReports = 'ver_reportes';
+  static const String viewAdvancedReports = 'ver_reportes_avanzados'; // <-- NUEVO
   static const String viewUsers = 'ver_usuarios';
   static const String manageRoles = 'roles';
   static const String viewSettings = 'ver_configuracion';
@@ -34,7 +30,7 @@ class BbsPerm {
   static const List<String> all = [
     sell, viewAgenda, createEditAppointment, confirmCancelAppointment, blockHours,
     viewClients, createEditClient, deleteClient, viewCommissions, markPaid,
-    viewClosure, viewHistory, viewReports, viewUsers, manageRoles,
+    viewClosure, viewHistory, viewReports, viewAdvancedReports, viewUsers, manageRoles, // <-- AGREGADO
     viewSettings, viewBarbers, viewServices, viewProducts, editPayment, voidSale,
   ];
 
@@ -51,7 +47,8 @@ class BbsPerm {
     markPaid: 'Marcar Pagado',
     viewClosure: 'Ver Cierre-Cuadratura',
     viewHistory: 'Ver Historial',
-    viewReports: 'Ver Reportes',
+    viewReports: 'Ver Reportes (Básicos)',
+    viewAdvancedReports: 'Ver Reportes Avanzados', // <-- NUEVO
     viewUsers: 'Ver Usuarios',
     manageRoles: 'Roles',
     viewSettings: 'Ver Configuración',
@@ -71,7 +68,6 @@ class RolePermissions {
     'barber_cashier': 'Barbero/Cajero',
   };
 
-    // --- NUEVO MÉTODO: Obtiene el rol del usuario actual desde la base de datos ---
   static Future<String?> currentRole() async {
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) return null;
@@ -86,9 +82,7 @@ class RolePermissions {
       return null;
     }
   }
-  
 
-  // Colores que usa roles_screen.dart:153 - faltaba en V2
   static const Map<String, int> roleColors = {
     'admin': 0xFF6366F1,
     'cashier': 0xFF10B981,
@@ -109,7 +103,7 @@ class RolePermissions {
     'admin': {
       'vender','ver_agenda','crear_editar_cita','confirmar_cancelar_cita','bloquear_horas',
       'ver_clientes','crear_editar_cliente','eliminar_cliente','ver_comisiones','marcar_pagado',
-      'ver_cierre_cuadratura','ver_historial','ver_reportes','ver_usuarios','roles',
+      'ver_cierre_cuadratura','ver_historial','ver_reportes','ver_reportes_avanzados','ver_usuarios','roles', // <-- AGREGADO
       'ver_configuracion','ver_barberos','ver_servicios','ver_productos','editar_pago','anular_venta',
     },
     'barber_cashier': {
@@ -126,7 +120,6 @@ class RolePermissions {
   static Map<String, Set<String>> _perms = {};
   static bool _loaded = false;
 
-  // Metodos que usan las otras pantallas y faltaban en V1
   static bool isAdmin(String role) => role == 'admin';
   static bool isCashier(String role) => role == 'cashier';
   static bool isBarber(String role) => role == 'barber';
