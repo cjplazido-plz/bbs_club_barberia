@@ -420,8 +420,13 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
       }
     }
     final _authUser = Supabase.instance.client.auth.currentUser;
-    final realCashierId = _authUser?.id ?? 'user-001';
-    final realCashierName = currentUserName.isNotEmpty ? currentUserName : 'Recepcion';
+    // FIX: sin fallback a user-001 / Recepcion - si no hay sesion, no se inventa un cajero
+    if (_authUser == null) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('⚠️ Sesion expirada. Vuelve a entrar para vender.'), backgroundColor: Colors.redAccent));
+      return;
+    }
+    final realCashierId = _authUser.id;
+    final realCashierName = currentUserName.isNotEmpty ? currentUserName : (_authUser.email?.split('@').first ?? 'Sin nombre');
     int folioUsado = 0;
     String folioStr = '';
     try {
@@ -449,7 +454,10 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
       ..items=List.from(_cart);
     try {
       try { transaction.folio = folioStr; } catch (_) {}
-      final effectiveBarberHeader = _selectedBarber ?? _barbers.firstWhere((b) => b.name.toUpperCase() == realCashierName.toUpperCase(), orElse: () => _barbers.isNotEmpty ? _barbers.first : (LocalBarber()..name = realCashierName));
+      // FIX: si es venta solo de productos, barbero queda vacio (Sin asignar en ticket), no primer barbero ni Recepcion.
+      // Si hay servicios, _selectedBarber ya es obligatorio por _addServiceToCart, asi que este fallback casi nunca se usa.
+      final _firstServiceBarber = transaction.items.firstWhere((e) => e.type == 'service' && e.barberName.isNotEmpty, orElse: () => LocalTransactionItem());
+      final effectiveBarberHeader = _selectedBarber ?? ((_firstServiceBarber.barberName.isNotEmpty) ? (LocalBarber()..remoteId = _firstServiceBarber.barberId..name = _firstServiceBarber.barberName) : (LocalBarber()..name = ''));
       final transResponse = await Supabase.instance.client.from('transactions').insert({'id': transaction.remoteId, 'folio': folioStr, 'cash_register_id': transaction.cashRegisterId, 'cashier_id': transaction.cashierId, 'cashier_name': transaction.cashierName, 'barber_id': effectiveBarberHeader.remoteId ?? '', 'barber_name': effectiveBarberHeader.name, 'client_name': (_selectedClient?.name.trim().isEmpty ?? true) ? 'Consumidor Final' : _selectedClient!.name.trim(), 'subtotal': transaction.subtotal, 'total': transaction.total, 'payment_method': transaction.paymentMethod, 'cash_received': cashReceived, 'change_amount': change, 'status': 'completed', 'created_at': DateTime.now().toIso8601String()}).select().single();
       final transactionId = transResponse['id'] as String;
       final itemsData = transaction.items.map((item)=>{'transaction_id': transactionId, 'item_type': item.type, 'service_id': item.type=='service'?item.serviceId:null, 'service_name': item.type=='service'?item.serviceName:null, 'product_id': item.type=='product'?item.productId:null, 'product_name': item.type=='product'?item.productName:null, 'barber_id': item.barberId.isNotEmpty?item.barberId:null, 'barber_name': item.barberName.isNotEmpty?item.barberName:null, 'price_at_moment': item.priceAtMoment, 'quantity': item.quantity, 'commission_earned': item.commissionEarned}).toList();
