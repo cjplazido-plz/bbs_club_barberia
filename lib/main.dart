@@ -32,6 +32,9 @@ void main() async {
     ),
   );
   
+  // FIX 429: NO llamar refreshSession() aquí. getSession() ya refresca solo si hace falta.
+  // El refresh extra + el de AuthGate duplicaba llamadas a /token?grant_type=refresh_token
+  // y Supabase respondía 429 over_request_rate_limit.
   try {
     await Supabase.instance.client.auth.getSession();
   } catch (_) {}
@@ -51,7 +54,7 @@ class _BarberFlowAppState extends State<BarberFlowApp> {
     // 3. ENVOLVER EL MATERIALAPP
     return InactivityWrapper(
       navigatorKey: navigatorKey,
-      timeout: const Duration(hours: 8), // FIX SESION: POS queda abierto todo el día, no 10 min. Si BRAYAN corta 30 min sin tocar, no se cierra.
+      timeout: const Duration(hours: 8), // FIX F5/SESION: turno completo del salón, no 10 min
       child: MaterialApp(
         navigatorKey: navigatorKey, // <-- 4. ASIGNAR LA LLAVE AQUÍ
         title: SettingsService.shopName,
@@ -88,26 +91,57 @@ class AuthGate extends StatefulWidget {
 
 class _AuthGateState extends State<AuthGate> {
   bool _isLoading = true;
+  bool _isIniting = false; // FIX 429: evita _init() concurrentes
+  bool _isRefreshing = false; // FIX 429: un solo refresh a la vez
 
   @override
   void initState() {
     super.initState();
     _init();
 
+    // FIX 429: este listener era el loop.
+    // Antes: CADA onAuthStateChange -> _init() -> getSession() -> otro onAuthStateChange -> _init()...
+    // Eso bombardeaba /token?grant_type=refresh_token hasta 429.
+    // Ahora: ignora INITIAL_SESSION (ya hicimos _init) y solo reacciona a cambios reales,
+    // y _init() tiene guarda para no correrse 2 veces a la vez.
     Supabase.instance.client.auth.onAuthStateChange.listen((data) {
-      if (mounted) {
+      if (!mounted) return;
+      final event = data.event;
+      if (event == AuthChangeEvent.initialSession) return;
+      if (event == AuthChangeEvent.tokenRefreshed) {
+        // Token ya refrescado por Supabase (autoRefreshToken), no hay que hacer nada
+        if (mounted) setState(() {});
+        return;
+      }
+      if (event == AuthChangeEvent.signedIn || event == AuthChangeEvent.signedOut) {
         _init();
-        setState(() {});
       }
     });
   }
 
   Future<void> _init() async {
+    if (_isIniting) return; // FIX 429: si ya hay un _init en curso, no lanzar otro
+    _isIniting = true;
     if (mounted) setState(() => _isLoading = true);
-    
+
     try {
       await Supabase.instance.client.auth.getSession();
-      final session = Supabase.instance.client.auth.currentSession;
+      var session = Supabase.instance.client.auth.currentSession;
+      // FIX 429: solo refrescar si de verdad está por vencer Y no estamos ya refrescando.
+      // getSession() ya intentó refrescar. Este es solo un último intento, una sola vez.
+      final ahora2 = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      if (session != null && session.expiresAt != null && ahora2 > (session.expiresAt! - 60) && !_isRefreshing) {
+        _isRefreshing = true;
+        try {
+          final r = await Supabase.instance.client.auth.refreshSession();
+          session = r.session;
+        } catch (e) {
+          // Si es 429, NO reintentar de inmediato. Esperar a que Supabase libere el límite.
+          debugPrint('Refresh falló (puede ser 429, espera 60s sin F5): $e');
+        } finally {
+          _isRefreshing = false;
+        }
+      }
       
       if (session != null) {
         final user = session.user;
@@ -138,7 +172,8 @@ class _AuthGateState extends State<AuthGate> {
     }
     
     await Future.delayed(const Duration(milliseconds: 400));
-    
+
+    _isIniting = false;
     if (mounted) {
       setState(() => _isLoading = false);
     }
