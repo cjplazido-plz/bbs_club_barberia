@@ -233,36 +233,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _buildQuickDateChip('Hoy', 'today'),
-              _buildQuickDateChip('Semana', 'week'),
-              _buildQuickDateChip('Mes', 'month'),
-              InkWell(
-                onTap: _pickDateRange,
-                borderRadius: BorderRadius.circular(20),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: _activeQuickFilter == 'custom' ? const Color(0xFF6366F1) : const Color(0xFF0F172A),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: _activeQuickFilter == 'custom' ? const Color(0xFF6366F1) : Colors.white10),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.date_range, size: 14, color: _activeQuickFilter == 'custom' ? Colors.white : Colors.white54),
-                      const SizedBox(width: 6),
-                      Text('Rango', style: TextStyle(color: _activeQuickFilter == 'custom' ? Colors.white : Colors.white54, fontSize: 12, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                ),
-              ),
+          // FILTRO UNIFICADO - mismo estilo que Reportes Avanzados (Período de Análisis)
+          Row(
+            children: const [
+              Icon(Icons.calendar_month_rounded, color: Color(0xFF818CF8), size: 18),
+              SizedBox(width: 8),
+              Text('Período de Análisis', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: SegmentedButton<String>(
+              showSelectedIcon: false,
+              style: ButtonStyle(
+                visualDensity: VisualDensity.compact,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                backgroundColor: WidgetStateProperty.resolveWith((states) => states.contains(WidgetState.selected) ? const Color(0xFF6366F1) : Colors.transparent),
+                foregroundColor: WidgetStateProperty.resolveWith((states) => states.contains(WidgetState.selected) ? Colors.white : Colors.white54),
+                side: WidgetStateProperty.all(BorderSide(color: Colors.white.withOpacity(0.1))),
+              ),
+              segments: const [
+                ButtonSegment(value: 'today', label: Text('Hoy', style: TextStyle(fontSize: 11))),
+                ButtonSegment(value: 'week', label: Text('Semana', style: TextStyle(fontSize: 11))),
+                ButtonSegment(value: 'month', label: Text('Mes', style: TextStyle(fontSize: 11))),
+              ],
+              selected: {['today', 'week', 'month'].contains(_activeQuickFilter) ? _activeQuickFilter : 'today'},
+              onSelectionChanged: (Set<String> v) { _setQuickDate(v.first); },
+            ),
+          ),
+          const SizedBox(height: 12),
           
           LayoutBuilder(
             builder: (context, constraints) {
@@ -275,29 +275,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   decoration: BoxDecoration(
                     color: const Color(0xFF0F172A),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.white.withOpacity(0.08)),
+                    border: Border.all(color: _activeQuickFilter == 'custom' ? const Color(0xFF6366F1) : Colors.white.withOpacity(0.08)),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.calendar_month_rounded, color: Color(0xFF818CF8), size: 18),
+                      Icon(Icons.date_range_rounded, color: _activeQuickFilter == 'custom' ? const Color(0xFF6366F1) : Colors.white38, size: 18),
                       const SizedBox(width: 10),
                       Expanded(
                         child: FittedBox(
                           alignment: Alignment.centerLeft,
                           fit: BoxFit.scaleDown,
                           child: Text(
-                            '${DateFormat('dd/MM/yyyy').format(_selectedDateRange.start)} - ${DateFormat('dd/MM/yyyy').format(_selectedDateRange.end)}',
-                            style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                            '${DateFormat('dd/MM/yyyy').format(_selectedDateRange.start)}  →  ${DateFormat('dd/MM/yyyy').format(_selectedDateRange.end)}',
+                            style: TextStyle(color: _activeQuickFilter == 'custom' ? Colors.white : Colors.white70, fontSize: 13, fontWeight: FontWeight.w600),
                           ),
                         ),
                       ),
+                      const SizedBox(width: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
                           color: const Color(0xFF6366F1).withOpacity(0.15),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Text('EDITAR', style: TextStyle(color: Color(0xFF818CF8), fontSize: 10, fontWeight: FontWeight.bold)),
+                        child: Text(_activeQuickFilter == 'custom' ? 'CAMBIAR' : 'EDITAR', style: const TextStyle(color: Color(0xFF818CF8), fontSize: 10, fontWeight: FontWeight.bold)),
                       ),
                     ],
                   ),

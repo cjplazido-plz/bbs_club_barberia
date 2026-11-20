@@ -630,10 +630,10 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
             Column(children: [
               // FIX: El menú ahora obedece a los permisos reales de cada rol
               if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewDashboard))
-                _buildMenuItem(Icons.dashboard, 'Dashboard', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => DashboardScreen())); }),                 const Divider(color: Colors.white10),
+                _buildMenuItem(Icons.dashboard, 'Dashboard', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => DashboardScreen())); }),
               if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewAdvancedReports))
                 _buildMenuItem(Icons.analytics, 'Reportes Avanzados', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => AdvancedReportsScreen())); }),
-             if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewReports))
+              if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewReports))
                 _buildMenuItem(Icons.trending_up, 'Reporte Caja', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ReportsScreen())); }),   
               if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewCommissions))
                 _buildMenuItem(Icons.monetization_on, 'Comisiones', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => CommissionsScreen())); }),
@@ -641,12 +641,14 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
                 _buildMenuItem(Icons.calendar_month, 'Agenda', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => AppointmentsScreen())); }),  
               if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewHistory))
                 _buildMenuItem(Icons.receipt_long, 'Historial', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => SalesHistoryScreen())); }),
+                const Divider(color: Colors.white10),
               if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewBarbers))
                 _buildMenuItem(Icons.cut, 'Barberos', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => BarbersScreen())).then((_) => _loadData()); }),
               if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewServices))
                 _buildMenuItem(Icons.content_cut, 'Servicios', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ServicesScreen())).then((_) => _loadData()); }),
               if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewProducts))
                 _buildMenuItem(Icons.inventory_2, 'Productos', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ProductsScreen())).then((_) => _loadData()); }),
+                const Divider(color: Colors.white10),                                
               if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewClients))
                 _buildMenuItem(Icons.person, 'Clientes', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ClientsScreen())).then((_) => _loadData()); }),
               if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewUsers))
@@ -655,8 +657,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
                 _buildMenuItem(Icons.security, 'Roles', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => roles_screen.RolesScreen())); }),
               if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewSettings))
                 _buildMenuItem(Icons.settings, 'Configuración', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => SettingsScreen())); }),
-                
-              const Divider(color: Colors.white10),
+                const Divider(color: Colors.white10),
               _buildMenuItem(Icons.logout, 'Cerrar sesión', () { Navigator.pop(context); _handleLogout(); }, isLogout: true),
             ]),
             const SizedBox(height: 20),
@@ -687,7 +688,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
         title: Row(children: [
           Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: const Color(0xFF6366F1), borderRadius: BorderRadius.circular(10)), child: const Icon(Icons.storefront, color: Colors.white, size: 18)),
           const SizedBox(width: 8),
-          Text(isMobile ? 'POS' : 'POS Premium', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+          Text(isMobile ? 'POS' : 'POS Premium', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.red)),
           const SizedBox(width: 8),
           Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: _miCaja == 'Sin Caja' ? Colors.red.withOpacity(0.2) : const Color(0xFF10B981).withOpacity(0.2), borderRadius: BorderRadius.circular(20), border: Border.all(color: _miCaja == 'Sin Caja' ? Colors.red : const Color(0xFF10B981))), child: Text('Caja: $_miCaja', style: TextStyle(color: _miCaja == 'Sin Caja' ? Colors.redAccent : const Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold))),
           if(!isMobile && _selectedBarber!=null) ...[
