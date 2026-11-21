@@ -155,6 +155,108 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
     }
   }
 
+
+  // PAGO UNICO - 1 solo boton de pago. Manda el filtro: 1 barbero = 1 ticket, Todos = informe con todos.
+  // Antes habia 1 boton Pagar por cada barbero (con 7 barberos = 7 botones). Ahora las tarjetas solo se tocan para ver detalle.
+  void _showPagoUnicoDialog() {
+    if (_filteredCommissions.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No hay comisiones en este filtro'), backgroundColor: Colors.orange));
+      return;
+    }
+    String metodoPago = 'cash';
+    final list = List<Map<String, dynamic>>.from(_filteredCommissions);
+    final total = _filteredCommissionsTotal;
+    final period = "${DateFormat('dd/MM/yyyy').format(_startDate)} - ${DateFormat('dd/MM/yyyy').format(_endDate)}";
+    final titulo = _selectedBarberId == 'all' ? 'Pagar a Todos (${list.length} barberos)' : 'Pagar a ${list.first['barber_name']}';
+    showDialog(context: context, builder: (ctx) => Dialog(
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      child: Container(
+        width: 360,
+        padding: const EdgeInsets.all(20),
+        child: SingleChildScrollView(
+          child: Column(children: [
+            Text((SettingsService.shopName.isNotEmpty ? SettingsService.shopName : 'BBS CLUB').toUpperCase(), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black)),
+            Text(titulo, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black)),
+            const Text('Pago de Comisiones', style: TextStyle(fontSize: 10, color: Colors.black54)),
+            const SizedBox(height: 10),
+            const Divider(color: Colors.black26, height: 1),
+            const SizedBox(height: 10),
+            _comprobanteRow('Periodo:', period),
+            _comprobanteRow('Barberos:', '${list.length}'),
+            const SizedBox(height: 10),
+            const Divider(color: Colors.black26, height: 1),
+            const SizedBox(height: 10),
+            ...list.map((b) {
+              final n = (b['barber_name'] ?? 'Desconocido').toString();
+              final v = (b['total_sales'] as double?) ?? 0.0;
+              final c = (b['total_commission'] as double?) ?? 0.0;
+              final cnt = (b['services_count'] as int?) ?? 0;
+              final pagado = _paidFolios.containsKey((b['barber_id'] ?? '').toString());
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(children: [
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('$n  •  $cnt serv.', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black)),
+                    Text('Ventas ${SettingsService.formatCurrency(v)}', style: const TextStyle(fontSize: 10, color: Colors.black54)),
+                  ])),
+                  const SizedBox(width: 8),
+                  Text(SettingsService.formatCurrency(c), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black)),
+                  const SizedBox(width: 6),
+                  Icon(pagado ? Icons.check_circle_rounded : Icons.circle_outlined, size: 16, color: pagado ? const Color(0xFF10B981) : Colors.black26),
+                ]),
+              );
+            }),
+            const SizedBox(height: 10),
+            Container(width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12), decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(8)), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('TOTAL A PAGAR', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)), Text(SettingsService.formatCurrency(total), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18))])),
+            const SizedBox(height: 14),
+            StatefulBuilder(builder: (ctx2, setStateDialog) {
+              final todosPagados = list.every((b) => _paidFolios.containsKey((b['barber_id'] ?? '').toString()));
+              return Column(children: [
+                if (todosPagados) ...[
+                  Container(width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 8), decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.12), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFF10B981))), child: const Text('✅ YA PAGADO - Todo el filtro', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF10B981)), textAlign: TextAlign.center)),
+                  const SizedBox(height: 10),
+                ],
+                if (!todosPagados && _isAdmin) ...[
+                  const Text('Método de pago:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black54)),
+                  const SizedBox(height: 6),
+                  SegmentedButton<String>(showSelectedIcon: false, segments: const [ButtonSegment(value: 'cash', label: Text('Efectivo', style: TextStyle(fontSize: 11))), ButtonSegment(value: 'transfer', label: Text('Transferencia', style: TextStyle(fontSize: 11)))], selected: {metodoPago}, onSelectionChanged: (v) { setStateDialog(() => metodoPago = v.first); }),
+                  const SizedBox(height: 4),
+                  Text(metodoPago == 'cash' ? 'Efectivo SI resta de caja en cuadratura.' : 'Transferencia NO resta de caja (no sale de caja).', style: const TextStyle(fontSize: 9, color: Colors.black54), textAlign: TextAlign.center),
+                  const SizedBox(height: 10),
+                  SizedBox(width: double.infinity, child: ElevatedButton.icon(onPressed: () async {
+                    var okCount = 0;
+                    for (final b in list) {
+                      final id = (b['barber_id'] ?? '').toString();
+                      if (_paidFolios.containsKey(id)) continue;
+                      final folio = 'COM-${DateTime.now().millisecondsSinceEpoch}-$id';
+                      final ok = await _marcarPagado(b, folio, metodoPago);
+                      if (ok) okCount++;
+                    }
+                    if (okCount > 0 || todosPagados) {
+                      if (context.mounted) Navigator.pop(ctx);
+                      _printInformeTicket();
+                    }
+                  }, icon: const Icon(Icons.check_circle_rounded, size: 16), label: Text(_selectedBarberId == 'all' ? 'Marcar como Pagado + Imprimir' : 'Marcar como Pagado + Imprimir', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4AF37), foregroundColor: Colors.black, padding: const EdgeInsets.symmetric(vertical: 12)))),
+                  const SizedBox(height: 8),
+                ],
+                if (!todosPagados && !_isAdmin) ...[
+                  const Text('Solo administrador puede marcar como pagado.', style: TextStyle(fontSize: 10, color: Colors.black54), textAlign: TextAlign.center),
+                  const SizedBox(height: 10),
+                ],
+              ]);
+            }),
+            Row(children: [
+              Expanded(child: OutlinedButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar'))),
+              const SizedBox(width: 10),
+              Expanded(child: ElevatedButton.icon(onPressed: () { Navigator.pop(ctx); _printInformeTicket(); }, icon: const Icon(Icons.print_rounded, size: 16), label: const Text('Imprimir', style: TextStyle(fontWeight: FontWeight.bold)), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981)))),
+            ]),
+          ]),
+        ),
+      ),
+    ));
+  }
+
   void _showComprobanteDialog(Map<String, dynamic> barber) {
     String metodoPago = 'cash';
     final name = barber['barber_name'] as String;
@@ -199,24 +301,8 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
               Container(width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 8), decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.12), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFF10B981))), child: Text('✅ YA PAGADO - Folio ${_paidFolios[(barber['barber_id'] ?? '').toString()]}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF10B981)), textAlign: TextAlign.center)),
               const SizedBox(height: 10),
             ],
-            if (!_paidFolios.containsKey((barber['barber_id'] ?? '').toString()) && _isAdmin) ...[
-              StatefulBuilder(builder: (ctx2, setStateDialog) {
-                return Column(children: [
-                  const Text('Método de pago:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black54)),
-                  const SizedBox(height: 6),
-                  SegmentedButton<String>(showSelectedIcon: false, segments: const [ButtonSegment(value: 'cash', label: Text('Efectivo', style: TextStyle(fontSize: 11))), ButtonSegment(value: 'transfer', label: Text('Transferencia', style: TextStyle(fontSize: 11)))], selected: {metodoPago}, onSelectionChanged: (v) { setStateDialog(() => metodoPago = v.first); }),
-                  const SizedBox(height: 4),
-                  Text(metodoPago == 'cash' ? 'Efectivo SI resta de caja en cuadratura.' : 'Transferencia NO resta de caja (no sale de caja).', style: const TextStyle(fontSize: 9, color: Colors.black54), textAlign: TextAlign.center),
-                  const SizedBox(height: 10),
-                  SizedBox(width: double.infinity, child: ElevatedButton.icon(onPressed: () async { final ok = await _marcarPagado(barber, folio, metodoPago); if (ok) { if (context.mounted) Navigator.pop(ctx); _printComprobante(barber, folio, period); } }, icon: const Icon(Icons.check_circle_rounded, size: 16), label: const Text('Marcar como Pagado + Imprimir', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4AF37), foregroundColor: Colors.black, padding: const EdgeInsets.symmetric(vertical: 12)))),
-                  const SizedBox(height: 8),
-                ]);
-              }),
-            ],
-            if (!_paidFolios.containsKey((barber['barber_id'] ?? '').toString()) && !_isAdmin) ...[
-              const Text('Solo administrador puede marcar como pagado.', style: TextStyle(fontSize: 10, color: Colors.black54), textAlign: TextAlign.center),
-              const SizedBox(height: 10),
-            ],
+            // PAGO UNICO: el pago ya no es por barbero. Este dialogo es solo Ver / Imprimir.
+            // Para pagar usa el boton unico de arriba, que paga segun el filtro.
             Row(children: [
               Expanded(child: OutlinedButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar'))),
               const SizedBox(width: 10),
@@ -465,7 +551,10 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
     final medals = ['🥇', '🥈', '🥉'];
     final medal = position <= 3 ? medals[position - 1] : '#$position';
 
-    return Container(
+    return InkWell(
+      onTap: () => _showComprobanteDialog(barber),
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
       margin: const EdgeInsets.only(bottom: 12, left: 12, right: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -505,38 +594,24 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
             Text(SettingsService.formatCurrency(totalCommission), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF10B981)))
           ]),
         ]),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         Row(children: [
           if (isPaid) ...[
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), 
-              decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.12), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFF10B981))), 
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.12), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFF10B981))),
               child: Row(children: [
                 const Icon(Icons.check_circle_rounded, size: 14, color: Color(0xFF10B981)),
                 const SizedBox(width: 4),
-                Text('PAGADO', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF10B981)))
+                Text('PAGADO${_paidFolios[(barber['barber_id'] ?? '').toString()] != null ? ' • ${_paidFolios[(barber['barber_id'] ?? '').toString()]}' : ''}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF10B981)))
               ])
             ),
-            const Spacer(),
-          ] else ...[
-            const Spacer(),
           ],
-          SizedBox(
-            height: 36, 
-            child: ElevatedButton.icon(
-              onPressed: () => _showComprobanteDialog(barber), 
-              icon: Icon(isPaid ? Icons.visibility_rounded : Icons.print_rounded, size: 16), 
-              label: Text(isPaid ? 'Ver Comprobante' : (_isAdmin ? 'Pagar y Comprobante' : 'Ver Comprobante'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)), 
-              style: ElevatedButton.styleFrom(
-                backgroundColor: isPaid ? Colors.white12 : const Color(0xFFD4AF37), 
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                padding: const EdgeInsets.symmetric(horizontal: 16)
-              )
-            )
-          ),
+          const Spacer(),
+          const Text('Toca para ver detalle ›', style: TextStyle(fontSize: 11, color: Colors.white38, fontWeight: FontWeight.w600)),
         ]),
       ]),
+      ),
     );
   }
 
@@ -573,7 +648,7 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
         backgroundColor: const Color(0xFF141414),
         foregroundColor: Colors.white,
         elevation: 0,
-        actions: [IconButton(icon: const Icon(Icons.receipt_long_rounded, color: Color(0xFFD4AF37)), tooltip: 'Ticket Térmica - Informe', onPressed: _printInformeTicket), IconButton(icon: const Icon(Icons.sync_rounded, color: Colors.white70), tooltip: 'Sincronizar', onPressed: _loadCommissions)],
+        actions: [IconButton(icon: const Icon(Icons.receipt_long_rounded, color: Color(0xFFD4AF37)), tooltip: 'Ticket Térmica - según filtro', onPressed: _printInformeTicket), IconButton(icon: const Icon(Icons.sync_rounded, color: Colors.white70), tooltip: 'Sincronizar', onPressed: _loadCommissions)],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Color(0xFFD4AF37)))
@@ -674,6 +749,39 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
                   ),
                 ),
                 
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: _filteredCommissions.isEmpty ? null : _showPagoUnicoDialog,
+                          icon: const Icon(Icons.payments_rounded, size: 18),
+                          label: Text(
+                            _filteredCommissions.isEmpty
+                                ? 'Sin comisiones en este filtro'
+                                : _selectedBarberId == 'all'
+                                    ? 'Pagar a Todos + Imprimir Ticket • ${SettingsService.formatCurrency(_filteredCommissionsTotal)} • ${_filteredCommissions.length} barberos'
+                                    : 'Pagar a ${_filteredCommissions.first['barber_name']} + Imprimir Ticket • ${SettingsService.formatCurrency(_filteredCommissionsTotal)}',
+                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                            textAlign: TextAlign.center,
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFD4AF37),
+                            foregroundColor: Colors.black,
+                            disabledBackgroundColor: Colors.white12,
+                            disabledForegroundColor: Colors.white38,
+                            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      const Text('Usa el filtro de arriba: 1 barbero = 1 ticket, Todos = informe con todos.', style: TextStyle(fontSize: 11, color: Colors.white38)),
+                    ]),
+                  ),
+                ),
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
