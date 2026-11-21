@@ -52,3 +52,9 @@ app.*.map.json
 
 .vercel
 .env*
+
+# PARCHE PERSONAL
+*.txt
+*_FIX.dart
+*_LIMPIO.dart
+commissions_screen_TICKET*.dart
