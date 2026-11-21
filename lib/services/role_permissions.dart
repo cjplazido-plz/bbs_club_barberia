@@ -47,6 +47,9 @@ class BbsPerm {
   static const String voidSale = 'anular_venta';
   // Faltaba en V5 - lo usa pos_screen y advanced_reports_screen
   static const String viewAdvancedReports = 'ver_reportes_avanzados';
+  // V8 - NUEVO: Pagar comisiones. Separado de marcar_pagado (ese es para ventas).
+  // Si se usara marcar_pagado, Cajero y Barbero/Cajero ya lo tienen y podrian pagar comisiones sin autorizacion.
+  static const String payCommissions = 'pagar_comisiones';
   // V7 - NUEVO: Dashboard separado de Reportes. Antes los 3 usaban ver_reportes.
   static const String viewReporteCaja = 'ver_reportes';
   // V7 - NUEVO: Acciones que existen en la app pero no se podian marcar en Roles
@@ -64,7 +67,7 @@ class BbsPerm {
     sell, viewAgenda, createEditAppointment, confirmCancelAppointment, blockHours,
     viewClients, createEditClient, deleteClient, viewCommissions, markPaid,
     viewClosure, viewHistory, viewReports, viewUsers, manageRoles,
-    viewSettings, viewBarbers, viewServices, viewProducts, editPayment, voidSale, viewDashboard, viewAdvancedReports, createEditProduct, createEditService,
+    viewSettings, viewBarbers, viewServices, viewProducts, editPayment, voidSale, viewDashboard, viewAdvancedReports, createEditProduct, createEditService, payCommissions,
   ];
 
   static const Map<String, String> labels = {
@@ -93,6 +96,7 @@ class BbsPerm {
     viewAdvancedReports: 'Ver Reportes Avanzados',
     createEditProduct: 'Crear-Editar Producto',
     createEditService: 'Crear-Editar Servicio',
+    payCommissions: 'Pagar Comisiones',
   };
 }
 
@@ -127,7 +131,7 @@ class RolePermissions {
       'ver_clientes','crear_editar_cliente','eliminar_cliente','ver_comisiones','marcar_pagado',
       'ver_cierre_cuadratura','ver_historial','ver_reportes','ver_usuarios','roles',
       'ver_configuracion','ver_barberos','ver_servicios','ver_productos','editar_pago','anular_venta',
-      'ver_dashboard','ver_reportes_avanzados','crear_editar_producto','crear_editar_servicio',
+      'ver_dashboard','ver_reportes_avanzados','crear_editar_producto','crear_editar_servicio','pagar_comisiones',
     },
     'barber_cashier': {
       'vender','ver_comisiones','ver_cierre_cuadratura','ver_historial','editar_pago','anular_venta',

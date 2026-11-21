@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import '../services/settings_service.dart';
+import '../services/role_permissions.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -32,6 +33,26 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
     return false;
   }
 
+  // V8 ROLES - Pagar comisiones por permiso, no solo por correo.
+  // Patricio y cjplazido siempre pueden pagar (seguridad, aunque falte la fila en Supabase).
+  // Los demas solo si en Roles tienen activado 'Pagar Comisiones' (pagar_comisiones).
+  // Por defecto: Admin SI, Cajero NO, Barbero NO, Barbero/Cajero NO. Patricio lo activa si quiere.
+  String get _userRole {
+    final user = Supabase.instance.client.auth.currentUser;
+    final raw = (user?.userMetadata?['role'] ?? user?.userMetadata?['rol'] ?? '').toString().toLowerCase().trim();
+    if (raw.contains('barber') && raw.contains('cashier')) return 'barber_cashier';
+    if (raw.contains('barber') || raw.contains('barbero')) return 'barber';
+    if (raw.contains('cashier') || raw.contains('cajero')) return 'cashier';
+    if (raw.contains('admin') || raw.contains('desarrollador') || raw.contains('developer')) return 'admin';
+    if (_isAdmin) return 'admin';
+    return raw.isEmpty ? 'barber' : raw;
+  }
+
+  bool get _canPayCommissions {
+    if (_isAdmin) return true;
+    return RolePermissions.can(_userRole, BbsPerm.payCommissions);
+  }
+
   Future<void> _loadPaidStatus() async {
     try {
       final ini = DateFormat('yyyy-MM-dd').format(_startDate);
@@ -52,6 +73,8 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
   @override
   void initState() {
     super.initState();
+    // Cargar permisos de Roles para que el boton Pagar obedezca lo que marque Patricio.
+    RolePermissions.loadFromSupabase().then((_) { if (mounted) setState(() {}); });
     _loadCommissions();
   }
 
@@ -156,8 +179,7 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
   }
 
 
-  // PAGO UNICO - 1 solo boton SOLO para pagar. Manda el filtro: 1 barbero = paga a 1, Todos = paga a todos.
-  // Imprimir es aparte: icono ticket arriba o boton Solo Imprimir (sin pagar). Nunca se paga al imprimir.
+  // PAGO UNICO - 1 solo boton de pago. Manda el filtro: 1 barbero = 1 ticket, Todos = informe con todos.
   // Antes habia 1 boton Pagar por cada barbero (con 7 barberos = 7 botones). Ahora las tarjetas solo se tocan para ver detalle.
   void _showPagoUnicoDialog() {
     if (_filteredCommissions.isEmpty) {
@@ -218,12 +240,11 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
                   Container(width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 8), decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.12), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFF10B981))), child: const Text('✅ YA PAGADO - Todo el filtro', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF10B981)), textAlign: TextAlign.center)),
                   const SizedBox(height: 10),
                 ],
-                if (!todosPagados && _isAdmin) ...[
+                if (!todosPagados && _canPayCommissions) ...[
                   const Text('Método de pago:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black54)),
                   const SizedBox(height: 6),
                   SegmentedButton<String>(
                     showSelectedIcon: false,
-                    // FIX CONTRASTE: dialogo blanco, si no se pone estilo el no-seleccionado queda blanco sobre blanco y no se ve Transferencia.
                     style: ButtonStyle(
                       backgroundColor: WidgetStateProperty.resolveWith((states) => states.contains(WidgetState.selected) ? const Color(0xFFD4AF37) : Colors.white),
                       foregroundColor: WidgetStateProperty.resolveWith((states) => Colors.black),
@@ -240,6 +261,13 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
                   Text(metodoPago == 'cash' ? 'Efectivo SI resta de caja en cuadratura.' : 'Transferencia NO resta de caja (no sale de caja).', style: const TextStyle(fontSize: 9, color: Colors.black54), textAlign: TextAlign.center),
                   const SizedBox(height: 10),
                   SizedBox(width: double.infinity, child: ElevatedButton.icon(onPressed: () async {
+                    // PAGO SOLO: pide confirmacion, paga, y NO imprime solo.
+                    final confirmar = await showDialog<bool>(context: ctx, builder: (c3) => AlertDialog(
+                      title: const Text('¿Confirmas el pago?', style: TextStyle(fontWeight: FontWeight.bold)),
+                      content: Text('Vas a pagar ${SettingsService.formatCurrency(total)} a ${list.length} barbero${list.length == 1 ? '' : 's'} del periodo $period.\n\nEsto marca como PAGADO y, si es efectivo, resta de caja en cuadratura. Esta accion no se puede deshacer desde la app.'),
+                      actions: [TextButton(onPressed: () => Navigator.pop(c3, false), child: const Text('Cancelar')), ElevatedButton(onPressed: () => Navigator.pop(c3, true), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4AF37), foregroundColor: Colors.black), child: const Text('Sí, pagar'))],
+                    ));
+                    if (confirmar != true) return;
                     var okCount = 0;
                     for (final b in list) {
                       final id = (b['barber_id'] ?? '').toString();
@@ -248,15 +276,15 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
                       final ok = await _marcarPagado(b, folio, metodoPago);
                       if (ok) okCount++;
                     }
-                    if (okCount > 0 || todosPagados) {
+                    if (okCount > 0) {
                       if (context.mounted) Navigator.pop(ctx);
-                      _printInformeTicket();
+                      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Pagado $okCount barbero${okCount == 1 ? '' : 's'} - ${SettingsService.formatCurrency(total)}'), backgroundColor: const Color(0xFF10B981)));
                     }
-                  }, icon: const Icon(Icons.check_circle_rounded, size: 16), label: Text(_selectedBarberId == 'all' ? 'Marcar como Pagado + Imprimir' : 'Marcar como Pagado + Imprimir', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4AF37), foregroundColor: Colors.black, padding: const EdgeInsets.symmetric(vertical: 12)))),
+                  }, icon: const Icon(Icons.check_circle_rounded, size: 16), label: Text('PAGAR ${SettingsService.formatCurrency(total)} - Confirmar', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4AF37), foregroundColor: Colors.black, padding: const EdgeInsets.symmetric(vertical: 12)))),
                   const SizedBox(height: 8),
                 ],
-                if (!todosPagados && !_isAdmin) ...[
-                  const Text('Solo administrador puede marcar como pagado.', style: TextStyle(fontSize: 10, color: Colors.black54), textAlign: TextAlign.center),
+                if (!todosPagados && !_canPayCommissions) ...[
+                  const Text('No tienes permiso Pagar Comisiones en Roles. Solo puedes Solo Imprimir. Pidele a Patricio que lo active si debe pagar.', style: TextStyle(fontSize: 10, color: Colors.black54), textAlign: TextAlign.center),
                   const SizedBox(height: 10),
                 ],
               ]);
@@ -772,18 +800,20 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
                         width: double.infinity,
                         child: ElevatedButton.icon(
                           onPressed: _filteredCommissions.isEmpty ? null : _showPagoUnicoDialog,
-                          icon: const Icon(Icons.payments_rounded, size: 18),
+                          icon: Icon(_canPayCommissions ? Icons.payments_rounded : Icons.print_rounded, size: 18),
                           label: Text(
                             _filteredCommissions.isEmpty
                                 ? 'Sin comisiones en este filtro'
-                                : _selectedBarberId == 'all'
+                                : !_canPayCommissions
+                                    ? 'Solo Imprimir • ${SettingsService.formatCurrency(_filteredCommissionsTotal)} • Sin permiso Pagar Comisiones'
+                                    : _selectedBarberId == 'all'
                                     ? 'Pagar a Todos • ${SettingsService.formatCurrency(_filteredCommissionsTotal)} • ${_filteredCommissions.length} barberos'
                                     : 'Pagar a ${_filteredCommissions.first['barber_name']} • ${SettingsService.formatCurrency(_filteredCommissionsTotal)}',
                             style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                             textAlign: TextAlign.center,
                           ),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFD4AF37),
+                            backgroundColor: _canPayCommissions ? const Color(0xFFD4AF37) : const Color(0xFF10B981),
                             foregroundColor: Colors.black,
                             disabledBackgroundColor: Colors.white12,
                             disabledForegroundColor: Colors.white38,
@@ -793,7 +823,7 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
                         ),
                       ),
                       const SizedBox(height: 6),
-                      const Text('Este botón SOLO paga. Para imprimir sin pagar usa el icono de ticket de arriba o Solo Imprimir.', style: TextStyle(fontSize: 11, color: Colors.white38)),
+                      Text(_canPayCommissions ? 'Este botón SOLO paga. Para imprimir sin pagar usa el icono de ticket de arriba o Solo Imprimir.' : 'Sin permiso Pagar Comisiones en Roles: este botón solo abre Solo Imprimir. Pidele a Patricio que lo active si debe pagar.', style: const TextStyle(fontSize: 11, color: Colors.white38)),
                     ]),
                   ),
                 ),
