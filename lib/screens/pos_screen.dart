@@ -645,14 +645,14 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
                 _buildMenuItem(Icons.calendar_month, 'Agenda de Reservaciones', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => AppointmentsScreen())); }),  
               if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewClients))
                 _buildMenuItem(Icons.person, 'Clientes', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ClientsScreen())).then((_) => _loadData()); }),                
-                const Divider(color: Colors.blue10),
+                const Divider(color: Color(0xFF001F2A)),
               if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewBarbers))
                 _buildMenuItem(Icons.cut, 'Barberos', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => BarbersScreen())).then((_) => _loadData()); }),
               if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewServices))
                 _buildMenuItem(Icons.content_cut, 'Servicios', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ServicesScreen())).then((_) => _loadData()); }),
               if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewProducts))
                 _buildMenuItem(Icons.inventory_2, 'Productos', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ProductsScreen())).then((_) => _loadData()); }),
-                const Divider(color: Colors.red10),                                
+                const Divider(color: Color(0xFF410001)),                              
               if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewUsers))
                 _buildMenuItem(Icons.group, 'Usuarios', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => users_screen.UsersScreen())); }),
               if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.manageRoles))
