@@ -1,3 +1,4 @@
+// PREMIUM RESERVAS - Solo colores: fondo 0A0A0A, tarjetas 141414, dorado D4AF37 / FBBF24. Lógica, Placido oculto/protegido, bloqueo folio, permisos intactos.
 // lib/screens/settings_screen.dart
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -39,11 +40,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _autoPrint = true;
 
   // Paleta de colores Premium
-  static const _bg = Color(0xFF0F172A);
-  static const _card = Color(0xFF1E293B);
-  static const _input = Color(0xFF0F172A);
-  static const _indigo = Color(0xFF6366F1);
-  static const _violet = Color(0xFF818CF8);
+  static const _bg = Color(0xFF0A0A0A);
+  static const _card = Color(0xFF141414);
+  static const _input = Color(0xFF0A0A0A);
+  static const _indigo = Color(0xFFD4AF37);
+  static const _violet = Color(0xFFFBBF24);
   static const _emerald = Color(0xFF10B981);
   static const _amber = Color(0xFFF59E0B);
 
@@ -443,7 +444,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         const SizedBox(width: 10),
         Container(
           height: 50,
-          decoration: BoxDecoration(color: const Color(0xFF334155), borderRadius: BorderRadius.circular(14)), 
+          decoration: BoxDecoration(color: const Color(0xFF1E1E1E), borderRadius: BorderRadius.circular(14)), 
           child: TextButton(
             onPressed: locked ? null : () => _pickLogo(isTicket), 
             child: Text(locked ? '🔒' : 'URL', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13))

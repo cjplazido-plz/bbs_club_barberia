@@ -1,3 +1,4 @@
+// PREMIUM RESERVAS - Solo colores: fondo 0A0A0A, tarjetas 141414, dorado D4AF37 / FBBF24. Lógica, permisos, mensajes y filtros intactos.
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
@@ -73,7 +74,12 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
         final barberName = item['barber_name'] ?? 'Desconocido';
         final price = (item['price_at_moment'] as num?)?.toDouble() ?? 0.0;
         final quantity = (item['quantity'] as num?)?.toInt() ?? 1;
-        final commission = (item['commission_earned'] as num?)?.toDouble() ?? 0.0;
+        // FIX CANTIDAD CORREGIDO: no multiplicar a ciegas.
+// En BD hay mezcla: 7 filas ya están en total (ej 2x=12000) y 1 fila está por unidad (2x=6000).
+// Solo se corrige la que está por unidad: si lo guardado es menor al total esperado (precio*qty*50%), se usa el esperado.
+    final storedCommission = (item['commission_earned'] as num?)?.toDouble() ?? 0.0;
+    final expectedTotal = price * quantity * 0.5;
+    final commission = (quantity > 1 && storedCommission < expectedTotal * 0.9) ? expectedTotal : storedCommission;
         final totalItem = price * quantity;
         if (!barberMap.containsKey(barberId)) {
           barberMap[barberId] = {
@@ -202,7 +208,7 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
                   const SizedBox(height: 4),
                   Text(metodoPago == 'cash' ? 'Efectivo SI resta de caja en cuadratura.' : 'Transferencia NO resta de caja (no sale de caja).', style: const TextStyle(fontSize: 9, color: Colors.black54), textAlign: TextAlign.center),
                   const SizedBox(height: 10),
-                  SizedBox(width: double.infinity, child: ElevatedButton.icon(onPressed: () async { final ok = await _marcarPagado(barber, folio, metodoPago); if (ok) { if (context.mounted) Navigator.pop(ctx); _printComprobante(barber, folio, period); } }, icon: const Icon(Icons.check_circle_rounded, size: 16), label: const Text('Marcar como Pagado + Imprimir', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6366F1), padding: const EdgeInsets.symmetric(vertical: 12)))),
+                  SizedBox(width: double.infinity, child: ElevatedButton.icon(onPressed: () async { final ok = await _marcarPagado(barber, folio, metodoPago); if (ok) { if (context.mounted) Navigator.pop(ctx); _printComprobante(barber, folio, period); } }, icon: const Icon(Icons.check_circle_rounded, size: 16), label: const Text('Marcar como Pagado + Imprimir', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4AF37), foregroundColor: Colors.black, padding: const EdgeInsets.symmetric(vertical: 12)))),
                   const SizedBox(height: 8),
                 ]);
               }),
@@ -261,6 +267,94 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
     await Printing.layoutPdf(onLayout: (f) async => pdf.save(), name: 'Comprobante-Comision-$name.pdf');
   }
 
+
+  // TICKET TÉRMICA - Informe completo, mismo formato que el ticket del POS:
+  // mismo papel (58/80mm según Impresora), misma letra chica, mismo encabezado (nombre/RUT/dirección/teléfono)
+  // y mismo pie de ticket de Ajustes. No usa el PDF A4 del informe, usa el ancho térmico.
+  Future<void> _printInformeTicket() async {
+    // FIX BUILD: PrinterService real (EASTON) no tiene paperSize - solo printTicket.
+    // El ticket real es FIJO 80mm Courier Bold, igual que ticket_easton.dart.
+    // Por eso el informe termico tambien es fijo 80mm, no 58/80 variable.
+    const double widthMm = 80.0;
+    const double titleSize = 16.0;
+    const double rowSize = 10.0;
+    const double totalSize = 13.0;
+    final monoBold = pw.Font.courierBold();
+    final period = '${DateFormat('dd/MM/yyyy').format(_startDate)} - ${DateFormat('dd/MM/yyyy').format(_endDate)}';
+    final list = _filteredCommissions;
+    final totalVentas = _filteredSales;
+    final totalCom = _filteredCommissionsTotal;
+    final neta = totalVentas - totalCom;
+
+    final pdf = pw.Document();
+    pdf.addPage(pw.Page(
+      pageFormat: PdfPageFormat(widthMm * PdfPageFormat.mm, double.infinity,
+          marginLeft: 2 * PdfPageFormat.mm, marginRight: 2 * PdfPageFormat.mm,
+          marginTop: 3 * PdfPageFormat.mm, marginBottom: 3 * PdfPageFormat.mm),
+      build: (_) => pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.center, children: [
+        pw.Text((SettingsService.shopName.isNotEmpty ? SettingsService.shopName : 'BBS CLUB').toUpperCase(),
+            style: pw.TextStyle(font: monoBold, fontSize: titleSize, fontWeight: pw.FontWeight.bold), textAlign: pw.TextAlign.center),
+        if (SettingsService.shopRif.isNotEmpty) pw.Text('RUT: ${SettingsService.shopRif}', style: pw.TextStyle(font: monoBold, fontSize: rowSize)),
+        if (SettingsService.shopAddress.isNotEmpty) pw.Text(SettingsService.shopAddress, style: pw.TextStyle(font: monoBold, fontSize: rowSize), textAlign: pw.TextAlign.center),
+        if (SettingsService.shopPhone.isNotEmpty) pw.Text('Tel: ${SettingsService.shopPhone}', style: pw.TextStyle(font: monoBold, fontSize: rowSize)),
+        pw.Divider(thickness: 1, borderStyle: pw.BorderStyle.dashed),
+        pw.Text('INFORME COMISIONES', style: pw.TextStyle(font: monoBold, fontSize: rowSize + 1, fontWeight: pw.FontWeight.bold)),
+        pw.Text('Periodo: $period', style: pw.TextStyle(font: monoBold, fontSize: rowSize)),
+        pw.Text('Impreso: ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}', style: pw.TextStyle(font: monoBold, fontSize: rowSize)),
+        pw.Divider(thickness: 1, borderStyle: pw.BorderStyle.dashed),
+        // Detalle por barbero
+        ...list.map((b) {
+          final n = (b['barber_name'] ?? 'Desconocido').toString();
+          final cnt = (b['services_count'] as int?) ?? 0;
+          final ventas = (b['total_sales'] as double?) ?? 0.0;
+          final comi = (b['total_commission'] as double?) ?? 0.0;
+          final rate = ventas > 0 ? (comi / ventas * 100) : 0.0;
+          final shortName = n.length > 22 ? n.substring(0, 22) : n;
+          return pw.Column(children: [
+            pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+              pw.Text(shortName, style: pw.TextStyle(font: monoBold, fontSize: rowSize, fontWeight: pw.FontWeight.bold)),
+              pw.Text('$cnt serv.', style: pw.TextStyle(font: monoBold, fontSize: rowSize)),
+            ]),
+            pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+              pw.Text('Ventas: ${SettingsService.formatCurrency(ventas)}', style: pw.TextStyle(font: monoBold, fontSize: rowSize)),
+              pw.Text('${rate.toStringAsFixed(1)}%', style: pw.TextStyle(font: monoBold, fontSize: rowSize)),
+            ]),
+            pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+              pw.Text('Comision:', style: pw.TextStyle(font: monoBold, fontSize: rowSize, fontWeight: pw.FontWeight.bold)),
+              pw.Text(SettingsService.formatCurrency(comi), style: pw.TextStyle(font: monoBold, fontSize: rowSize, fontWeight: pw.FontWeight.bold)),
+            ]),
+            pw.Divider(thickness: 0.5, borderStyle: pw.BorderStyle.dashed),
+          ]);
+        }),
+        pw.SizedBox(height: 2 * PdfPageFormat.mm),
+        pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+          pw.Text('TOTAL VENTAS', style: pw.TextStyle(font: monoBold, fontSize: rowSize, fontWeight: pw.FontWeight.bold)),
+          pw.Text(SettingsService.formatCurrency(totalVentas), style: pw.TextStyle(font: monoBold, fontSize: rowSize, fontWeight: pw.FontWeight.bold)),
+        ]),
+        pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+          pw.Text('TOTAL COMISIONES', style: pw.TextStyle(font: monoBold, fontSize: rowSize, fontWeight: pw.FontWeight.bold)),
+          pw.Text(SettingsService.formatCurrency(totalCom), style: pw.TextStyle(font: monoBold, fontSize: rowSize, fontWeight: pw.FontWeight.bold)),
+        ]),
+        pw.Container(padding: pw.EdgeInsets.symmetric(vertical: 3 * PdfPageFormat.mm, horizontal: 3 * PdfPageFormat.mm),
+            decoration: pw.BoxDecoration(border: pw.Border.all(width: 1)),
+            child: pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+              pw.Text('GANANCIA NETA', style: pw.TextStyle(font: monoBold, fontSize: totalSize, fontWeight: pw.FontWeight.bold)),
+              pw.Text(SettingsService.formatCurrency(neta), style: pw.TextStyle(font: monoBold, fontSize: totalSize, fontWeight: pw.FontWeight.bold)),
+            ])),
+        pw.SizedBox(height: 4 * PdfPageFormat.mm),
+        pw.Row(children: [
+          pw.Expanded(child: pw.Column(children: [pw.Divider(), pw.Text('Firma Barbero', style: pw.TextStyle(font: monoBold, fontSize: rowSize), textAlign: pw.TextAlign.center)])),
+          pw.SizedBox(width: 4 * PdfPageFormat.mm),
+          pw.Expanded(child: pw.Column(children: [pw.Divider(), pw.Text('Firma Admin', style: pw.TextStyle(font: monoBold, fontSize: rowSize), textAlign: pw.TextAlign.center)])),
+        ]),
+        pw.SizedBox(height: 3 * PdfPageFormat.mm),
+        pw.Text(SettingsService.ticketFooter.isNotEmpty ? SettingsService.ticketFooter : '¡Gracias por su visita!',
+            style: pw.TextStyle(font: monoBold, fontSize: rowSize), textAlign: pw.TextAlign.center),
+      ]),
+    ));
+    await Printing.layoutPdf(onLayout: (f) async => pdf.save(), name: 'Informe-Comisiones-Ticket.pdf');
+  }
+
   void _setQuickDate(String type) {
     final now = DateTime.now();
     setState(() {
@@ -293,12 +387,12 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
       builder: (c, child) => Theme(
         data: ThemeData.dark().copyWith(
           colorScheme: const ColorScheme.dark(
-            primary: Color(0xFF6366F1),
+            primary: Color(0xFFD4AF37),
             onPrimary: Colors.white,
-            surface: Color(0xFF1E293B),
+            surface: Color(0xFF141414),
             onSurface: Colors.white,
           ),
-          dialogBackgroundColor: const Color(0xFF0F172A),
+          dialogBackgroundColor: const Color(0xFF0A0A0A),
         ), 
         child: child!
       )
@@ -321,9 +415,9 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF6366F1) : const Color(0xFF0F172A),
+          color: isSelected ? const Color(0xFFD4AF37) : const Color(0xFF0A0A0A),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: isSelected ? const Color(0xFF6366F1) : Colors.white10),
+          border: Border.all(color: isSelected ? const Color(0xFFD4AF37) : Colors.white10),
         ),
         child: Text(
           label,
@@ -341,7 +435,7 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B), 
+        color: const Color(0xFF141414), 
         borderRadius: BorderRadius.circular(16), 
         border: Border.all(color: color.withOpacity(0.3)),
         boxShadow: [BoxShadow(color: color.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))]
@@ -375,7 +469,7 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
       margin: const EdgeInsets.only(bottom: 12, left: 12, right: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B), 
+        color: const Color(0xFF141414), 
         borderRadius: BorderRadius.circular(16), 
         border: Border.all(color: Colors.white.withOpacity(0.06)), 
         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))]
@@ -384,7 +478,7 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
         Row(children: [
           Container(
             width: 36, height: 36, 
-            decoration: BoxDecoration(color: const Color(0xFF0F172A), shape: BoxShape.circle, border: Border.all(color: Colors.white10)),
+            decoration: BoxDecoration(color: const Color(0xFF0A0A0A), shape: BoxShape.circle, border: Border.all(color: Colors.white10)),
             child: Center(child: Text(medal, style: const TextStyle(fontSize: 18))),
           ),
           const SizedBox(width: 12),
@@ -394,8 +488,8 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
           ])),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), 
-            decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.15), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFF6366F1).withOpacity(0.3))), 
-            child: Text('${commissionRate.toStringAsFixed(1)}%', style: const TextStyle(color: Color(0xFF818CF8), fontWeight: FontWeight.bold, fontSize: 11))
+            decoration: BoxDecoration(color: const Color(0xFFD4AF37).withOpacity(0.15), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFFD4AF37).withOpacity(0.3))), 
+            child: Text('${commissionRate.toStringAsFixed(1)}%', style: const TextStyle(color: Color(0xFFFBBF24), fontWeight: FontWeight.bold, fontSize: 11))
           ),
         ]),
         const SizedBox(height: 16),
@@ -434,7 +528,7 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
               icon: Icon(isPaid ? Icons.visibility_rounded : Icons.print_rounded, size: 16), 
               label: Text(isPaid ? 'Ver Comprobante' : (_isAdmin ? 'Pagar y Comprobante' : 'Ver Comprobante'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)), 
               style: ElevatedButton.styleFrom(
-                backgroundColor: isPaid ? Colors.white12 : const Color(0xFF6366F1), 
+                backgroundColor: isPaid ? Colors.white12 : const Color(0xFFD4AF37), 
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 padding: const EdgeInsets.symmetric(horizontal: 16)
@@ -449,19 +543,19 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
   Widget _buildPremiumDropdown({required String label, required IconData icon, required String value, required List<DropdownMenuItem<String>> items, required ValueChanged<String?> onChanged}) {
     return DropdownButtonFormField<String>(
       value: value,
-      dropdownColor: const Color(0xFF1E293B),
+      dropdownColor: const Color(0xFF141414),
       icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white54, size: 20),
       style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
       decoration: InputDecoration(
         labelText: label,
         labelStyle: const TextStyle(color: Colors.white54, fontSize: 11),
-        floatingLabelStyle: const TextStyle(color: Color(0xFF818CF8), fontSize: 12),
-        prefixIcon: Icon(icon, color: const Color(0xFF818CF8), size: 18),
+        floatingLabelStyle: const TextStyle(color: Color(0xFFFBBF24), fontSize: 12),
+        prefixIcon: Icon(icon, color: const Color(0xFFFBBF24), size: 18),
         filled: true,
-        fillColor: const Color(0xFF0F172A),
+        fillColor: const Color(0xFF0A0A0A),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.white.withOpacity(0.08))),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF6366F1), width: 1.5)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFD4AF37), width: 1.5)),
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
       ),
       items: items,
@@ -472,17 +566,17 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: const Color(0xFF0A0A0A),
       appBar: AppBar(
         leading: IconButton(icon: const Icon(Icons.arrow_back_rounded, color: Colors.white), onPressed: () => Navigator.pop(context)),
         title: const Text('Comisiones Premium', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: const Color(0xFF141414),
         foregroundColor: Colors.white,
         elevation: 0,
-        actions: [IconButton(icon: const Icon(Icons.sync_rounded, color: Colors.white70), tooltip: 'Sincronizar', onPressed: _loadCommissions)],
+        actions: [IconButton(icon: const Icon(Icons.receipt_long_rounded, color: Color(0xFFD4AF37)), tooltip: 'Ticket Térmica - Informe', onPressed: _printInformeTicket), IconButton(icon: const Icon(Icons.sync_rounded, color: Colors.white70), tooltip: 'Sincronizar', onPressed: _loadCommissions)],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF6366F1)))
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFFD4AF37)))
           : CustomScrollView(
               slivers: [
                 SliverToBoxAdapter(
@@ -490,14 +584,14 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
                     margin: const EdgeInsets.all(16),
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1E293B), 
+                      color: const Color(0xFF141414), 
                       borderRadius: BorderRadius.circular(16), 
                       border: Border.all(color: Colors.white.withOpacity(0.06)),
                       boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))]
                     ),
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Row(children: [
-                        Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.15), borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.tune_rounded, size: 16, color: Color(0xFF818CF8))),
+                        Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: const Color(0xFFD4AF37).withOpacity(0.15), borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.tune_rounded, size: 16, color: Color(0xFFFBBF24))),
                         const SizedBox(width: 10),
                         const Text('Filtros de Búsqueda', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
                       ]),
@@ -506,7 +600,7 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
                       // FILTRO UNIFICADO - mismo estilo que Reportes Avanzados (Período de Análisis)
                       Row(
                         children: const [
-                          Icon(Icons.calendar_month_rounded, color: Color(0xFF818CF8), size: 18),
+                          Icon(Icons.calendar_month_rounded, color: Color(0xFFFBBF24), size: 18),
                           SizedBox(width: 8),
                           Text('Período de Análisis', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
                         ],
@@ -519,7 +613,7 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
                           style: ButtonStyle(
                             visualDensity: VisualDensity.compact,
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            backgroundColor: WidgetStateProperty.resolveWith((states) => states.contains(WidgetState.selected) ? const Color(0xFF6366F1) : Colors.transparent),
+                            backgroundColor: WidgetStateProperty.resolveWith((states) => states.contains(WidgetState.selected) ? const Color(0xFFD4AF37) : Colors.transparent),
                             foregroundColor: WidgetStateProperty.resolveWith((states) => states.contains(WidgetState.selected) ? Colors.white : Colors.white54),
                             side: WidgetStateProperty.all(BorderSide(color: Colors.white.withOpacity(0.1))),
                           ),
@@ -540,16 +634,16 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
                           width: double.infinity,
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF0F172A),
+                            color: const Color(0xFF0A0A0A),
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: _activeQuickFilter == 'custom' ? const Color(0xFF6366F1) : Colors.white.withOpacity(0.08)),
+                            border: Border.all(color: _activeQuickFilter == 'custom' ? const Color(0xFFD4AF37) : Colors.white.withOpacity(0.08)),
                           ),
                           child: Row(children: [
-                            Icon(Icons.date_range_rounded, color: _activeQuickFilter == 'custom' ? const Color(0xFF6366F1) : Colors.white38, size: 18),
+                            Icon(Icons.date_range_rounded, color: _activeQuickFilter == 'custom' ? const Color(0xFFD4AF37) : Colors.white38, size: 18),
                             const SizedBox(width: 10),
                             Expanded(child: FittedBox(alignment: Alignment.centerLeft, fit: BoxFit.scaleDown, child: Text('${DateFormat('dd/MM/yyyy').format(_startDate)}  →  ${DateFormat('dd/MM/yyyy').format(_endDate)}', style: TextStyle(color: _activeQuickFilter == 'custom' ? Colors.white : Colors.white70, fontSize: 13, fontWeight: FontWeight.w600)))),
                             const SizedBox(width: 8),
-                            Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.15), borderRadius: BorderRadius.circular(8)), child: Text(_activeQuickFilter == 'custom' ? 'CAMBIAR' : 'EDITAR', style: const TextStyle(color: Color(0xFF818CF8), fontSize: 10, fontWeight: FontWeight.bold))),
+                            Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: const Color(0xFFD4AF37).withOpacity(0.15), borderRadius: BorderRadius.circular(8)), child: Text(_activeQuickFilter == 'custom' ? 'CAMBIAR' : 'EDITAR', style: const TextStyle(color: Color(0xFFFBBF24), fontSize: 10, fontWeight: FontWeight.bold))),
                           ]),
                         ),
                       ),

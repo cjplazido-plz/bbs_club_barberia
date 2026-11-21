@@ -630,27 +630,29 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
             Column(children: [
               // FIX: El menú ahora obedece a los permisos reales de cada rol
               if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewDashboard))
-                _buildMenuItem(Icons.dashboard, 'Dashboard', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => DashboardScreen())); }),
+                _buildMenuItem(Icons.dashboard, 'Dashboard Estadisticas', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => DashboardScreen())); }),
               if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewAdvancedReports))
-                _buildMenuItem(Icons.analytics, 'Reportes Avanzados', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => AdvancedReportsScreen())); }),
+                _buildMenuItem(Icons.analytics, 'Informes Avanzados', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => AdvancedReportsScreen())); }),
+                const Divider(color: Colors.white10), 
+              if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewHistory))
+                _buildMenuItem(Icons.receipt_long, 'Historial de Ventas', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => SalesHistoryScreen())); }),
               if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewReports))
-                _buildMenuItem(Icons.trending_up, 'Reporte Caja', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ReportsScreen())); }),   
+                _buildMenuItem(Icons.trending_up, 'Reporte Caja/Cierre', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ReportsScreen())); }),   
               if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewCommissions))
                 _buildMenuItem(Icons.monetization_on, 'Comisiones', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => CommissionsScreen())); }),
+                const Divider(color: Colors.white10),  
               if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewAgenda))
-                _buildMenuItem(Icons.calendar_month, 'Agenda', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => AppointmentsScreen())); }),  
-              if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewHistory))
-                _buildMenuItem(Icons.receipt_long, 'Historial', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => SalesHistoryScreen())); }),
-                const Divider(color: Colors.white10),
+                _buildMenuItem(Icons.calendar_month, 'Agenda de Reservaciones', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => AppointmentsScreen())); }),  
+              if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewClients))
+                _buildMenuItem(Icons.person, 'Clientes', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ClientsScreen())).then((_) => _loadData()); }),                
+                const Divider(color: Colors.blue10),
               if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewBarbers))
                 _buildMenuItem(Icons.cut, 'Barberos', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => BarbersScreen())).then((_) => _loadData()); }),
               if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewServices))
                 _buildMenuItem(Icons.content_cut, 'Servicios', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ServicesScreen())).then((_) => _loadData()); }),
               if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewProducts))
                 _buildMenuItem(Icons.inventory_2, 'Productos', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ProductsScreen())).then((_) => _loadData()); }),
-                const Divider(color: Colors.white10),                                
-              if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewClients))
-                _buildMenuItem(Icons.person, 'Clientes', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ClientsScreen())).then((_) => _loadData()); }),
+                const Divider(color: Colors.red10),                                
               if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewUsers))
                 _buildMenuItem(Icons.group, 'Usuarios', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => users_screen.UsersScreen())); }),
               if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.manageRoles))

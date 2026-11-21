@@ -1,3 +1,4 @@
+// PREMIUM RESERVAS - Solo colores: fondo 0A0A0A, tarjetas 141414, dorado D4AF37 / FBBF24. Lógica, permisos, mensajes y filtros intactos.
 // lib/screens/blocked_hours_screen.dart - Solo admin: bloquear horas 11:00-19:00 cada 30 min
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -122,7 +123,7 @@ class _BlockedHoursScreenState extends State<BlockedHoursScreen> {
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 60)),
       builder: (c, ch) => Theme(
-        data: ThemeData.dark().copyWith(colorScheme: const ColorScheme.dark(primary: Color(0xFF6366F1))),
+        data: ThemeData.dark().copyWith(colorScheme: const ColorScheme.dark(primary: Color(0xFFD4AF37))),
         child: ch!,
       ),
     );
@@ -135,9 +136,9 @@ class _BlockedHoursScreenState extends State<BlockedHoursScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: const Color(0xFF0A0A0A),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: const Color(0xFF141414),
         title: const Text('Bloquear Horas - Solo Admin', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
@@ -145,7 +146,7 @@ class _BlockedHoursScreenState extends State<BlockedHoursScreen> {
         ),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF6366F1)))
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFFD4AF37)))
           : SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -156,13 +157,13 @@ class _BlockedHoursScreenState extends State<BlockedHoursScreen> {
                     child: Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1E293B),
+                        color: const Color(0xFF141414),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: Colors.white10),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.calendar_today_rounded, color: Color(0xFF818CF8)),
+                          const Icon(Icons.calendar_today_rounded, color: Color(0xFFFBBF24)),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
@@ -170,7 +171,7 @@ class _BlockedHoursScreenState extends State<BlockedHoursScreen> {
                               style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
                             ),
                           ),
-                          const Text('Cambiar', style: TextStyle(color: Color(0xFF818CF8), fontWeight: FontWeight.bold, fontSize: 12)),
+                          const Text('Cambiar', style: TextStyle(color: Color(0xFFFBBF24), fontWeight: FontWeight.bold, fontSize: 12)),
                         ],
                       ),
                     ),
@@ -179,12 +180,12 @@ class _BlockedHoursScreenState extends State<BlockedHoursScreen> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF6366F1).withOpacity(0.12),
+                      color: const Color(0xFFD4AF37).withOpacity(0.12),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Row(
                       children: [
-                        Icon(Icons.info_rounded, color: Color(0xFF818CF8), size: 18),
+                        Icon(Icons.info_rounded, color: Color(0xFFFBBF24), size: 18),
                         SizedBox(width: 8),
                         Expanded(
                           child: Text(
@@ -205,7 +206,7 @@ class _BlockedHoursScreenState extends State<BlockedHoursScreen> {
                       hintText: 'Ej: Salon cerrado, almuerzo, personal...',
                       hintStyle: const TextStyle(color: Colors.white38, fontSize: 12),
                       filled: true,
-                      fillColor: const Color(0xFF1E293B),
+                      fillColor: const Color(0xFF141414),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                     ),
@@ -261,7 +262,7 @@ class _BlockedHoursScreenState extends State<BlockedHoursScreen> {
                           ? Colors.white10
                           : isBlocked
                               ? Colors.red.withOpacity(0.18)
-                              : const Color(0xFF1E293B);
+                              : const Color(0xFF141414);
                       final borderColor = isOccupied
                           ? Colors.white24
                           : isBlocked
@@ -313,7 +314,7 @@ class _BlockedHoursScreenState extends State<BlockedHoursScreen> {
                       icon: const Icon(Icons.save_rounded),
                       label: Text(_isSaving ? 'Guardando...' : 'Guardar bloqueo', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF6366F1),
+                        backgroundColor: const Color(0xFFD4AF37),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                     ),

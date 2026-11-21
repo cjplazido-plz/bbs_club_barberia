@@ -1,3 +1,4 @@
+// PREMIUM RESERVAS - Solo colores: fondo 0A0A0A, tarjetas 141414, dorado D4AF37 / FBBF24. Lógica, permisos, mensajes y filtros intactos.
 import 'package:flutter/material.dart';
 import '../models/local_client.dart';
 import '../repositories/client_repository.dart';
@@ -49,13 +50,13 @@ class _ClientsScreenState extends State<ClientsScreen> {
       labelText: label,
       prefixText: '$icon  ',
       labelStyle: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600),
-      floatingLabelStyle: const TextStyle(color: Color(0xFF6366F1), fontSize: 13, fontWeight: FontWeight.bold),
+      floatingLabelStyle: const TextStyle(color: Color(0xFFD4AF37), fontSize: 13, fontWeight: FontWeight.bold),
       filled: true,
-      fillColor: const Color(0xFF0F172A),
+      fillColor: const Color(0xFF0A0A0A),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Colors.white10)),
       enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Colors.white10)),
-      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFF6366F1), width: 2)),
+      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFD4AF37), width: 2)),
     );
   }
 
@@ -79,7 +80,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: const Color(0xFF141414),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text(client == null ? 'Nuevo Cliente' : 'Editar Cliente', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
         content: SingleChildScrollView(
@@ -99,7 +100,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar', style: TextStyle(color: Colors.grey, fontSize: 13))),
-          Container(decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF818CF8)]), borderRadius: BorderRadius.circular(10)), child: ElevatedButton(onPressed: () async {
+          Container(decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFFD4AF37), Color(0xFFFBBF24)]), borderRadius: BorderRadius.circular(10)), child: ElevatedButton(onPressed: () async {
             if (nameController.text.trim().isEmpty) {
               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('El nombre es obligatorio'), backgroundColor: Colors.red));
               return;
@@ -125,7 +126,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
   }
 
   Future<void> _deleteClient(LocalClient client) async {
-    final confirm = await showDialog<bool>(context: context, builder: (context) => AlertDialog(backgroundColor: const Color(0xFF1E293B), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), title: const Text('Confirmar eliminacion', style: TextStyle(color: Colors.white, fontSize: 15)), content: Text('¿Eliminar a ${client.name}?', style: const TextStyle(color: Colors.white70, fontSize: 13)), actions: [TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar', style: TextStyle(color: Colors.grey))), ElevatedButton(onPressed: () => Navigator.pop(context, true), style: ElevatedButton.styleFrom(backgroundColor: Colors.red, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))), child: const Text('Eliminar', style: TextStyle(fontSize: 13)))]));
+    final confirm = await showDialog<bool>(context: context, builder: (context) => AlertDialog(backgroundColor: const Color(0xFF141414), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), title: const Text('Confirmar eliminacion', style: TextStyle(color: Colors.white, fontSize: 15)), content: Text('¿Eliminar a ${client.name}?', style: const TextStyle(color: Colors.white70, fontSize: 13)), actions: [TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar', style: TextStyle(color: Colors.grey))), ElevatedButton(onPressed: () => Navigator.pop(context, true), style: ElevatedButton.styleFrom(backgroundColor: Colors.red, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))), child: const Text('Eliminar', style: TextStyle(fontSize: 13)))]));
     if (confirm == true) {
       await _clientRepo.deleteClient(client.remoteId!);
       await _loadClients();
@@ -139,22 +140,22 @@ class _ClientsScreenState extends State<ClientsScreen> {
     final canDelete = RolePermissions.can(currentUserRole, BbsPerm.deleteClient);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
-      appBar: AppBar(leading: IconButton(icon: const Icon(Icons.arrow_back_rounded, color: Colors.white), onPressed: () => Navigator.pop(context)), title: const Text('Clientes Premium', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)), backgroundColor: const Color(0xFF1E293B), foregroundColor: Colors.white, elevation: 0),
+      backgroundColor: const Color(0xFF0A0A0A),
+      appBar: AppBar(leading: IconButton(icon: const Icon(Icons.arrow_back_rounded, color: Colors.white), onPressed: () => Navigator.pop(context)), title: const Text('Clientes Premium', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)), backgroundColor: const Color(0xFF141414), foregroundColor: Colors.white, elevation: 0),
       body: Column(children: [
-        Padding(padding: const EdgeInsets.all(16), child: TextField(controller: _searchController, style: const TextStyle(color: Colors.white, fontSize: 14), decoration: InputDecoration(hintText: 'Buscar por nombre o telefono...', hintStyle: const TextStyle(color: Colors.white38, fontSize: 13), prefixIcon: const Padding(padding: EdgeInsets.all(12), child: Text('🔍', style: TextStyle(fontSize: 18))), filled: true, fillColor: const Color(0xFF1E293B), border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none), contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14)), onChanged: _filterClients)),
-        Expanded(child: _isLoading ? const Center(child: CircularProgressIndicator(color: Color(0xFF6366F1))) : _filteredClients.isEmpty ? const Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Text('👥', style: TextStyle(fontSize: 64)), SizedBox(height: 16), Text('No hay clientes registrados', style: TextStyle(color: Colors.white54, fontSize: 15))])) : ListView.builder(padding: const EdgeInsets.symmetric(horizontal: 16), itemCount: _filteredClients.length, itemBuilder: (context, index) {
+        Padding(padding: const EdgeInsets.all(16), child: TextField(controller: _searchController, style: const TextStyle(color: Colors.white, fontSize: 14), decoration: InputDecoration(hintText: 'Buscar por nombre o telefono...', hintStyle: const TextStyle(color: Colors.white38, fontSize: 13), prefixIcon: const Padding(padding: EdgeInsets.all(12), child: Text('🔍', style: TextStyle(fontSize: 18))), filled: true, fillColor: const Color(0xFF141414), border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none), contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14)), onChanged: _filterClients)),
+        Expanded(child: _isLoading ? const Center(child: CircularProgressIndicator(color: Color(0xFFD4AF37))) : _filteredClients.isEmpty ? const Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Text('👥', style: TextStyle(fontSize: 64)), SizedBox(height: 16), Text('No hay clientes registrados', style: TextStyle(color: Colors.white54, fontSize: 15))])) : ListView.builder(padding: const EdgeInsets.symmetric(horizontal: 16), itemCount: _filteredClients.length, itemBuilder: (context, index) {
           final client = _filteredClients[index];
           final phoneText = client.phone != null ? "📱 ${client.phone}" : "";
           final visitsText = "Visitas: ${client.totalVisits} | Total: ${SettingsService.formatCurrency(client.totalSpent)}";
           return Container(
             margin: const EdgeInsets.only(bottom: 12), 
-            decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withOpacity(0.05)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 12, offset: const Offset(0,4))]), 
+            decoration: BoxDecoration(color: const Color(0xFF141414), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withOpacity(0.05)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 12, offset: const Offset(0,4))]), 
             child: Material(
               type: MaterialType.transparency,
               child: ListTile(
                 contentPadding: const EdgeInsets.all(14), 
-                leading: CircleAvatar(backgroundColor: const Color(0xFF6366F1).withOpacity(0.15), child: Text(client.name.isNotEmpty ? client.name[0].toUpperCase() : '?', style: const TextStyle(color: Color(0xFF6366F1), fontWeight: FontWeight.bold, fontSize: 14))), 
+                leading: CircleAvatar(backgroundColor: const Color(0xFFD4AF37).withOpacity(0.15), child: Text(client.name.isNotEmpty ? client.name[0].toUpperCase() : '?', style: const TextStyle(color: Color(0xFFD4AF37), fontWeight: FontWeight.bold, fontSize: 14))), 
                 title: Text(client.name, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 14)), 
                 subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [if (phoneText.isNotEmpty) Text(phoneText, style: const TextStyle(color: Colors.white70, fontSize: 12)), if (client.email != null && client.email!.isNotEmpty) Text("✉️ ${client.email}", style: const TextStyle(color: Colors.white54, fontSize: 11)), const SizedBox(height: 4), Text(visitsText, style: const TextStyle(color: Colors.white38, fontSize: 11))]), 
                 trailing: (canEdit || canDelete) ? Row(mainAxisSize: MainAxisSize.min, children: [
@@ -169,7 +170,7 @@ class _ClientsScreenState extends State<ClientsScreen> {
           );
         })),
       ]),
-      floatingActionButton: canEdit ? Container(decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF818CF8)]), borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: const Color(0xFF6366F1).withOpacity(0.4), blurRadius: 12, offset: const Offset(0,6))]), child: FloatingActionButton(onPressed: () => _showClientDialog(), backgroundColor: Colors.transparent, elevation: 0, child: const Icon(Icons.add_rounded, color: Colors.white, size: 28))) : null,
+      floatingActionButton: canEdit ? Container(decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFFD4AF37), Color(0xFFFBBF24)]), borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: const Color(0xFFD4AF37).withOpacity(0.4), blurRadius: 12, offset: const Offset(0,6))]), child: FloatingActionButton(onPressed: () => _showClientDialog(), backgroundColor: Colors.transparent, elevation: 0, child: const Icon(Icons.add_rounded, color: Colors.white, size: 28))) : null,
     );
   }
 }

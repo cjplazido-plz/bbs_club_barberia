@@ -1,3 +1,4 @@
+// PREMIUM RESERVAS - Solo colores: fondo 0A0A0A, tarjetas 141414, dorado D4AF37 / FBBF24. Lógica, permisos, mensajes y filtros intactos.
 import 'package:flutter/material.dart';
 import '../services/printer_service.dart';
 import '../services/printer_interface.dart';
@@ -62,8 +63,8 @@ class _PrinterSettingsScreenState extends State<PrinterSettingsScreen> {
     final connected = _printer.isConnected;
     final dev = _printer.connectedDevice;
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
-      appBar: AppBar(backgroundColor: const Color(0xFF1E293B), title: Text('🖨️ Impresora ${_paperSize}mm - FIX Corte', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white)), leading: IconButton(icon: const Icon(Icons.arrow_back_rounded, color: Colors.white), onPressed: () => Navigator.pop(context))),
+      backgroundColor: const Color(0xFF0A0A0A),
+      appBar: AppBar(backgroundColor: const Color(0xFF141414), title: Text('🖨️ Impresora ${_paperSize}mm - FIX Corte', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white)), leading: IconButton(icon: const Icon(Icons.arrow_back_rounded, color: Colors.white), onPressed: () => Navigator.pop(context))),
       body: SingleChildScrollView(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         if (connected && dev != null)
           Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.15), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFF10B981).withOpacity(0.4))), child: Row(children: [
@@ -77,7 +78,7 @@ class _PrinterSettingsScreenState extends State<PrinterSettingsScreen> {
           ])),
 
         const SizedBox(height: 14),
-        Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white10)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: const Color(0xFF141414), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white10)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           const Text('Tamaño de Papel (según tu rollo)', style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           Row(children: [
@@ -92,16 +93,16 @@ class _PrinterSettingsScreenState extends State<PrinterSettingsScreen> {
           const SizedBox(height: 8),
           Row(children: [_typeChip(MyPrinterType.network, '📶 Network WiFi'), const SizedBox(width: 8), _typeChip(MyPrinterType.usb, '🔌 USB')]),
           const SizedBox(height: 14),
-          TextField(controller: _nameController, style: const TextStyle(color: Colors.white, fontSize: 12), decoration: InputDecoration(labelText: 'Nombre', labelStyle: const TextStyle(color: Colors.white38, fontSize: 10), filled: true, fillColor: const Color(0xFF0F172A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)), contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10))),
+          TextField(controller: _nameController, style: const TextStyle(color: Colors.white, fontSize: 12), decoration: InputDecoration(labelText: 'Nombre', labelStyle: const TextStyle(color: Colors.white38, fontSize: 10), filled: true, fillColor: const Color(0xFF0A0A0A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)), contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10))),
           const SizedBox(height: 10),
           if (_selectedType == MyPrinterType.network)
             Row(children: [
-              Expanded(flex: 3, child: TextField(controller: _ipController, style: const TextStyle(color: Colors.white, fontSize: 12), decoration: InputDecoration(labelText: 'IP Ej: 192.168.1.50', labelStyle: const TextStyle(color: Colors.white38, fontSize: 10), filled: true, fillColor: const Color(0xFF0F172A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)), contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10)))),
+              Expanded(flex: 3, child: TextField(controller: _ipController, style: const TextStyle(color: Colors.white, fontSize: 12), decoration: InputDecoration(labelText: 'IP Ej: 192.168.1.50', labelStyle: const TextStyle(color: Colors.white38, fontSize: 10), filled: true, fillColor: const Color(0xFF0A0A0A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)), contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10)))),
               const SizedBox(width: 8),
-              Expanded(child: TextField(controller: _portController, style: const TextStyle(color: Colors.white, fontSize: 12), decoration: InputDecoration(labelText: 'Puerto', labelStyle: const TextStyle(color: Colors.white38, fontSize: 10), filled: true, fillColor: const Color(0xFF0F172A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)), contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10)))),
+              Expanded(child: TextField(controller: _portController, style: const TextStyle(color: Colors.white, fontSize: 12), decoration: InputDecoration(labelText: 'Puerto', labelStyle: const TextStyle(color: Colors.white38, fontSize: 10), filled: true, fillColor: const Color(0xFF0A0A0A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)), contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10)))),
             ]),
           const SizedBox(height: 12),
-          SizedBox(width: double.infinity, child: ElevatedButton.icon(onPressed: _saving ? null : _save, icon: _saving ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.save_rounded, size: 16), label: Text(_saving ? 'Guardando...' : 'Guardar Config ${_paperSize}mm', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6366F1), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)), padding: const EdgeInsets.symmetric(vertical: 12)))),
+          SizedBox(width: double.infinity, child: ElevatedButton.icon(onPressed: _saving ? null : _save, icon: _saving ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.save_rounded, size: 16), label: Text(_saving ? 'Guardando...' : 'Guardar Config ${_paperSize}mm', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4AF37), foregroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)), padding: const EdgeInsets.symmetric(vertical: 12)))),
         ])),
         const SizedBox(height: 20),
         Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.1), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFF10B981).withOpacity(0.3))), child: const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -115,11 +116,11 @@ class _PrinterSettingsScreenState extends State<PrinterSettingsScreen> {
 
   Widget _paperChip(int mm, String label) {
     final sel = _paperSize == mm;
-    return InkWell(onTap: () => setState(() => _paperSize = mm), child: Container(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), decoration: BoxDecoration(color: sel ? const Color(0xFF10B981) : const Color(0xFF0F172A), borderRadius: BorderRadius.circular(20), border: Border.all(color: sel ? const Color(0xFF10B981) : Colors.white10)), child: Text(label, style: TextStyle(color: sel ? Colors.white : Colors.white54, fontSize: 11, fontWeight: FontWeight.bold))));
+    return InkWell(onTap: () => setState(() => _paperSize = mm), child: Container(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), decoration: BoxDecoration(color: sel ? const Color(0xFF10B981) : const Color(0xFF0A0A0A), borderRadius: BorderRadius.circular(20), border: Border.all(color: sel ? const Color(0xFF10B981) : Colors.white10)), child: Text(label, style: TextStyle(color: sel ? Colors.white : Colors.white54, fontSize: 11, fontWeight: FontWeight.bold))));
   }
 
   Widget _typeChip(MyPrinterType type, String label) {
     final sel = _selectedType == type;
-    return InkWell(onTap: () => setState(() => _selectedType = type), child: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), decoration: BoxDecoration(color: sel ? const Color(0xFF6366F1) : const Color(0xFF0F172A), borderRadius: BorderRadius.circular(20), border: Border.all(color: sel ? const Color(0xFF6366F1) : Colors.white10)), child: Text(label, style: TextStyle(color: sel ? Colors.white : Colors.white54, fontSize: 10, fontWeight: FontWeight.bold))));
+    return InkWell(onTap: () => setState(() => _selectedType = type), child: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), decoration: BoxDecoration(color: sel ? const Color(0xFFD4AF37) : const Color(0xFF0A0A0A), borderRadius: BorderRadius.circular(20), border: Border.all(color: sel ? const Color(0xFFD4AF37) : Colors.white10)), child: Text(label, style: TextStyle(color: sel ? Colors.white : Colors.white54, fontSize: 10, fontWeight: FontWeight.bold))));
   }
 }

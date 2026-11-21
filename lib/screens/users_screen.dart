@@ -1,3 +1,4 @@
+// PREMIUM RESERVAS - Solo colores: fondo 0A0A0A, tarjetas 141414, dorado D4AF37 / FBBF24. Lógica, Placido oculto/protegido, bloqueo folio, permisos intactos.
 // lib/screens/users_screen.dart
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -83,7 +84,7 @@ class _UsersScreenState extends State<UsersScreen> with TickerProviderStateMixin
     final confirm = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: const Color(0xFF141414),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Eliminar usuario', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         content: Text('¿Eliminar a $userName?', style: const TextStyle(color: Colors.white70)),
@@ -127,7 +128,7 @@ class _UsersScreenState extends State<UsersScreen> with TickerProviderStateMixin
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          backgroundColor: const Color(0xFF1E293B),
+          backgroundColor: const Color(0xFF141414),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: Text(isEditing ? 'Editar Usuario' : 'Nuevo Usuario', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           content: SingleChildScrollView(
@@ -146,13 +147,13 @@ class _UsersScreenState extends State<UsersScreen> with TickerProviderStateMixin
 
                 DropdownButtonFormField<String>(
                   value: selectedRole,
-                  dropdownColor: const Color(0xFF1E293B),
+                  dropdownColor: const Color(0xFF141414),
                   style: const TextStyle(color: Colors.white),
                   decoration: InputDecoration(
                     labelText: 'Rol',
                     labelStyle: const TextStyle(color: Colors.white54, fontSize: 13),
                     filled: true,
-                    fillColor: const Color(0xFF0F172A),
+                    fillColor: const Color(0xFF0A0A0A),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   // <-- FIX: Generar items dinámicamente
@@ -175,7 +176,7 @@ class _UsersScreenState extends State<UsersScreen> with TickerProviderStateMixin
             TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancelar', style: TextStyle(color: Colors.grey))),
             Container(
               decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF818CF8)]),
+                gradient: const LinearGradient(colors: [Color(0xFFD4AF37), Color(0xFFFBBF24)]),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: ElevatedButton(
@@ -271,9 +272,9 @@ class _UsersScreenState extends State<UsersScreen> with TickerProviderStateMixin
       decoration: InputDecoration(
         labelText: label,
         labelStyle: const TextStyle(color: Colors.white54, fontSize: 12),
-        prefixIcon: Icon(icon, color: const Color(0xFF818CF8), size: 18),
+        prefixIcon: Icon(icon, color: const Color(0xFFFBBF24), size: 18),
         filled: true,
-        fillColor: const Color(0xFF0F172A),
+        fillColor: const Color(0xFF0A0A0A),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
@@ -282,7 +283,7 @@ class _UsersScreenState extends State<UsersScreen> with TickerProviderStateMixin
   Color _getRoleColor(String role) {
     switch (role) {
       case 'admin': return const Color(0xFF8B5CF6);
-      case 'cashier': return const Color(0xFF6366F1);
+      case 'cashier': return const Color(0xFFD4AF37);
       case 'barber': return const Color(0xFFF59E0B);
       case 'barber_cashier': return const Color(0xFF10B981);
       default: return Colors.grey;
@@ -302,11 +303,11 @@ class _UsersScreenState extends State<UsersScreen> with TickerProviderStateMixin
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: const Color(0xFF0A0A0A),
       appBar: AppBar(
         leading: IconButton(icon: const Icon(Icons.arrow_back_rounded, color: Colors.white), onPressed: () => Navigator.pop(context)),
         title: const Text('Usuarios Premium', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: const Color(0xFF141414),
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
@@ -322,7 +323,7 @@ class _UsersScreenState extends State<UsersScreen> with TickerProviderStateMixin
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF6366F1)))
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFFD4AF37)))
           : _users.isEmpty
               ? const Center(child: Text('No hay usuarios', style: TextStyle(color: Colors.white38)))
               : ListView.builder(
@@ -336,7 +337,7 @@ class _UsersScreenState extends State<UsersScreen> with TickerProviderStateMixin
                       opacity: Tween<double>(begin: 0, end: 1).animate(CurvedAnimation(parent: _ctrl, curve: Interval(delay, 0.6 + delay, curve: Curves.easeOutCubic))),
                       child: Container(
                         margin: const EdgeInsets.only(bottom: 10),
-                        decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.white.withOpacity(0.06))),
+                        decoration: BoxDecoration(color: const Color(0xFF141414), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.white.withOpacity(0.06))),
                         child: Material(
                           type: MaterialType.transparency,
                           child: ListTile(
@@ -365,8 +366,8 @@ class _UsersScreenState extends State<UsersScreen> with TickerProviderStateMixin
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Container(
-                                  decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.12), borderRadius: BorderRadius.circular(10)),
-                                  child: IconButton(icon: const Icon(Icons.edit_rounded, size: 18, color: Color(0xFF818CF8)), onPressed: () => _showUserDialog(user: user)),
+                                  decoration: BoxDecoration(color: const Color(0xFFD4AF37).withOpacity(0.12), borderRadius: BorderRadius.circular(10)),
+                                  child: IconButton(icon: const Icon(Icons.edit_rounded, size: 18, color: Color(0xFFFBBF24)), onPressed: () => _showUserDialog(user: user)),
                                 ),
                                 const SizedBox(width: 6),
                                 Container(
@@ -383,9 +384,9 @@ class _UsersScreenState extends State<UsersScreen> with TickerProviderStateMixin
                 ),
       floatingActionButton: Container(
         decoration: BoxDecoration(
-          gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF818CF8)]),
+          gradient: const LinearGradient(colors: [Color(0xFFD4AF37), Color(0xFFFBBF24)]),
           borderRadius: BorderRadius.circular(16),
-          boxShadow: [BoxShadow(color: const Color(0xFF6366F1).withOpacity(0.4), blurRadius: 12, offset: const Offset(0, 6))],
+          boxShadow: [BoxShadow(color: const Color(0xFFD4AF37).withOpacity(0.4), blurRadius: 12, offset: const Offset(0, 6))],
         ),
         child: FloatingActionButton(
           onPressed: () => _showUserDialog(),

@@ -1,3 +1,4 @@
+// PREMIUM RESERVAS - Solo colores: fondo 0A0A0A, tarjetas 141414, dorado D4AF37 / FBBF24. Lógica, permisos, mensajes y filtros intactos.
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
@@ -120,7 +121,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       initialDateRange: _selectedDateRange,
       builder: (c, child) => Theme(
         data: ThemeData.dark().copyWith(
-          colorScheme: const ColorScheme.dark(primary: Color(0xFF6366F1), surface: Color(0xFF1E293B))
+          colorScheme: const ColorScheme.dark(primary: Color(0xFFD4AF37), surface: Color(0xFF141414))
         ), 
         child: child!
       ),
@@ -142,9 +143,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF6366F1) : const Color(0xFF0F172A),
+          color: isSelected ? const Color(0xFFD4AF37) : const Color(0xFF0A0A0A),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: isSelected ? const Color(0xFF6366F1) : Colors.white10),
+          border: Border.all(color: isSelected ? const Color(0xFFD4AF37) : Colors.white10),
         ),
         child: Text(
           label,
@@ -162,9 +163,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     final isDesktop = MediaQuery.of(context).size.width > 800;
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: const Color(0xFF0A0A0A),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: const Color(0xFF141414),
         elevation: 0,
         leading: IconButton(icon: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20), onPressed: () => Navigator.pop(context)),
         title: const Text('Dashboard Premium', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
@@ -172,9 +173,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         actions: [IconButton(icon: const Icon(Icons.refresh_rounded, color: Colors.white70, size: 20), onPressed: _loadData)],
       ),
       body: _isLoading 
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF6366F1))) 
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFFD4AF37))) 
           : RefreshIndicator(
-              color: const Color(0xFF6366F1), 
+              color: const Color(0xFFD4AF37), 
               onRefresh: _loadData, 
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -225,7 +226,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B), 
+        color: const Color(0xFF141414), 
         borderRadius: BorderRadius.circular(16), 
         border: Border.all(color: Colors.white.withOpacity(0.06)),
         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))]
@@ -236,7 +237,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           // FILTRO UNIFICADO - mismo estilo que Reportes Avanzados (Período de Análisis)
           Row(
             children: const [
-              Icon(Icons.calendar_month_rounded, color: Color(0xFF818CF8), size: 18),
+              Icon(Icons.calendar_month_rounded, color: Color(0xFFFBBF24), size: 18),
               SizedBox(width: 8),
               Text('Período de Análisis', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
             ],
@@ -249,7 +250,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               style: ButtonStyle(
                 visualDensity: VisualDensity.compact,
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                backgroundColor: WidgetStateProperty.resolveWith((states) => states.contains(WidgetState.selected) ? const Color(0xFF6366F1) : Colors.transparent),
+                backgroundColor: WidgetStateProperty.resolveWith((states) => states.contains(WidgetState.selected) ? const Color(0xFFD4AF37) : Colors.transparent),
                 foregroundColor: WidgetStateProperty.resolveWith((states) => states.contains(WidgetState.selected) ? Colors.white : Colors.white54),
                 side: WidgetStateProperty.all(BorderSide(color: Colors.white.withOpacity(0.1))),
               ),
@@ -273,13 +274,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF0F172A),
+                    color: const Color(0xFF0A0A0A),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: _activeQuickFilter == 'custom' ? const Color(0xFF6366F1) : Colors.white.withOpacity(0.08)),
+                    border: Border.all(color: _activeQuickFilter == 'custom' ? const Color(0xFFD4AF37) : Colors.white.withOpacity(0.08)),
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.date_range_rounded, color: _activeQuickFilter == 'custom' ? const Color(0xFF6366F1) : Colors.white38, size: 18),
+                      Icon(Icons.date_range_rounded, color: _activeQuickFilter == 'custom' ? const Color(0xFFD4AF37) : Colors.white38, size: 18),
                       const SizedBox(width: 10),
                       Expanded(
                         child: FittedBox(
@@ -295,10 +296,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF6366F1).withOpacity(0.15),
+                          color: const Color(0xFFD4AF37).withOpacity(0.15),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: Text(_activeQuickFilter == 'custom' ? 'CAMBIAR' : 'EDITAR', style: const TextStyle(color: Color(0xFF818CF8), fontSize: 10, fontWeight: FontWeight.bold)),
+                        child: Text(_activeQuickFilter == 'custom' ? 'CAMBIAR' : 'EDITAR', style: const TextStyle(color: Color(0xFFFBBF24), fontSize: 10, fontWeight: FontWeight.bold)),
                       ),
                     ],
                   ),
@@ -309,15 +310,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 height: 44,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0F172A),
+                  color: const Color(0xFF0A0A0A),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: Colors.white.withOpacity(0.08)),
                 ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
                     value: _selectedBarberId,
-                    dropdownColor: const Color(0xFF1E293B),
-                    icon: const Icon(Icons.person_search, color: Color(0xFF818CF8), size: 16),
+                    dropdownColor: const Color(0xFF141414),
+                    icon: const Icon(Icons.person_search, color: Color(0xFFFBBF24), size: 16),
                     style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
                     items: [
                       const DropdownMenuItem(value: 'all', child: Text('Todos los Barberos')),
@@ -369,7 +370,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       childAspectRatio: isDesktop ? 1.6 : 1.7,
       children: [
         _compactCard('Ventas del Periodo', SettingsService.formatCurrency(_totalSales), '💵', const Color(0xFF10B981)),
-        _compactCard('Transacciones', '$_totalTransactions', '🧾', const Color(0xFF6366F1)),
+        _compactCard('Transacciones', '$_totalTransactions', '🧾', const Color(0xFFD4AF37)),
         _compactCard('Ticket Promedio', SettingsService.formatCurrency(_averageTicket), '⚖️', const Color(0xFFF59E0B)),
         _compactCard('Citas', '$_totalAppointments', '📅', const Color(0xFF8B5CF6)),
       ],
@@ -380,7 +381,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B), 
+        color: const Color(0xFF141414), 
         borderRadius: BorderRadius.circular(14), 
         border: Border.all(color: Colors.white.withOpacity(0.06))
       ),
@@ -415,9 +416,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withOpacity(0.06))),
+      decoration: BoxDecoration(color: const Color(0xFF141414), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withOpacity(0.06))),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [const Text('📊 Ventas del Periodo', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)), const Spacer(), Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.15), borderRadius: BorderRadius.circular(20)), child: const Text('Rango Seleccionado', style: TextStyle(fontSize: 9, color: Color(0xFF818CF8), fontWeight: FontWeight.bold)))]),
+        Row(children: [const Text('📊 Ventas del Periodo', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)), const Spacer(), Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: const Color(0xFFD4AF37).withOpacity(0.15), borderRadius: BorderRadius.circular(20)), child: const Text('Rango Seleccionado', style: TextStyle(fontSize: 9, color: Color(0xFFFBBF24), fontWeight: FontWeight.bold)))]),
         const SizedBox(height: 16),
         SizedBox(
           height: 160,
@@ -427,7 +428,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             barGroups: _weekSales.asMap().entries.map((entry) {
               final index = entry.key;
               final data = entry.value;
-              return BarChartGroupData(x: index, barRods: [BarChartRodData(toY: (data['total'] as num).toDouble(), color: const Color(0xFF6366F1), width: 14, borderRadius: const BorderRadius.vertical(top: Radius.circular(4)))]);
+              return BarChartGroupData(x: index, barRods: [BarChartRodData(toY: (data['total'] as num).toDouble(), color: const Color(0xFFD4AF37), width: 14, borderRadius: const BorderRadius.vertical(top: Radius.circular(4)))]);
             }).toList(),
             titlesData: FlTitlesData(
               show: true,
@@ -447,7 +448,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildBarberRanking() {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withOpacity(0.06))),
+      decoration: BoxDecoration(color: const Color(0xFF141414), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withOpacity(0.06))),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const Text('🏆 Top Barberos', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
         const SizedBox(height: 12),
@@ -472,12 +473,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildCommissions() {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withOpacity(0.06))),
+      decoration: BoxDecoration(color: const Color(0xFF141414), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withOpacity(0.06))),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const Text('💰 Comisiones (Periodo)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
         const SizedBox(height: 12),
         if (_barberCommissions.isEmpty) const Padding(padding: EdgeInsets.all(12), child: Center(child: Text('Sin comisiones', style: TextStyle(color: Colors.white38, fontSize: 11)))) else ..._barberCommissions.map((barber) => Padding(padding: const EdgeInsets.only(bottom: 8), child: Row(children: [
-          CircleAvatar(radius: 12, backgroundColor: const Color(0xFF6366F1).withOpacity(0.15), child: Text((barber['name'] as String)[0].toUpperCase(), style: const TextStyle(color: Color(0xFF6366F1), fontSize: 10, fontWeight: FontWeight.bold))),
+          CircleAvatar(radius: 12, backgroundColor: const Color(0xFFD4AF37).withOpacity(0.15), child: Text((barber['name'] as String)[0].toUpperCase(), style: const TextStyle(color: Color(0xFFD4AF37), fontSize: 10, fontWeight: FontWeight.bold))),
           const SizedBox(width: 8),
           Expanded(child: Text(barber['name'] as String, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600))),
           Text(SettingsService.formatCurrency((barber['commission'] as num).toDouble()), style: const TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.bold, fontSize: 11))
@@ -490,18 +491,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (_paymentMethods.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withOpacity(0.06))),
+        decoration: BoxDecoration(color: const Color(0xFF141414), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withOpacity(0.06))),
         child: const Center(child: Padding(padding: EdgeInsets.all(20), child: Text('Sin transacciones', style: TextStyle(color: Colors.white38, fontSize: 11)))),
       );
     }
 
     int totalTx = _paymentMethods.values.reduce((a, b) => a + b);
-    final colors = [const Color(0xFF10B981), const Color(0xFF6366F1), const Color(0xFFF59E0B), const Color(0xFF8B5CF6)];
+    final colors = [const Color(0xFF10B981), const Color(0xFFD4AF37), const Color(0xFFF59E0B), const Color(0xFF8B5CF6)];
     final icons = {'Efectivo': '💵', 'Tarjeta': '💳', 'Transferencia': '📱', 'Mixto': '🔀'};
 
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withOpacity(0.06))),
+      decoration: BoxDecoration(color: const Color(0xFF141414), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withOpacity(0.06))),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const Text('💳 Métodos de Pago', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
         const SizedBox(height: 16),

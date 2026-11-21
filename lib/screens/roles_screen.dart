@@ -1,3 +1,4 @@
+// PREMIUM RESERVAS - Solo colores: fondo 0A0A0A, tarjetas 141414, dorado D4AF37 / FBBF24. Lógica, Placido oculto/protegido, bloqueo folio, permisos intactos.
 // roles_screen.dart - CORREGIDO permission_key
 // FIX: Tu tabla es (role, permission_key, allowed), NO (role, permission). Por eso fallaba con 42703.
 // Se cambiaron los 3 inserts a permission_key + allowed.
@@ -63,7 +64,7 @@ class _RolesScreenState extends State<RolesScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: const Color(0xFF141414),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Borrar rol', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         content: Text('¿Borrar rol $displayName?', style: const TextStyle(color: Colors.white70)),
@@ -89,10 +90,10 @@ class _RolesScreenState extends State<RolesScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: const Color(0xFF141414),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Nuevo Rol', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        content: TextField(controller: nameCtrl, style: const TextStyle(color: Colors.white), decoration: InputDecoration(labelText: 'Nombre del rol', labelStyle: const TextStyle(color: Colors.white54), filled: true, fillColor: const Color(0xFF0F172A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
+        content: TextField(controller: nameCtrl, style: const TextStyle(color: Colors.white), decoration: InputDecoration(labelText: 'Nombre del rol', labelStyle: const TextStyle(color: Colors.white54), filled: true, fillColor: const Color(0xFF0A0A0A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
         actions: [
           TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancelar', style: TextStyle(color: Colors.grey))),
           ElevatedButton(onPressed: () => Navigator.pop(c, true), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF166534)), child: const Text('Crear')),
@@ -125,11 +126,11 @@ class _RolesScreenState extends State<RolesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: const Color(0xFF0A0A0A),
       appBar: AppBar(
         leading: IconButton(icon: const Icon(Icons.arrow_back_rounded, color: Colors.white), onPressed: () => Navigator.pop(context)),
         title: const Row(children: [Text('🛡️ ', style: TextStyle(fontSize: 16)), Text('Roles', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white))]),
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: const Color(0xFF141414),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 12, top: 8, bottom: 8),
@@ -138,7 +139,7 @@ class _RolesScreenState extends State<RolesScreen> {
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF6366F1)))
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFFD4AF37)))
           : Padding(
               padding: const EdgeInsets.all(16),
               child: GridView.builder(
@@ -156,7 +157,7 @@ class _RolesScreenState extends State<RolesScreen> {
                   final color = Color(RolePermissions.roleColors[role] ?? 0xFF6C5CE7);
                   return Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white.withOpacity(0.08))),
+                    decoration: BoxDecoration(color: const Color(0xFF141414), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white.withOpacity(0.08))),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start, 
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -232,12 +233,12 @@ class _EditarRolScreenState extends State<_EditarRolScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
-      appBar: AppBar(leading: IconButton(icon: const Icon(Icons.arrow_back_rounded, color: Colors.white), onPressed: () => Navigator.pop(context)), title: Text('Editar Rol - ${widget.displayName}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)), backgroundColor: const Color(0xFF1E293B)),
+      backgroundColor: const Color(0xFF0A0A0A),
+      appBar: AppBar(leading: IconButton(icon: const Icon(Icons.arrow_back_rounded, color: Colors.white), onPressed: () => Navigator.pop(context)), title: Text('Editar Rol - ${widget.displayName}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)), backgroundColor: const Color(0xFF141414)),
       body: SingleChildScrollView(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const Text('Nombre', style: TextStyle(color: Colors.white70, fontSize: 13)),
         const SizedBox(height: 6),
-        Container(width: double.infinity, padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(12)), child: Text(widget.displayName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+        Container(width: double.infinity, padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: const Color(0xFF141414), borderRadius: BorderRadius.circular(12)), child: Text(widget.displayName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
         const SizedBox(height: 16),
         GridView.builder(
           shrinkWrap: true, 
@@ -251,9 +252,9 @@ class _EditarRolScreenState extends State<_EditarRolScreen> {
               borderRadius: BorderRadius.circular(10),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8), 
-                decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(10), border: Border.all(color: on ? const Color(0xFF6366F1) : Colors.white10)), 
+                decoration: BoxDecoration(color: const Color(0xFF141414), borderRadius: BorderRadius.circular(10), border: Border.all(color: on ? const Color(0xFFD4AF37) : Colors.white10)), 
                 child: Row(children: [
-                  Checkbox(value: on, activeColor: const Color(0xFF6366F1), onChanged: (v) => setState(() { v == true ? _checked.add(perm) : _checked.remove(perm); })), 
+                  Checkbox(value: on, activeColor: const Color(0xFFD4AF37), onChanged: (v) => setState(() { v == true ? _checked.add(perm) : _checked.remove(perm); })), 
                   Expanded(child: Text(BbsPerm.labels[perm] ?? perm, style: const TextStyle(color: Colors.white, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis))
                 ])
               )
@@ -261,7 +262,7 @@ class _EditarRolScreenState extends State<_EditarRolScreen> {
           }
         ),
         const SizedBox(height: 16),
-        Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.12), borderRadius: BorderRadius.circular(10)), child: const Text('Barbero no edita ni elimina clientes, porque van y vienen. Cajero ve cuadratura pero no edita ni borra nada.', style: TextStyle(color: Colors.white70, fontSize: 11))),
+        Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: const Color(0xFFD4AF37).withOpacity(0.12), borderRadius: BorderRadius.circular(10)), child: const Text('Barbero no edita ni elimina clientes, porque van y vienen. Cajero ve cuadratura pero no edita ni borra nada.', style: TextStyle(color: Colors.white70, fontSize: 11))),
         const SizedBox(height: 16),
         Row(children: [
           Expanded(child: ElevatedButton(onPressed: _saving ? null : _save, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF166534), padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))), child: Text(_saving ? 'Guardando...' : 'Guardar', style: const TextStyle(fontWeight: FontWeight.bold)))), 

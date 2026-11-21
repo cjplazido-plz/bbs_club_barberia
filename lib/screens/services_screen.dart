@@ -1,3 +1,4 @@
+// PREMIUM RESERVAS - Solo colores: fondo 0A0A0A, tarjetas 141414, dorado D4AF37 / FBBF24. Lógica, Placido oculto/protegido, bloqueo folio, permisos intactos.
 import 'package:flutter/material.dart';
 import '../models/local_service.dart';
 import '../repositories/service_repository.dart';
@@ -49,7 +50,7 @@ class _ServicesScreenState extends State<ServicesScreen> with TickerProviderStat
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: const Color(0xFF1E293B),
+          backgroundColor: const Color(0xFF141414),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: Text(service == null ? 'Nuevo Servicio' : 'Editar Servicio', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
           content: SingleChildScrollView(
@@ -66,7 +67,7 @@ class _ServicesScreenState extends State<ServicesScreen> with TickerProviderStat
           actions: [
             TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar', style: TextStyle(color: Colors.grey))),
             Container(
-              decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF818CF8)]), borderRadius: BorderRadius.circular(10)),
+              decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFFD4AF37), Color(0xFFFBBF24)]), borderRadius: BorderRadius.circular(10)),
               child: ElevatedButton(
                 onPressed: () async {
                   if (nameCtrl.text.trim().isEmpty) {
@@ -106,12 +107,12 @@ class _ServicesScreenState extends State<ServicesScreen> with TickerProviderStat
       style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
         labelText: label,
-        prefixIcon: Icon(icon, size: 18, color: const Color(0xFF818CF8)),
+        prefixIcon: Icon(icon, size: 18, color: const Color(0xFFFBBF24)),
         labelStyle: const TextStyle(color: Colors.white54, fontSize: 13),
         filled: true,
-        fillColor: const Color(0xFF0F172A),
+        fillColor: const Color(0xFF0A0A0A),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: Colors.white.withOpacity(0.08))),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFF6366F1), width: 2)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFD4AF37), width: 2)),
       ),
     );
   }
@@ -120,7 +121,7 @@ class _ServicesScreenState extends State<ServicesScreen> with TickerProviderStat
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: const Color(0xFF141414),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Confirmar eliminación', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         content: Text('¿Eliminar ${service.name}?', style: const TextStyle(color: Colors.white70)),
@@ -141,18 +142,18 @@ class _ServicesScreenState extends State<ServicesScreen> with TickerProviderStat
     final isAdmin = RolePermissions.isAdmin(currentUserRole);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: const Color(0xFF0A0A0A),
       appBar: AppBar(
         leading: IconButton(icon: const Icon(Icons.arrow_back_rounded, color: Colors.white), onPressed: () => Navigator.pop(context)),
         title: const Text('Servicios Premium', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: const Color(0xFF141414),
         foregroundColor: Colors.white,
         elevation: 0,
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF6366F1)))
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFFD4AF37)))
           : _services.isEmpty
-              ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(color: const Color(0xFF1E293B), shape: BoxShape.circle), child: const Icon(Icons.content_cut_rounded, size: 32, color: Colors.white24)), const SizedBox(height: 16), const Text('No hay servicios', style: TextStyle(color: Colors.white38))]))
+              ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(color: const Color(0xFF141414), shape: BoxShape.circle), child: const Icon(Icons.content_cut_rounded, size: 32, color: Colors.white24)), const SizedBox(height: 16), const Text('No hay servicios', style: TextStyle(color: Colors.white38))]))
               : ListView.builder(
                   padding: const EdgeInsets.all(12),
                   itemCount: _services.length,
@@ -167,12 +168,12 @@ class _ServicesScreenState extends State<ServicesScreen> with TickerProviderStat
                       },
                       child: Container(
                         margin: const EdgeInsets.only(bottom: 12),
-                        decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withOpacity(0.06)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.25), blurRadius: 12, offset: const Offset(0, 4))]),
+                        decoration: BoxDecoration(color: const Color(0xFF141414), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withOpacity(0.06)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.25), blurRadius: 12, offset: const Offset(0, 4))]),
                         child: Material(
                           type: MaterialType.transparency,
                           child: ListTile(
                             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                            leading: Container(width: 44, height: 44, decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.15), shape: BoxShape.circle, border: Border.all(color: const Color(0xFF6366F1).withOpacity(0.25))), child: const Icon(Icons.content_cut_rounded, size: 20, color: Color(0xFF818CF8))),
+                            leading: Container(width: 44, height: 44, decoration: BoxDecoration(color: const Color(0xFFD4AF37).withOpacity(0.15), shape: BoxShape.circle, border: Border.all(color: const Color(0xFFD4AF37).withOpacity(0.25))), child: const Icon(Icons.content_cut_rounded, size: 20, color: Color(0xFFFBBF24))),
                             title: Text(s.name, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 14)),
                             subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                               const SizedBox(height: 4),
@@ -181,7 +182,7 @@ class _ServicesScreenState extends State<ServicesScreen> with TickerProviderStat
                               Row(children: [const Icon(Icons.timer_outlined, size: 12, color: Colors.white38), const SizedBox(width: 4), Text('${s.durationMinutes} min | ${s.commissionValue.toInt()}%', style: const TextStyle(color: Colors.white38, fontSize: 11))]),
                             ]),
                             trailing: isAdmin ? Row(mainAxisSize: MainAxisSize.min, children: [
-                              Container(decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.12), borderRadius: BorderRadius.circular(10)), child: IconButton(icon: const Icon(Icons.edit_rounded, size: 18, color: Color(0xFF818CF8)), onPressed: () => _showServiceDialog(service: s))),
+                              Container(decoration: BoxDecoration(color: const Color(0xFFD4AF37).withOpacity(0.12), borderRadius: BorderRadius.circular(10)), child: IconButton(icon: const Icon(Icons.edit_rounded, size: 18, color: Color(0xFFFBBF24)), onPressed: () => _showServiceDialog(service: s))),
                               const SizedBox(width: 6),
                               Container(decoration: BoxDecoration(color: Colors.red.withOpacity(0.12), borderRadius: BorderRadius.circular(10)), child: IconButton(icon: const Icon(Icons.delete_rounded, size: 18, color: Color(0xFFEF4444)), onPressed: () => _deleteService(s))),
                             ]) : null,
@@ -191,7 +192,7 @@ class _ServicesScreenState extends State<ServicesScreen> with TickerProviderStat
                     );
                   },
                 ),
-      floatingActionButton: isAdmin ? Container(decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF818CF8)]), borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: const Color(0xFF6366F1).withOpacity(0.4), blurRadius: 12, offset: const Offset(0, 6))]), child: FloatingActionButton(onPressed: () => _showServiceDialog(), backgroundColor: Colors.transparent, elevation: 0, child: const Icon(Icons.add_rounded, color: Colors.white, size: 28))) : null,
+      floatingActionButton: isAdmin ? Container(decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFFD4AF37), Color(0xFFFBBF24)]), borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: const Color(0xFFD4AF37).withOpacity(0.4), blurRadius: 12, offset: const Offset(0, 6))]), child: FloatingActionButton(onPressed: () => _showServiceDialog(), backgroundColor: Colors.transparent, elevation: 0, child: const Icon(Icons.add_rounded, color: Colors.white, size: 28))) : null,
     );
   }
 }

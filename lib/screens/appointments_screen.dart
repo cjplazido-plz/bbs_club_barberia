@@ -1,4 +1,5 @@
-﻿import 'package:flutter/material.dart';
+// PREMIUM RESERVAS - Solo colores: fondo 0A0A0A, tarjetas 141414, dorado D4AF37 / FBBF24. Lógica, permisos, mensajes y filtros intactos.
+import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
@@ -153,7 +154,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
   }
 
   Future<void> _deleteAppointment(LocalAppointment appointment) async {
-    final confirm = await showDialog<bool>(context: context, builder: (_) => AlertDialog(backgroundColor: const Color(0xFF1E293B), title: const Text('Cancelar cita?', style: TextStyle(color: Colors.white)), content: Text('¿Cancelar cita de ${appointment.clientName}?', style: const TextStyle(color: Colors.white70)), actions: [TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('No')), ElevatedButton(onPressed: () => Navigator.pop(context, true), style: ElevatedButton.styleFrom(backgroundColor: Colors.red), child: const Text('Sí, cancelar'))]));
+    final confirm = await showDialog<bool>(context: context, builder: (_) => AlertDialog(backgroundColor: const Color(0xFF141414), title: const Text('Cancelar cita?', style: TextStyle(color: Colors.white)), content: Text('¿Cancelar cita de ${appointment.clientName}?', style: const TextStyle(color: Colors.white70)), actions: [TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('No')), ElevatedButton(onPressed: () => Navigator.pop(context, true), style: ElevatedButton.styleFrom(backgroundColor: Colors.red), child: const Text('Sí, cancelar'))]));
     if (confirm == true) await _updateAppointmentStatus(appointment, 'cancelled');
   }
 
@@ -196,8 +197,8 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
         final count = _daysWithCounts[DateTime(date.year, date.month, date.day)] ?? 0;
         final isSelected = date.year == _selectedDate.year && date.month == _selectedDate.month && date.day == _selectedDate.day;
         final isToday = date.year == DateTime.now().year && date.month == DateTime.now().month && date.day == DateTime.now().day;
-        final bg = isSelected ? const Color(0xFF6366F1) : count > 0 ? const Color(0xFF6366F1).withOpacity(0.18) : const Color(0xFF0F172A);
-        final border = isSelected ? const Color(0xFF6366F1) : isToday ? const Color(0xFF6366F1).withOpacity(0.6) : count > 0 ? const Color(0xFFF59E0B).withOpacity(0.4) : Colors.white10;
+        final bg = isSelected ? const Color(0xFFD4AF37) : count > 0 ? const Color(0xFFD4AF37).withOpacity(0.18) : const Color(0xFF0A0A0A);
+        final border = isSelected ? const Color(0xFFD4AF37) : isToday ? const Color(0xFFD4AF37).withOpacity(0.6) : count > 0 ? const Color(0xFFF59E0B).withOpacity(0.4) : Colors.white10;
         cells.add(
           Expanded(
             child: Container(
@@ -230,7 +231,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                               child: Center(
                                 child: Text(
                                   '$count',
-                                  style: TextStyle(color: isSelected ? const Color(0xFF6366F1) : Colors.white, fontSize: 7, fontWeight: FontWeight.bold),
+                                  style: TextStyle(color: isSelected ? const Color(0xFFD4AF37) : Colors.white, fontSize: 7, fontWeight: FontWeight.bold),
                                 ),
                               ),
                             ),
@@ -258,11 +259,11 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
         constraints: const BoxConstraints(maxWidth: 420),
         child: Container(
           padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white10)),
+          decoration: BoxDecoration(color: const Color(0xFF141414), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white10)),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
               Row(children: [
-                Container(padding: const EdgeInsets.all(5), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.2), borderRadius: BorderRadius.circular(6)), child: const Icon(Icons.calendar_month, color: Color(0xFF6366F1), size: 14)),
+                Container(padding: const EdgeInsets.all(5), decoration: BoxDecoration(color: const Color(0xFFD4AF37).withOpacity(0.2), borderRadius: BorderRadius.circular(6)), child: const Icon(Icons.calendar_month, color: Color(0xFFD4AF37), size: 14)),
                 const SizedBox(width: 8),
                 Text(DateFormat('MMMM yyyy', 'es').format(_currentMonth), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
               ]),
@@ -281,11 +282,11 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
               const SizedBox(width: 5),
               const Text('Día con citas', style: TextStyle(color: Colors.white54, fontSize: 9)),
               const SizedBox(width: 12),
-              Container(width: 8, height: 8, decoration: BoxDecoration(color: const Color(0xFF6366F1), borderRadius: BorderRadius.circular(4))),
+              Container(width: 8, height: 8, decoration: BoxDecoration(color: const Color(0xFFD4AF37), borderRadius: BorderRadius.circular(4))),
               const SizedBox(width: 5),
               const Text('Seleccionado', style: TextStyle(color: Colors.white54, fontSize: 9)),
               const Spacer(),
-              InkWell(onTap: (){ setState(()=> _selectedDate = DateTime.now()); _loadData(); }, child: Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.2), borderRadius: BorderRadius.circular(6)), child: const Text('Hoy', style: TextStyle(color: Color(0xFF6366F1), fontSize: 9, fontWeight: FontWeight.bold)))),
+              InkWell(onTap: (){ setState(()=> _selectedDate = DateTime.now()); _loadData(); }, child: Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: const Color(0xFFD4AF37).withOpacity(0.2), borderRadius: BorderRadius.circular(6)), child: const Text('Hoy', style: TextStyle(color: Color(0xFFD4AF37), fontSize: 9, fontWeight: FontWeight.bold)))),
             ]),
           ]),
         ),
@@ -343,42 +344,42 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     showDialog(context: context, builder: (ctx){
       return StatefulBuilder(builder: (ctx2, setD){
         return AlertDialog(
-          backgroundColor: const Color(0xFF1E293B),
+          backgroundColor: const Color(0xFF141414),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Text(existing==null?'Nueva Cita':'Editar Cita', style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
           content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
-            if (!isNewClient) DropdownButtonFormField<String>(value: (_clientIds.contains(selectedClientId) ? selectedClientId : null), dropdownColor: const Color(0xFF1E293B), style: const TextStyle(color: Colors.white, fontSize: 12), decoration: InputDecoration(labelText: 'Cliente *', labelStyle: const TextStyle(color: Colors.white54), filled: true, fillColor: const Color(0xFF0F172A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))), items: [...{for (final c in _clients) c.remoteId: c}.values.map((c)=> DropdownMenuItem(value: c.remoteId, child: Text(c.name, style: const TextStyle(fontSize: 12)))), const DropdownMenuItem(value: '__new__', child: Text('+ Nuevo cliente...', style: TextStyle(fontSize: 12, color: Color(0xFF6366F1), fontWeight: FontWeight.bold)))], onChanged: (v){ if (v == '__new__') { setD((){ isNewClient = true; selectedClientId = null; }); } else { setD((){ selectedClientId = v; final c = selectedClient(); if (c != null && (phoneController.text.isEmpty)) phoneController.text = c.phone ?? ''; }); } }),
+            if (!isNewClient) DropdownButtonFormField<String>(value: (_clientIds.contains(selectedClientId) ? selectedClientId : null), dropdownColor: const Color(0xFF141414), style: const TextStyle(color: Colors.white, fontSize: 12), decoration: InputDecoration(labelText: 'Cliente *', labelStyle: const TextStyle(color: Colors.white54), filled: true, fillColor: const Color(0xFF0A0A0A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))), items: [...{for (final c in _clients) c.remoteId: c}.values.map((c)=> DropdownMenuItem(value: c.remoteId, child: Text(c.name, style: const TextStyle(fontSize: 12)))), const DropdownMenuItem(value: '__new__', child: Text('+ Nuevo cliente...', style: TextStyle(fontSize: 12, color: Color(0xFFD4AF37), fontWeight: FontWeight.bold)))], onChanged: (v){ if (v == '__new__') { setD((){ isNewClient = true; selectedClientId = null; }); } else { setD((){ selectedClientId = v; final c = selectedClient(); if (c != null && (phoneController.text.isEmpty)) phoneController.text = c.phone ?? ''; }); } }),
             if (isNewClient) Column(children: [
-              TextField(controller: newClientNameController, style: const TextStyle(color: Colors.white, fontSize: 12), decoration: InputDecoration(labelText: 'Nombre nuevo cliente *', labelStyle: const TextStyle(color: Colors.white54), filled: true, fillColor: const Color(0xFF0F172A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)))),
+              TextField(controller: newClientNameController, style: const TextStyle(color: Colors.white, fontSize: 12), decoration: InputDecoration(labelText: 'Nombre nuevo cliente *', labelStyle: const TextStyle(color: Colors.white54), filled: true, fillColor: const Color(0xFF0A0A0A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)))),
               const SizedBox(height: 6),
               TextButton.icon(onPressed: ()=> setD(()=> isNewClient = false), icon: const Icon(Icons.arrow_back, size: 14), label: const Text('Elegir cliente existente', style: TextStyle(fontSize: 11))),
             ]),
             const SizedBox(height: 8),
-            TextField(controller: phoneController, keyboardType: TextInputType.phone, style: const TextStyle(color: Colors.white, fontSize: 12), decoration: InputDecoration(labelText: 'Telefono del cliente *', hintText: 'Ej: +56 9 6106 9670', hintStyle: const TextStyle(color: Colors.white24, fontSize: 11), prefixIcon: const Icon(Icons.phone_rounded, color: Colors.white38, size: 18), labelStyle: const TextStyle(color: Colors.white54), filled: true, fillColor: const Color(0xFF0F172A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)))),
+            TextField(controller: phoneController, keyboardType: TextInputType.phone, style: const TextStyle(color: Colors.white, fontSize: 12), decoration: InputDecoration(labelText: 'Telefono del cliente *', hintText: 'Ej: +56 9 6106 9670', hintStyle: const TextStyle(color: Colors.white24, fontSize: 11), prefixIcon: const Icon(Icons.phone_rounded, color: Colors.white38, size: 18), labelStyle: const TextStyle(color: Colors.white54), filled: true, fillColor: const Color(0xFF0A0A0A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)))),
             const SizedBox(height: 6),
             Container(
-              decoration: BoxDecoration(color: const Color(0xFF0F172A), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.white10)), 
+              decoration: BoxDecoration(color: const Color(0xFF0A0A0A), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.white10)), 
               child: Material(
                 type: MaterialType.transparency,
-                child: SwitchListTile(value: saveAsClient, onChanged: (v)=> setD(()=> saveAsClient = v), activeColor: const Color(0xFF6366F1), dense: true, title: const Text('Guardar / actualizar como cliente', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)), subtitle: const Text('Si el cliente no esta en Clientes, se crea. Si ya esta, se actualiza su telefono.', style: TextStyle(color: Colors.white54, fontSize: 9)))
+                child: SwitchListTile(value: saveAsClient, onChanged: (v)=> setD(()=> saveAsClient = v), activeColor: const Color(0xFFD4AF37), dense: true, title: const Text('Guardar / actualizar como cliente', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)), subtitle: const Text('Si el cliente no esta en Clientes, se crea. Si ya esta, se actualiza su telefono.', style: TextStyle(color: Colors.white54, fontSize: 9)))
               )
             ),
             const SizedBox(height: 8),
-            DropdownButtonFormField<String>(value: (_barberIds.contains(selectedBarberId) ? selectedBarberId : null), dropdownColor: const Color(0xFF1E293B), style: const TextStyle(color: Colors.white, fontSize: 12), decoration: InputDecoration(labelText: 'Barbero *', labelStyle: const TextStyle(color: Colors.white54), filled: true, fillColor: const Color(0xFF0F172A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))), items: {for (final b in _barbers) b.remoteId: b}.values.map((b)=> DropdownMenuItem(value: b.remoteId, child: Text(b.name, style: const TextStyle(fontSize: 12)))).toList(), onChanged: (v)=> setD(()=> selectedBarberId=v)),
+            DropdownButtonFormField<String>(value: (_barberIds.contains(selectedBarberId) ? selectedBarberId : null), dropdownColor: const Color(0xFF141414), style: const TextStyle(color: Colors.white, fontSize: 12), decoration: InputDecoration(labelText: 'Barbero *', labelStyle: const TextStyle(color: Colors.white54), filled: true, fillColor: const Color(0xFF0A0A0A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))), items: {for (final b in _barbers) b.remoteId: b}.values.map((b)=> DropdownMenuItem(value: b.remoteId, child: Text(b.name, style: const TextStyle(fontSize: 12)))).toList(), onChanged: (v)=> setD(()=> selectedBarberId=v)),
             const SizedBox(height: 8),
             Align(alignment: Alignment.centerLeft, child: Text('Servicios * (varios)', style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.bold))),
             const SizedBox(height: 4),
             Container(
               constraints: const BoxConstraints(maxHeight: 150), 
-              decoration: BoxDecoration(color: const Color(0xFF0F172A), border: Border.all(color: Colors.white10), borderRadius: BorderRadius.circular(8)), 
+              decoration: BoxDecoration(color: const Color(0xFF0A0A0A), border: Border.all(color: Colors.white10), borderRadius: BorderRadius.circular(8)), 
               child: SingleChildScrollView(
                 child: Material(
                   color: Colors.transparent, 
-                  child: Column(children: _services.map((s){ final checked=selectedServiceIds.contains(s.remoteId); return CheckboxListTile(dense: true, value: checked, activeColor: const Color(0xFF6366F1), title: Text(s.name, style: const TextStyle(color: Colors.white, fontSize: 11)), subtitle: Text(SettingsService.formatCurrency(s.price), style: const TextStyle(color: Colors.white38, fontSize: 9)), onChanged: (v)=> setD(()=> v==true? selectedServiceIds.add(s.remoteId!): selectedServiceIds.remove(s.remoteId))); }).toList())
+                  child: Column(children: _services.map((s){ final checked=selectedServiceIds.contains(s.remoteId); return CheckboxListTile(dense: true, value: checked, activeColor: const Color(0xFFD4AF37), title: Text(s.name, style: const TextStyle(color: Colors.white, fontSize: 11)), subtitle: Text(SettingsService.formatCurrency(s.price), style: const TextStyle(color: Colors.white38, fontSize: 9)), onChanged: (v)=> setD(()=> v==true? selectedServiceIds.add(s.remoteId!): selectedServiceIds.remove(s.remoteId))); }).toList())
                 )
               )
             ),
-            if(selectedServiceIds.isNotEmpty) Padding(padding: const EdgeInsets.only(top:6), child: Text('Total ${SettingsService.formatCurrency(totalServ())}', style: const TextStyle(color: Color(0xFF6366F1), fontWeight: FontWeight.bold, fontSize: 11))),
+            if(selectedServiceIds.isNotEmpty) Padding(padding: const EdgeInsets.only(top:6), child: Text('Total ${SettingsService.formatCurrency(totalServ())}', style: const TextStyle(color: Color(0xFFD4AF37), fontWeight: FontWeight.bold, fontSize: 11))),
             const SizedBox(height: 8),
             Material(
               color: Colors.transparent,
@@ -389,23 +390,23 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
             ),
             if (isReagendar) Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.12), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFF10B981).withOpacity(0.3))), child: const Row(children: [Icon(Icons.restore, size: 14, color: Color(0xFF10B981)), SizedBox(width: 6), Expanded(child: Text('Reagendando cita cancelada - al guardar quedara Pendiente para reconfirmar en la nueva fecha.', style: TextStyle(color: Colors.white70, fontSize: 10)))])),
             if (isReagendar) const SizedBox(height: 8),
-            DropdownButtonFormField<String>(value: selectedStatus, dropdownColor: const Color(0xFF1E293B), style: const TextStyle(color: Colors.white, fontSize: 12), decoration: InputDecoration(labelText: 'Estado *', labelStyle: const TextStyle(color: Colors.white54), filled: true, fillColor: const Color(0xFF0F172A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))), items: const [DropdownMenuItem(value: 'pending', child: Text('Pendiente', style: TextStyle(fontSize: 12))), DropdownMenuItem(value: 'confirmed', child: Text('Confirmada', style: TextStyle(fontSize: 12))), DropdownMenuItem(value: 'in_progress', child: Text('En proceso', style: TextStyle(fontSize: 12))), DropdownMenuItem(value: 'completed', child: Text('Completada', style: TextStyle(fontSize: 12))), DropdownMenuItem(value: 'cancelled', child: Text('Cancelada', style: TextStyle(fontSize: 12)))], onChanged: (v)=> setD(()=> selectedStatus = v ?? 'pending')),
+            DropdownButtonFormField<String>(value: selectedStatus, dropdownColor: const Color(0xFF141414), style: const TextStyle(color: Colors.white, fontSize: 12), decoration: InputDecoration(labelText: 'Estado *', labelStyle: const TextStyle(color: Colors.white54), filled: true, fillColor: const Color(0xFF0A0A0A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))), items: const [DropdownMenuItem(value: 'pending', child: Text('Pendiente', style: TextStyle(fontSize: 12))), DropdownMenuItem(value: 'confirmed', child: Text('Confirmada', style: TextStyle(fontSize: 12))), DropdownMenuItem(value: 'in_progress', child: Text('En proceso', style: TextStyle(fontSize: 12))), DropdownMenuItem(value: 'completed', child: Text('Completada', style: TextStyle(fontSize: 12))), DropdownMenuItem(value: 'cancelled', child: Text('Cancelada', style: TextStyle(fontSize: 12)))], onChanged: (v)=> setD(()=> selectedStatus = v ?? 'pending')),
             const SizedBox(height: 8),
-            Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: const Color(0xFF0F172A), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.white10)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: const Color(0xFF0A0A0A), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.white10)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [const Icon(Icons.payments, size: 14, color: Color(0xFFF59E0B)), const SizedBox(width: 6), const Text('Abono / Anticipo', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)), const Spacer(), Switch(value: hasDeposit, activeColor: const Color(0xFFF59E0B), onChanged: (v)=> setD(()=> hasDeposit = v)),
               ]),
               if (hasDeposit) Column(children: [
                 const SizedBox(height: 8),
-                TextField(controller: depositAmountController, keyboardType: TextInputType.number, style: const TextStyle(color: Colors.white, fontSize: 12), decoration: InputDecoration(labelText: 'Monto abono (ej: 5000)', labelStyle: const TextStyle(color: Colors.white54, fontSize: 11), filled: true, fillColor: const Color(0xFF1E293B), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)))),
+                TextField(controller: depositAmountController, keyboardType: TextInputType.number, style: const TextStyle(color: Colors.white, fontSize: 12), decoration: InputDecoration(labelText: 'Monto abono (ej: 5000)', labelStyle: const TextStyle(color: Colors.white54, fontSize: 11), filled: true, fillColor: const Color(0xFF141414), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)))),
                 const SizedBox(height: 8),
-                DropdownButtonFormField<String>(value: depositMethod, dropdownColor: const Color(0xFF1E293B), style: const TextStyle(color: Colors.white, fontSize: 12), decoration: InputDecoration(labelText: 'Metodo', labelStyle: const TextStyle(color: Colors.white54), filled: true, fillColor: const Color(0xFF1E293B), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))), items: const [DropdownMenuItem(value: 'Transferencia', child: Text('Transferencia', style: TextStyle(fontSize: 12))), DropdownMenuItem(value: 'Efectivo', child: Text('Efectivo', style: TextStyle(fontSize: 12))), DropdownMenuItem(value: 'Tarjeta', child: Text('Tarjeta', style: TextStyle(fontSize: 12)))], onChanged: (v)=> setD(()=> depositMethod = v ?? 'Transferencia')),
+                DropdownButtonFormField<String>(value: depositMethod, dropdownColor: const Color(0xFF141414), style: const TextStyle(color: Colors.white, fontSize: 12), decoration: InputDecoration(labelText: 'Metodo', labelStyle: const TextStyle(color: Colors.white54), filled: true, fillColor: const Color(0xFF141414), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))), items: const [DropdownMenuItem(value: 'Transferencia', child: Text('Transferencia', style: TextStyle(fontSize: 12))), DropdownMenuItem(value: 'Efectivo', child: Text('Efectivo', style: TextStyle(fontSize: 12))), DropdownMenuItem(value: 'Tarjeta', child: Text('Tarjeta', style: TextStyle(fontSize: 12)))], onChanged: (v)=> setD(()=> depositMethod = v ?? 'Transferencia')),
                 const SizedBox(height: 6),
                 Material(color: Colors.transparent, child: CheckboxListTile(dense: true, value: depositPaid, activeColor: const Color(0xFF10B981), title: const Text('Abono recibido / verificado', style: TextStyle(color: Colors.white, fontSize: 11)), subtitle: const Text('Marca esto solo cuando veas la transferencia en tu cuenta.', style: TextStyle(color: Colors.white54, fontSize: 9)), onChanged: (v)=> setD(()=> depositPaid = v ?? false))),
                 const Text('Pide que te mande el comprobante por WhatsApp y verifica en tu banco antes de marcar Recibido.', style: TextStyle(color: Colors.white38, fontSize: 9)),
               ]),
             ])),
             const SizedBox(height: 8),
-            TextField(controller: notesController, style: const TextStyle(color: Colors.white, fontSize: 11), decoration: InputDecoration(labelText: 'Notas', labelStyle: const TextStyle(color: Colors.white54, fontSize: 9), filled: true, fillColor: const Color(0xFF0F172A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))), maxLines: 2),
+            TextField(controller: notesController, style: const TextStyle(color: Colors.white, fontSize: 11), decoration: InputDecoration(labelText: 'Notas', labelStyle: const TextStyle(color: Colors.white54, fontSize: 9), filled: true, fillColor: const Color(0xFF0A0A0A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(8))), maxLines: 2),
           ])),
           actions: [
             TextButton(onPressed: ()=> Navigator.pop(context), child: const Text('Cancelar')),
@@ -462,7 +463,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
               Navigator.pop(context);
               _loadData();
               _loadDaysWithCounts();
-            }, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6366F1)), child: Text(existing==null?'Crear':'Guardar')),
+            }, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4AF37), foregroundColor: Colors.black), child: Text(existing==null?'Crear':'Guardar')),
           ],
         );
       });
@@ -476,9 +477,9 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
     final canConfirmCancel = RolePermissions.can(currentUserRole, BbsPerm.confirmCancel);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: const Color(0xFF0A0A0A),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: const Color(0xFF141414),
         leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: () { if (Navigator.canPop(context)) { Navigator.pop(context); } else { Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => PosScreen())); } }),
         title: const Text('Agenda', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
         actions: [
@@ -488,20 +489,20 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
           IconButton(icon: const Icon(Icons.refresh, color: Colors.white54), onPressed: (){ _loadData(); _loadDaysWithCounts();})
         ]
       ),
-      body: _isLoading ? const Center(child: CircularProgressIndicator(color: Color(0xFF6366F1))) : SingleChildScrollView(padding: const EdgeInsets.all(12), child: Column(children: [
+      body: _isLoading ? const Center(child: CircularProgressIndicator(color: Color(0xFFD4AF37))) : SingleChildScrollView(padding: const EdgeInsets.all(12), child: Column(children: [
         _buildPremiumCalendarCompact(),
         const SizedBox(height: 16),
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
           Text('Citas ${DateFormat('dd MMM yyyy', 'es').format(_selectedDate)} (${_appointments.length})', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
           if (canCreateEdit)
-            TextButton.icon(onPressed: ()=> _showAppointmentDialog(), icon: const Icon(Icons.add, size: 14, color: Color(0xFF6366F1)), label: const Text('Nueva', style: TextStyle(fontSize: 11, color: Color(0xFF6366F1)))),
+            TextButton.icon(onPressed: ()=> _showAppointmentDialog(), icon: const Icon(Icons.add, size: 14, color: Color(0xFFD4AF37)), label: const Text('Nueva', style: TextStyle(fontSize: 11, color: Color(0xFFD4AF37)))),
         ]),
         const SizedBox(height: 8),
         ..._appointments.map((appointment){
           return Container(
             margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(14), border: Border.all(color: appointment.status=='cancelled'? Colors.red.withOpacity(0.3): Colors.white10)),
+            decoration: BoxDecoration(color: const Color(0xFF141414), borderRadius: BorderRadius.circular(14), border: Border.all(color: appointment.status=='cancelled'? Colors.red.withOpacity(0.3): Colors.white10)),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
                 Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: _getStatusColor(appointment.status).withOpacity(0.18), shape: BoxShape.circle), child: Icon(Icons.event, size: 20, color: _getStatusColor(appointment.status))),
@@ -513,7 +514,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
                   const SizedBox(height: 4),
                   if ((appointment.clientPhone ?? '').isNotEmpty) Material(color: Colors.transparent, child: InkWell(onTap: () => _sendWhatsAppNotification(appointment, type: 'confirmed'), borderRadius: BorderRadius.circular(6), child: Padding(padding: const EdgeInsets.symmetric(vertical: 2), child: Row(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.phone_rounded, size: 12, color: Color(0xFF10B981)), const SizedBox(width: 4), Text(appointment.clientPhone!, style: const TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.w600)), const SizedBox(width: 6), const Icon(Icons.chat_rounded, size: 11, color: Colors.white38)])))),
                   if ((appointment.clientPhone ?? '').isEmpty) const Row(children: [Icon(Icons.phone_disabled_rounded, size: 12, color: Colors.orange), SizedBox(width: 4), Text('Sin telefono - agregalo en Editar', style: TextStyle(color: Colors.orange, fontSize: 10))]),
-                  if (!_clients.any((c) => c.remoteId == appointment.clientId || (c.name.trim().toLowerCase() == (appointment.clientName ?? '').trim().toLowerCase() && (c.phone ?? '').trim() == (appointment.clientPhone ?? '').trim()))) Padding(padding: const EdgeInsets.only(top: 4), child: Material(color: Colors.transparent, child: InkWell(onTap: () => _addAsClient(appointment), borderRadius: BorderRadius.circular(20), child: Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.18), borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFF6366F1).withOpacity(0.4))), child: const Text('+ Agregar como cliente', style: TextStyle(color: Color(0xFF818CF8), fontSize: 10, fontWeight: FontWeight.bold)))))),
+                  if (!_clients.any((c) => c.remoteId == appointment.clientId || (c.name.trim().toLowerCase() == (appointment.clientName ?? '').trim().toLowerCase() && (c.phone ?? '').trim() == (appointment.clientPhone ?? '').trim()))) Padding(padding: const EdgeInsets.only(top: 4), child: Material(color: Colors.transparent, child: InkWell(onTap: () => _addAsClient(appointment), borderRadius: BorderRadius.circular(20), child: Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: const Color(0xFFD4AF37).withOpacity(0.18), borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFD4AF37).withOpacity(0.4))), child: const Text('+ Agregar como cliente', style: TextStyle(color: Color(0xFFFBBF24), fontSize: 10, fontWeight: FontWeight.bold)))))),
                   const SizedBox(height: 4),
                   Row(children: [
                     Icon(Icons.schedule, size: 12, color: Colors.white38),
@@ -555,9 +556,9 @@ class _AppointmentsScreenState extends State<AppointmentsScreen> {
             ]),
           );
         }),
-        if(_appointments.isEmpty) Container(padding: const EdgeInsets.all(24), decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(14)), child: Column(children: [Icon(Icons.event_busy, color: Colors.white12, size: 36), const SizedBox(height: 8), const Text('Sin citas para este día', style: TextStyle(color: Colors.white38, fontSize: 12)), const SizedBox(height: 8), if (canCreateEdit) ElevatedButton.icon(onPressed: ()=> _showAppointmentDialog(), icon: const Icon(Icons.add, size: 14), label: const Text('Nueva cita', style: TextStyle(fontSize: 11)), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6366F1)))])),
+        if(_appointments.isEmpty) Container(padding: const EdgeInsets.all(24), decoration: BoxDecoration(color: const Color(0xFF141414), borderRadius: BorderRadius.circular(14)), child: Column(children: [Icon(Icons.event_busy, color: Colors.white12, size: 36), const SizedBox(height: 8), const Text('Sin citas para este día', style: TextStyle(color: Colors.white38, fontSize: 12)), const SizedBox(height: 8), if (canCreateEdit) ElevatedButton.icon(onPressed: ()=> _showAppointmentDialog(), icon: const Icon(Icons.add, size: 14), label: const Text('Nueva cita', style: TextStyle(fontSize: 11)), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4AF37), foregroundColor: Colors.black))])),
       ])),
-      floatingActionButton: canCreateEdit ? FloatingActionButton(onPressed: ()=> _showAppointmentDialog(), backgroundColor: const Color(0xFF6366F1), child: const Icon(Icons.add, color: Colors.white)) : null,
+      floatingActionButton: canCreateEdit ? FloatingActionButton(onPressed: ()=> _showAppointmentDialog(), backgroundColor: const Color(0xFFD4AF37), child: const Icon(Icons.add, color: Colors.white)) : null,
     );
   }
 }
