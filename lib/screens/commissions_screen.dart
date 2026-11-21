@@ -156,7 +156,8 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
   }
 
 
-  // PAGO UNICO - 1 solo boton de pago. Manda el filtro: 1 barbero = 1 ticket, Todos = informe con todos.
+  // PAGO UNICO - 1 solo boton SOLO para pagar. Manda el filtro: 1 barbero = paga a 1, Todos = paga a todos.
+  // Imprimir es aparte: icono ticket arriba o boton Solo Imprimir (sin pagar). Nunca se paga al imprimir.
   // Antes habia 1 boton Pagar por cada barbero (con 7 barberos = 7 botones). Ahora las tarjetas solo se tocan para ver detalle.
   void _showPagoUnicoDialog() {
     if (_filteredCommissions.isEmpty) {
@@ -220,7 +221,21 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
                 if (!todosPagados && _isAdmin) ...[
                   const Text('Método de pago:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black54)),
                   const SizedBox(height: 6),
-                  SegmentedButton<String>(showSelectedIcon: false, segments: const [ButtonSegment(value: 'cash', label: Text('Efectivo', style: TextStyle(fontSize: 11))), ButtonSegment(value: 'transfer', label: Text('Transferencia', style: TextStyle(fontSize: 11)))], selected: {metodoPago}, onSelectionChanged: (v) { setStateDialog(() => metodoPago = v.first); }),
+                  SegmentedButton<String>(
+                    showSelectedIcon: false,
+                    // FIX CONTRASTE: dialogo blanco, si no se pone estilo el no-seleccionado queda blanco sobre blanco y no se ve Transferencia.
+                    style: ButtonStyle(
+                      backgroundColor: WidgetStateProperty.resolveWith((states) => states.contains(WidgetState.selected) ? const Color(0xFFD4AF37) : Colors.white),
+                      foregroundColor: WidgetStateProperty.resolveWith((states) => Colors.black),
+                      side: WidgetStateProperty.all(const BorderSide(color: Colors.black26)),
+                    ),
+                    segments: const [
+                      ButtonSegment(value: 'cash', label: Text('Efectivo', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black))),
+                      ButtonSegment(value: 'transfer', label: Text('Transferencia', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black))),
+                    ],
+                    selected: {metodoPago},
+                    onSelectionChanged: (v) { setStateDialog(() => metodoPago = v.first); },
+                  ),
                   const SizedBox(height: 4),
                   Text(metodoPago == 'cash' ? 'Efectivo SI resta de caja en cuadratura.' : 'Transferencia NO resta de caja (no sale de caja).', style: const TextStyle(fontSize: 9, color: Colors.black54), textAlign: TextAlign.center),
                   const SizedBox(height: 10),
@@ -249,7 +264,7 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
             Row(children: [
               Expanded(child: OutlinedButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar'))),
               const SizedBox(width: 10),
-              Expanded(child: ElevatedButton.icon(onPressed: () { Navigator.pop(ctx); _printInformeTicket(); }, icon: const Icon(Icons.print_rounded, size: 16), label: const Text('Imprimir', style: TextStyle(fontWeight: FontWeight.bold)), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981)))),
+              Expanded(child: ElevatedButton.icon(onPressed: () { Navigator.pop(ctx); _printInformeTicket(); }, icon: const Icon(Icons.print_rounded, size: 16), label: const Text('Solo Imprimir (sin pagar)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981)))),
             ]),
           ]),
         ),
@@ -306,7 +321,7 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
             Row(children: [
               Expanded(child: OutlinedButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar'))),
               const SizedBox(width: 10),
-              Expanded(child: ElevatedButton.icon(onPressed: () { Navigator.pop(ctx); _printComprobante(barber, folio, period); }, icon: const Icon(Icons.print_rounded, size: 16), label: const Text('Imprimir', style: TextStyle(fontWeight: FontWeight.bold)), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981)))),
+              Expanded(child: ElevatedButton.icon(onPressed: () { Navigator.pop(ctx); _printComprobante(barber, folio, period); }, icon: const Icon(Icons.print_rounded, size: 16), label: const Text('Solo Imprimir (sin pagar)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981)))),
             ]),
           ]),
         ),
@@ -762,8 +777,8 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
                             _filteredCommissions.isEmpty
                                 ? 'Sin comisiones en este filtro'
                                 : _selectedBarberId == 'all'
-                                    ? 'Pagar a Todos + Imprimir Ticket • ${SettingsService.formatCurrency(_filteredCommissionsTotal)} • ${_filteredCommissions.length} barberos'
-                                    : 'Pagar a ${_filteredCommissions.first['barber_name']} + Imprimir Ticket • ${SettingsService.formatCurrency(_filteredCommissionsTotal)}',
+                                    ? 'Pagar a Todos • ${SettingsService.formatCurrency(_filteredCommissionsTotal)} • ${_filteredCommissions.length} barberos'
+                                    : 'Pagar a ${_filteredCommissions.first['barber_name']} • ${SettingsService.formatCurrency(_filteredCommissionsTotal)}',
                             style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                             textAlign: TextAlign.center,
                           ),
@@ -778,7 +793,7 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
                         ),
                       ),
                       const SizedBox(height: 6),
-                      const Text('Usa el filtro de arriba: 1 barbero = 1 ticket, Todos = informe con todos.', style: TextStyle(fontSize: 11, color: Colors.white38)),
+                      const Text('Este botón SOLO paga. Para imprimir sin pagar usa el icono de ticket de arriba o Solo Imprimir.', style: TextStyle(fontSize: 11, color: Colors.white38)),
                     ]),
                   ),
                 ),
