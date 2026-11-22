@@ -1,3 +1,4 @@
+// PREMIUM INTRODUCCION - AuthGate con logo BBS CLUB dorado, fondo 0A0A0A. FIX 429 + SESION 8H intactos.
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -186,9 +187,40 @@ class _AuthGateState extends State<AuthGate> {
       return PublicBookingScreen();
     }
     if (_isLoading) {
-      return const Scaffold(
-        backgroundColor: Color(0xFF0F172A),
-        body: Center(child: CircularProgressIndicator(color: Color(0xFF6366F1))),
+      // INTRODUCCION PREMIUM - misma que Login / Reservas: fondo 0A0A0A, dorado D4AF37 / FBBF24
+      return Scaffold(
+        backgroundColor: const Color(0xFF0A0A0A),
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.white10)),
+                child: RichText(
+                  text: const TextSpan(
+                    children: [
+                      TextSpan(text: 'BBS', style: TextStyle(color: Color(0xFFE11D2E), fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: 1)),
+                      TextSpan(text: 'CLUB', style: TextStyle(color: Color(0xFFFBBF24), fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: 1)),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text('BBS CLUB BARBERIA', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1)),
+              const SizedBox(height: 4),
+              const Text('Barbería Premium', style: TextStyle(color: Color(0xFFD4AF37), fontSize: 12)),
+              const SizedBox(height: 28),
+              Container(width: 48, height: 2, decoration: BoxDecoration(color: const Color(0xFFD4AF37).withOpacity(0.5), borderRadius: BorderRadius.circular(2))),
+              const SizedBox(height: 28),
+              const SizedBox(width: 28, height: 28, child: CircularProgressIndicator(color: Color(0xFFD4AF37), strokeWidth: 2.5)),
+              const SizedBox(height: 16),
+              const Text('Cargando...', style: TextStyle(color: Colors.white70, fontSize: 13)),
+              const SizedBox(height: 28),
+              const Text('Manuel Montt 460 - local 6 - Coronel', style: TextStyle(color: Colors.white38, fontSize: 11)),
+            ],
+          ),
+        ),
       );
     }
 
