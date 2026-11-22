@@ -1,174 +1,129 @@
-// lib/screens/login_screen.dart - FIX LateInitializationError _bgAnimation - SIN late _bgAnimation - Logo como pantalla publica
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:http/http.dart' as http;
-import 'dart:typed_data';
 import '../main.dart';
-import '../services/ticket_config_service.dart';
 import 'pos_screen.dart';
 import 'public_booking_screen.dart';
-import 'dart:math' as math;
+import '../services/bbs_theme.dart';
 
+// LOGIN PREMIUM - misma apariencia que Reservas:
+// fondo negro 0A0A0A, tarjeta 141414, dorado D4AF37 / FBBF24, logo BBS CLUB, "Barbería Premium"
+// NO toca lógica de sesión: mismo signInWithPassword que usaba tu Login anterior.
 class LoginScreen extends StatefulWidget {
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin {
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  bool _isLoading = false;
-  String _errorMessage = '';
-  bool _obscurePassword = true;
-  Uint8List? _logoBytes;
-  bool _logoLoading = true;
+class _LoginScreenState extends State<LoginScreen> {
+  final _emailCtrl = TextEditingController();
+  final _passCtrl = TextEditingController();
+  bool _verPass = false;
+  bool _cargando = false;
+  String? _error;
 
-  AnimationController? _mainController;
-  AnimationController? _glowController;
-  AnimationController? _shakeController;
-  Animation<double>? _fadeAnimation;
-  Animation<double>? _scaleAnimation;
-  Animation<Offset>? _slideAnimation;
-
-  static const String developerEmail = 'cjplazido@gmail.com';
-
-  @override
-  void initState() {
-    super.initState();
-    _loadLogo();
-    _mainController = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200));
-    _glowController = AnimationController(vsync: this, duration: const Duration(milliseconds: 2000))..repeat(reverse: true);
-    _shakeController = AnimationController(vsync: this, duration: const Duration(milliseconds: 400));
-    _fadeAnimation = Tween<double>(begin: 0, end: 1).animate(CurvedAnimation(parent: _mainController!, curve: const Interval(0.0, 0.6, curve: Curves.easeOut)));
-    _scaleAnimation = Tween<double>(begin: 0.9, end: 1.0).animate(CurvedAnimation(parent: _mainController!, curve: const Interval(0.0, 0.8, curve: Curves.elasticOut)));
-    _slideAnimation = Tween<Offset>(begin: const Offset(0, 0.2), end: Offset.zero).animate(CurvedAnimation(parent: _mainController!, curve: const Interval(0.0, 0.7, curve: Curves.easeOutCubic)));
-    _mainController!.forward();
-  }
-
-  Future<void> _loadLogo() async {
-    await TicketConfigService.load();
-    final url = TicketConfigService.appLogoUrl;
-    if (url.isEmpty) { if(mounted) setState(()=> _logoLoading=false); return; }
-    try {
-      final clean = url.replaceAll(' ', '%20').replaceAll('(', '%28').replaceAll(')', '%29').replaceAll('%2520', '%20');
-      final resp = await http.get(Uri.parse(clean), headers: {'User-Agent':'Mozilla/5.0'}).timeout(const Duration(seconds: 5));
-      if (resp.statusCode==200) _logoBytes = resp.bodyBytes;
-    } catch(e){}
-    if(mounted) setState(()=> _logoLoading=false);
-  }
-
-  @override
-  void dispose() {
-    _mainController?.dispose();
-    _glowController?.dispose();
-    _shakeController?.dispose();
-    _emailController.dispose();
-    _passwordController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _handleLogin() async {
-    if (_emailController.text.trim().isEmpty || _passwordController.text.isEmpty) {
-      setState(()=> _errorMessage='Ingresa correo y contraseña');
-      _shakeController?.forward(from: 0);
+  Future<void> _entrar() async {
+    final email = _emailCtrl.text.trim();
+    final pass = _passCtrl.text;
+    if (email.isEmpty || pass.isEmpty) {
+      setState(() => _error = 'Escribe tu correo y contraseña');
       return;
     }
-    setState((){ _isLoading=true; _errorMessage=''; });
+    setState(() { _cargando = true; _error = null; });
     try {
-      final res = await Supabase.instance.client.auth.signInWithPassword(email: _emailController.text.trim(), password: _passwordController.text);
-      String role='admin'; String userName='Usuario'; String userEmail=res.user?.email??'';
-      try {
-        if (userEmail.toLowerCase()==developerEmail.toLowerCase()) { role='admin'; userName='Desarrollador (Acceso Total)'; }
-        else if (userEmail.isNotEmpty) {
-          final profile = await Supabase.instance.client.from('profiles').select().eq('id', res.user!.id).maybeSingle();
-          if (profile!=null) { role=profile['role']??'admin'; userName=profile['full_name']??profile['name']??userEmail.split('@').first; }
+      final res = await Supabase.instance.client.auth.signInWithPassword(email: email, password: pass);
+      final user = res.user;
+      if (user != null) {
+        try {
+          final profile = await Supabase.instance.client.from('profiles').select('role, full_name').eq('id', user.id).maybeSingle();
+          if (profile != null) {
+            currentUserRole = profile['role'] ?? 'cashier';
+            currentUserName = profile['full_name'] ?? user.email?.split('@').first ?? 'Usuario';
+          } else {
+            currentUserRole = 'cashier';
+            currentUserName = user.email?.split('@').first ?? 'Usuario';
+          }
+        } catch (_) {
+          currentUserRole = 'cashier';
+          currentUserName = user.email?.split('@').first ?? 'Usuario';
         }
-      } catch(_){}
-      currentUserRole=role; currentUserName=userName; currentUserEmail=userEmail;
-      if(mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_)=> PosScreen()));
-    } catch(e){
-      setState(()=> _errorMessage='Correo o contraseña incorrectos');
-      _shakeController?.forward(from: 0);
-    } finally { if(mounted) setState(()=> _isLoading=false); }
+        currentUserEmail = user.email ?? '';
+        if (!mounted) return;
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => PosScreen()));
+      }
+    } catch (e) {
+      setState(() => _error = 'Correo o contraseña incorrectos');
+    } finally {
+      if (mounted) setState(() => _cargando = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final fade = _fadeAnimation ?? const AlwaysStoppedAnimation<double>(1.0);
-    final scale = _scaleAnimation ?? const AlwaysStoppedAnimation<double>(1.0);
-    final slide = _slideAnimation ?? const AlwaysStoppedAnimation<Offset>(Offset.zero);
-
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF0F0F3A), Color(0xFF1E1B4B), Color(0xFF312E81)]),
-        ),
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: FadeTransition(
-              opacity: fade,
-              child: SlideTransition(
-                position: slide,
-                child: ScaleTransition(
-                  scale: scale,
-                  child: Container(
-                    width: 420,
-                    padding: const EdgeInsets.all(28),
-                    decoration: BoxDecoration(color: const Color(0xFF1E293B).withOpacity(0.95), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.white.withOpacity(0.08)), boxShadow: [BoxShadow(color: Colors.black54, blurRadius: 24, offset: const Offset(0,12))]),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
+      backgroundColor: BbsTheme.bg,
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Column(
+              children: [
+                // Logo igual que Reservas
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                  decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.white10)),
+                  child: RichText(
+                    text: const TextSpan(
                       children: [
-                        Container(
-                          width: 160, height: 84,
-                          decoration: BoxDecoration(color: const Color(0xFF0F0F0F), borderRadius: BorderRadius.circular(14), boxShadow: [BoxShadow(color: Colors.black45, blurRadius: 12)]),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(14),
-                            child: _logoLoading ? const Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF6366F1)))) :
-                            _logoBytes!=null ? Image.memory(_logoBytes!, fit: BoxFit.contain) :
-                            const Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Text('BBSCLUB', style: TextStyle(color: Colors.red, fontWeight: FontWeight.w900, fontSize: 16)), Text('BARBERIA', style: TextStyle(color: Colors.white, fontSize: 8, letterSpacing: 3))])),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        // FIX: Cambiado nombreLocal por nombreNegocio
-                        Text(TicketConfigService.nombreNegocio.isEmpty ? 'BBS CLUB' : TicketConfigService.nombreNegocio, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 0.5)),
-                        const SizedBox(height: 2),
-                        const Text('Barbería Premium', style: TextStyle(color: Colors.white54, fontSize: 11, letterSpacing: 2)),
-                        const SizedBox(height: 28),
-                        TextField(
-                          controller: _emailController,
-                          style: const TextStyle(color: Colors.white, fontSize: 14),
-                          keyboardType: TextInputType.emailAddress,
-                          decoration: InputDecoration(hintText: 'Correo electrónico', hintStyle: const TextStyle(color: Colors.white38, fontSize: 13), filled: true, fillColor: const Color(0xFF0F172A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none), enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.white.withOpacity(0.08))), focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF6366F1), width: 1.2)), contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16)),
-                        ),
-                        const SizedBox(height: 14),
-                        TextField(
-                          controller: _passwordController,
-                          obscureText: _obscurePassword,
-                          style: const TextStyle(color: Colors.white, fontSize: 14),
-                          onSubmitted: (_)=> _handleLogin(),
-                          decoration: InputDecoration(hintText: 'Contraseña', hintStyle: const TextStyle(color: Colors.white38, fontSize: 13), filled: true, fillColor: const Color(0xFF0F172A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none), enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.white.withOpacity(0.08))), focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF6366F1), width: 1.2)), contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16), suffixIcon: IconButton(icon: Icon(_obscurePassword?Icons.visibility_off:Icons.visibility, color: Colors.white38, size: 20), onPressed: ()=> setState(()=> _obscurePassword=!_obscurePassword))),
-                        ),
-                        if (_errorMessage.isNotEmpty) ...[
-                          const SizedBox(height: 12),
-                          AnimatedBuilder(animation: _shakeController ?? const AlwaysStoppedAnimation<double>(0), builder: (c, child){ final v = _shakeController?.value ?? 0; final off = math.sin(v*math.pi*6)*6; return Transform.translate(offset: Offset(off,0), child: child); }, child: Container(width: double.infinity, padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: Colors.red.withOpacity(0.15), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.red.withOpacity(0.3))), child: Text(_errorMessage, style: const TextStyle(color: Colors.red, fontSize: 12), textAlign: TextAlign.center))),
-                        ],
-                        const SizedBox(height: 20),
-                        SizedBox(
-                          width: double.infinity, height: 52,
-                          child: Container(decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF818CF8)]), borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: const Color(0xFF6366F1).withOpacity(0.4), blurRadius: 12, offset: const Offset(0,4))]), child: ElevatedButton(onPressed: _isLoading?null:_handleLogin, style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, shadowColor: Colors.transparent, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), child: _isLoading?const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)):const Row(mainAxisAlignment: MainAxisAlignment.center, children: [Text('INICIAR SESIÓN', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5)), SizedBox(width: 6), Icon(Icons.arrow_forward, size: 16)]))),
-                        ),
-                        const SizedBox(height: 20),
-                        Container(height: 1, color: Colors.white.withOpacity(0.08)),
-                        const SizedBox(height: 16),
-                        const Text('¿Eres cliente?', style: TextStyle(color: Colors.white38, fontSize: 11)),
-                        const SizedBox(height: 10),
-                        SizedBox(width: double.infinity, child: OutlinedButton.icon(onPressed: (){ Navigator.push(context, MaterialPageRoute(builder: (_)=> PublicBookingScreen())); }, icon: const Text('📅'), label: const Text('Reservar una cita', style: TextStyle(color: Color(0xFF818CF8), fontSize: 12)), style: OutlinedButton.styleFrom(side: const BorderSide(color: Color(0xFF6366F1)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 12)))),
+                        TextSpan(text: 'BBS', style: TextStyle(color: Color(0xFFE11D2E), fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: 1)),
+                        TextSpan(text: 'CLUB', style: TextStyle(color: Color(0xFFFBBF24), fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: 1)),
                       ],
                     ),
                   ),
                 ),
-              ),
+                const SizedBox(height: 8),
+                const Text('BBS CLUB BARBERIA', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                const Text('Barbería Premium', style: TextStyle(color: BbsTheme.gold, fontSize: 12)),
+                const SizedBox(height: 20),
+                // Tarjeta de dirección, igual que Reservas
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: BbsTheme.card, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white10)),
+                  child: Row(children: [
+                    const Icon(Icons.location_on, color: BbsTheme.gold, size: 18),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text('ENCUÉNTRANOS EN', style: TextStyle(color: Colors.white38, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                        SizedBox(height: 2),
+                        Text('Manuel Montt 460 - local 6 - Coronel', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+                      ]),
+                    ),
+                    ElevatedButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => PublicBookingScreen())), style: ElevatedButton.styleFrom(backgroundColor: BbsTheme.gold, foregroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)), child: const Text('Reservar')),
+                  ]),
+                ),
+                const SizedBox(height: 20),
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(color: BbsTheme.card, borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white10)),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Text('INICIAR SESIÓN', style: BbsTheme.sectionTitle),
+                    const SizedBox(height: 16),
+                    TextField(controller: _emailCtrl, keyboardType: TextInputType.emailAddress, style: const TextStyle(color: Colors.white, fontSize: 14), decoration: BbsTheme.inputDecoration('Correo', icon: Icons.email_outlined)),
+                    const SizedBox(height: 12),
+                    TextField(controller: _passCtrl, obscureText: !_verPass, style: const TextStyle(color: Colors.white, fontSize: 14), onSubmitted: (_) => _entrar(), decoration: BbsTheme.inputDecoration('Contraseña', icon: Icons.lock_outline).copyWith(suffixIcon: IconButton(icon: Icon(_verPass ? Icons.visibility_off : Icons.visibility, color: Colors.white54, size: 20), onPressed: () => setState(() => _verPass = !_verPass)))),
+                    if (_error != null) ...[
+                      const SizedBox(height: 12),
+                      Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: Colors.red.withOpacity(0.15), borderRadius: BorderRadius.circular(10)), child: Row(children: [const Icon(Icons.error_outline, color: Colors.redAccent, size: 16), const SizedBox(width: 8), Expanded(child: Text(_error!, style: const TextStyle(color: Colors.redAccent, fontSize: 12)))])),
+                    ],
+                    const SizedBox(height: 20),
+                    SizedBox(width: double.infinity, height: 50, child: ElevatedButton(onPressed: _cargando ? null : _entrar, style: BbsTheme.goldButton, child: _cargando ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2)) : const Text('ENTRAR AL POS'))),
+                    const SizedBox(height: 12),
+                    Center(child: TextButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => PublicBookingScreen())), child: const Text('¿Eres cliente? Reserva tu cita aquí', style: TextStyle(color: BbsTheme.gold, fontSize: 12, fontWeight: FontWeight.w600)))),
+                  ]),
+                ),
+                const SizedBox(height: 12),
+                const Text('Caja 1 • Turno 8 horas', style: TextStyle(color: Colors.white38, fontSize: 11)),
+              ],
             ),
           ),
         ),

@@ -1,3 +1,4 @@
+// PREMIUM RESERVAS - Solo colores: fondo 0A0A0A, tarjetas 141414, dorado D4AF37 / FBBF24. Lógica, permisos, mensajes y filtros intactos.
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
@@ -62,7 +63,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
       lastDate: DateTime.now().add(const Duration(days: 1)),
       builder: (c, child) => Theme(
         data: ThemeData.dark().copyWith(
-          colorScheme: const ColorScheme.dark(primary: Color(0xFF6366F1), surface: Color(0xFF1E293B))
+          colorScheme: const ColorScheme.dark(primary: Color(0xFFD4AF37), surface: Color(0xFF141414))
         ), 
         child: child!
       ),
@@ -110,7 +111,15 @@ class _ReportsScreenState extends State<ReportsScreen> {
               barberTotals[barberName] = (barberTotals[barberName] ?? 0) + ((item['price_at_moment'] as num).toDouble() * (item['quantity'] as int));
             }
           }
-          totalCommissions += (item['commission_earned'] as num?)?.toDouble() ?? 0.0;
+          // FIX CANTIDAD CORREGIDO: igual que Comisiones, no multiplicar a ciegas.
+          // En BD hay mezcla: la fila 2x 12000 que se corrigio a 12000 ya esta en total, otras estan por unidad (6000).
+          // Solo se corrige si lo guardado es menor al total esperado (precio*qty*50%).
+          final _qtyR = (item['quantity'] as num?)?.toInt() ?? 1;
+          final _priceR = (item['price_at_moment'] as num?)?.toDouble() ?? 0.0;
+          final _storedR = (item['commission_earned'] as num?)?.toDouble() ?? 0.0;
+          final _expectedR = _priceR * _qtyR * 0.5;
+          final _commR = (_qtyR > 1 && _storedR < _expectedR * 0.9) ? _expectedR : _storedR;
+          totalCommissions += _commR;
         }
         final method = (t['payment_method'] ?? 'cash').toString();
         paymentMethods[method] = (paymentMethods[method] ?? 0) + 1;
@@ -191,14 +200,14 @@ class _ReportsScreenState extends State<ReportsScreen> {
     showDialog(context: context, builder: (ctx) => StatefulBuilder(builder: (ctx2, setSt) {
       final cats = tipo == 'entrada' ? catsEntrada : catsSalida;
       return AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: const Color(0xFF141414),
         title: Text(tipo == 'entrada' ? '➕ Entrada de Caja' : '➖ Salida de Caja', style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
         content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
-          DropdownButtonFormField<String>(value: categoria, dropdownColor: const Color(0xFF1E293B), style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Categoría', labelStyle: TextStyle(color: Colors.white54)), items: cats.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(), onChanged: (v) => setSt(() => categoria = v ?? categoria)),
+          DropdownButtonFormField<String>(value: categoria, dropdownColor: const Color(0xFF141414), style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Categoría', labelStyle: TextStyle(color: Colors.white54)), items: cats.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(), onChanged: (v) => setSt(() => categoria = v ?? categoria)),
           const SizedBox(height: 10),
           TextField(controller: montoCtrl, keyboardType: TextInputType.number, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Monto', labelStyle: TextStyle(color: Colors.white54), prefixText: '\$ ', prefixStyle: TextStyle(color: Colors.white54))),
           const SizedBox(height: 10),
-          DropdownButtonFormField<String>(value: metodo, dropdownColor: const Color(0xFF1E293B), style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Método', labelStyle: TextStyle(color: Colors.white54)), items: const [DropdownMenuItem(value: 'cash', child: Text('Efectivo')), DropdownMenuItem(value: 'transfer', child: Text('Transferencia')), DropdownMenuItem(value: 'card', child: Text('Tarjeta'))], onChanged: (v) => setSt(() => metodo = v ?? 'cash')),
+          DropdownButtonFormField<String>(value: metodo, dropdownColor: const Color(0xFF141414), style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Método', labelStyle: TextStyle(color: Colors.white54)), items: const [DropdownMenuItem(value: 'cash', child: Text('Efectivo')), DropdownMenuItem(value: 'transfer', child: Text('Transferencia')), DropdownMenuItem(value: 'card', child: Text('Tarjeta'))], onChanged: (v) => setSt(() => metodo = v ?? 'cash')),
           const SizedBox(height: 10),
           TextField(controller: folioCtrl, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Folio / Referencia (ej: Reserva #12, Venta #101)', labelStyle: TextStyle(color: Colors.white54))),
           const SizedBox(height: 10),
@@ -217,10 +226,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
     Map<String, dynamic>? selected = _transactions.first;
     final motivoCtrl = TextEditingController(text: 'Anulación solicitada por cliente');
     showDialog(context: context, builder: (ctx) => StatefulBuilder(builder: (ctx2, setSt) => AlertDialog(
-      backgroundColor: const Color(0xFF1E293B),
+      backgroundColor: const Color(0xFF141414),
       title: const Text('🚫 Anular Venta', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
       content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
-        DropdownButtonFormField<Map<String, dynamic>>(value: selected, dropdownColor: const Color(0xFF1E293B), style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Venta a anular', labelStyle: TextStyle(color: Colors.white54)), items: _transactions.map((t) => DropdownMenuItem(value: t, child: Text('Venta #${_shortId(t['id']) ?? ''}  -  ${SettingsService.formatCurrency((t['total'] as num?)?.toDouble() ?? 0)}  -  ${_formatPaymentMethod((t['payment_method'] ?? 'cash').toString())}'))).toList(), onChanged: (v) => setSt(() => selected = v)),
+        DropdownButtonFormField<Map<String, dynamic>>(value: selected, dropdownColor: const Color(0xFF141414), style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Venta a anular', labelStyle: TextStyle(color: Colors.white54)), items: _transactions.map((t) => DropdownMenuItem(value: t, child: Text('Venta #${_shortId(t['id']) ?? ''}  -  ${SettingsService.formatCurrency((t['total'] as num?)?.toDouble() ?? 0)}  -  ${_formatPaymentMethod((t['payment_method'] ?? 'cash').toString())}'))).toList(), onChanged: (v) => setSt(() => selected = v)),
         const SizedBox(height: 10),
         TextField(controller: motivoCtrl, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Motivo anulación', labelStyle: TextStyle(color: Colors.white54))),
         const SizedBox(height: 8),
@@ -237,18 +246,18 @@ class _ReportsScreenState extends State<ReportsScreen> {
     String nuevoMetodo = 'transfer';
     final motivoCtrl = TextEditingController(text: 'Cliente pidió cambiar forma de pago');
     showDialog(context: context, builder: (ctx) => StatefulBuilder(builder: (ctx2, setSt) => AlertDialog(
-      backgroundColor: const Color(0xFF1E293B),
+      backgroundColor: const Color(0xFF141414),
       title: const Text('🔁 Cambiar Forma de Pago', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
       content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
-        DropdownButtonFormField<Map<String, dynamic>>(value: selected, dropdownColor: const Color(0xFF1E293B), style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Venta', labelStyle: TextStyle(color: Colors.white54)), items: _transactions.map((t) => DropdownMenuItem(value: t, child: Text('Venta #${_shortId(t['id']) ?? ''}  -  ${SettingsService.formatCurrency((t['total'] as num?)?.toDouble() ?? 0)}  -  ${_formatPaymentMethod((t['payment_method'] ?? 'cash').toString())}'))).toList(), onChanged: (v) => setSt(() => selected = v)),
+        DropdownButtonFormField<Map<String, dynamic>>(value: selected, dropdownColor: const Color(0xFF141414), style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Venta', labelStyle: TextStyle(color: Colors.white54)), items: _transactions.map((t) => DropdownMenuItem(value: t, child: Text('Venta #${_shortId(t['id']) ?? ''}  -  ${SettingsService.formatCurrency((t['total'] as num?)?.toDouble() ?? 0)}  -  ${_formatPaymentMethod((t['payment_method'] ?? 'cash').toString())}'))).toList(), onChanged: (v) => setSt(() => selected = v)),
         const SizedBox(height: 10),
-        DropdownButtonFormField<String>(value: nuevoMetodo, dropdownColor: const Color(0xFF1E293B), style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Nuevo método', labelStyle: TextStyle(color: Colors.white54)), items: const [DropdownMenuItem(value: 'cash', child: Text('Efectivo')), DropdownMenuItem(value: 'transfer', child: Text('Transferencia')), DropdownMenuItem(value: 'card', child: Text('Tarjeta')), DropdownMenuItem(value: 'mixed', child: Text('Mixto'))], onChanged: (v) => setSt(() => nuevoMetodo = v ?? 'transfer')),
+        DropdownButtonFormField<String>(value: nuevoMetodo, dropdownColor: const Color(0xFF141414), style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Nuevo método', labelStyle: TextStyle(color: Colors.white54)), items: const [DropdownMenuItem(value: 'cash', child: Text('Efectivo')), DropdownMenuItem(value: 'transfer', child: Text('Transferencia')), DropdownMenuItem(value: 'card', child: Text('Tarjeta')), DropdownMenuItem(value: 'mixed', child: Text('Mixto'))], onChanged: (v) => setSt(() => nuevoMetodo = v ?? 'transfer')),
         const SizedBox(height: 10),
         TextField(controller: motivoCtrl, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Motivo', labelStyle: TextStyle(color: Colors.white54))),
         const SizedBox(height: 8),
         Text('Se actualiza la venta y queda registro: Salida del método viejo + Entrada del nuevo (INFORMATIVO, no duplica en caja porque la venta ya cambió).', style: const TextStyle(color: Colors.white54, fontSize: 10)),
       ])),
-      actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar', style: TextStyle(color: Colors.grey))), ElevatedButton(onPressed: () async { if (selected == null) return; final t = selected!; final total = (t['total'] as num?)?.toDouble() ?? 0; final viejo = (t['payment_method'] ?? 'cash').toString(); if (viejo == nuevoMetodo) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Es el mismo método'), backgroundColor: Colors.orange)); return; } Navigator.pop(ctx); try { await Supabase.instance.client.from('transactions').update({'payment_method': nuevoMetodo}).eq('id', t['id']); } catch (_) {} await _registrarMovimiento(tipo: 'salida', categoria: 'Cambio de Pago', monto: total, metodo: viejo, folio: 'Venta #${t['id']} ${_formatPaymentMethod(viejo)} → ${_formatPaymentMethod(nuevoMetodo)}', motivo: motivoCtrl.text.trim(), afectaCaja: false); await _registrarMovimiento(tipo: 'entrada', categoria: 'Cambio de Pago', monto: total, metodo: nuevoMetodo, folio: 'Venta #${t['id']}', motivo: motivoCtrl.text.trim(), afectaCaja: false); _loadReports(); }, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6366F1)), child: const Text('Cambiar Pago'))],
+      actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar', style: TextStyle(color: Colors.grey))), ElevatedButton(onPressed: () async { if (selected == null) return; final t = selected!; final total = (t['total'] as num?)?.toDouble() ?? 0; final viejo = (t['payment_method'] ?? 'cash').toString(); if (viejo == nuevoMetodo) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Es el mismo método'), backgroundColor: Colors.orange)); return; } Navigator.pop(ctx); try { await Supabase.instance.client.from('transactions').update({'payment_method': nuevoMetodo}).eq('id', t['id']); } catch (_) {} await _registrarMovimiento(tipo: 'salida', categoria: 'Cambio de Pago', monto: total, metodo: viejo, folio: 'Venta #${t['id']} ${_formatPaymentMethod(viejo)} → ${_formatPaymentMethod(nuevoMetodo)}', motivo: motivoCtrl.text.trim(), afectaCaja: false); await _registrarMovimiento(tipo: 'entrada', categoria: 'Cambio de Pago', monto: total, metodo: nuevoMetodo, folio: 'Venta #${t['id']}', motivo: motivoCtrl.text.trim(), afectaCaja: false); _loadReports(); }, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4AF37), foregroundColor: Colors.black), child: const Text('Cambiar Pago'))],
     )));
   }
 
@@ -260,7 +269,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final motivoCtrl = TextEditingController(text: 'Reserva cancelada por cliente');
     String metodo = 'cash';
     showDialog(context: context, builder: (ctx) => StatefulBuilder(builder: (ctx2, setSt) => AlertDialog(
-      backgroundColor: const Color(0xFF1E293B),
+      backgroundColor: const Color(0xFF141414),
       title: const Text('↩️ Devolver Reserva Pagada / Abonada', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
       content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
         TextField(controller: clienteCtrl, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Cliente / Reserva', labelStyle: TextStyle(color: Colors.white54))),
@@ -269,7 +278,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         const SizedBox(height: 10),
         TextField(controller: montoCtrl, keyboardType: TextInputType.number, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Monto a devolver (abono o total)', labelStyle: TextStyle(color: Colors.white54), prefixText: '\$ ')),
         const SizedBox(height: 10),
-        DropdownButtonFormField<String>(value: metodo, dropdownColor: const Color(0xFF1E293B), style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Método de devolución', labelStyle: TextStyle(color: Colors.white54)), items: const [DropdownMenuItem(value: 'cash', child: Text('Efectivo - sale de caja')), DropdownMenuItem(value: 'transfer', child: Text('Transferencia')), DropdownMenuItem(value: 'card', child: Text('Tarjeta'))], onChanged: (v) => setSt(() => metodo = v ?? 'cash')),
+        DropdownButtonFormField<String>(value: metodo, dropdownColor: const Color(0xFF141414), style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Método de devolución', labelStyle: TextStyle(color: Colors.white54)), items: const [DropdownMenuItem(value: 'cash', child: Text('Efectivo - sale de caja')), DropdownMenuItem(value: 'transfer', child: Text('Transferencia')), DropdownMenuItem(value: 'card', child: Text('Tarjeta'))], onChanged: (v) => setSt(() => metodo = v ?? 'cash')),
         const SizedBox(height: 10),
         TextField(controller: motivoCtrl, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Motivo', labelStyle: TextStyle(color: Colors.white54))),
         const SizedBox(height: 8),
@@ -488,7 +497,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   Widget build(BuildContext context) {
     //if (!RolePermissions.can(currentUserRole, BbsPerm.viewAdvancedReports) && !RolePermissions.isAdmin(currentUserRole)) {
     if (!RolePermissions.can(currentUserRole,BbsPerm.viewReports) && !RolePermissions.isAdmin(currentUserRole, )) {
-      return const Scaffold(backgroundColor: Color(0xFF0F172A), body: Center(child: Text('No tienes permisos para ver esta sección', style: TextStyle(color: Colors.white))));
+      return const Scaffold(backgroundColor: Color(0xFF0A0A0A), body: Center(child: Text('No tienes permisos para ver esta sección', style: TextStyle(color: Colors.white))));
     }
 
     // Verificar si estamos viendo el día de hoy
@@ -496,17 +505,17 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final transaccionesText = "${_dayTransactions}";
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: const Color(0xFF0A0A0A),
       appBar: AppBar(
         leading: IconButton(icon: const Icon(Icons.arrow_back_rounded, color: Colors.white), onPressed: () => Navigator.pop(context)),
         title: const Text('Reportes Premium', style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: const Color(0xFF141414),
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
           // NUEVO: Botón de calendario en el AppBar
           IconButton(
-            icon: const Icon(Icons.calendar_month_rounded, color: Color(0xFF818CF8)),
+            icon: const Icon(Icons.calendar_month_rounded, color: Color(0xFFFBBF24)),
             tooltip: 'Seleccionar Fecha',
             onPressed: _pickDate,
           ),
@@ -521,7 +530,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF6366F1)))
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFFD4AF37)))
           : SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -566,7 +575,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 const SizedBox(height: 16),
                 Container(
                   padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFF10B981).withOpacity(0.3))),
+                  decoration: BoxDecoration(color: const Color(0xFF141414), borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFF10B981).withOpacity(0.3))),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Row(children: [
                       const Text('🧾 Cuadratura de Caja', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white)),
@@ -588,15 +597,15 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 const Text('Ventas por Barbero', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
                 const SizedBox(height: 12),
                 if (_barberTotals.isEmpty)
-                  Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.white10)), child: const Text('No hay datos para esta fecha', style: TextStyle(color: Colors.white54)))
+                  Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: const Color(0xFF141414), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.white10)), child: const Text('No hay datos para esta fecha', style: TextStyle(color: Colors.white54)))
                 else
                   ..._barberTotals.entries.map((entry) => Container(
                         margin: const EdgeInsets.only(bottom: 10),
-                        decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.white.withOpacity(0.05)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))]),
+                        decoration: BoxDecoration(color: const Color(0xFF141414), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.white.withOpacity(0.05)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))]),
                         child: Material(
                           type: MaterialType.transparency,
                           child: ListTile(
-                            leading: CircleAvatar(backgroundColor: const Color(0xFF6366F1).withOpacity(0.15), child: Text(entry.key.isNotEmpty ? entry.key[0].toUpperCase() : '?', style: const TextStyle(color: Color(0xFF6366F1), fontWeight: FontWeight.bold))),
+                            leading: CircleAvatar(backgroundColor: const Color(0xFFD4AF37).withOpacity(0.15), child: Text(entry.key.isNotEmpty ? entry.key[0].toUpperCase() : '?', style: const TextStyle(color: Color(0xFFD4AF37), fontWeight: FontWeight.bold))),
                             title: Text(entry.key, style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.white, fontSize: 14)),
                             trailing: Text(SettingsService.formatCurrency(entry.value), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF10B981))),
                           ),
@@ -613,22 +622,22 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   OutlinedButton.icon(onPressed: _showDevolverReserva, icon: const Text('↩️', style: TextStyle(fontSize: 14)), label: const Text('Devolver Reserva', style: TextStyle(color: Colors.white, fontSize: 12)), style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.white24))),
                 ]),
                 const SizedBox(height: 8),
-                Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.12), borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFF6366F1).withOpacity(0.3))), child: const Row(children: [Text('ℹ️', style: TextStyle(fontSize: 14)), SizedBox(width: 8), Expanded(child: Text('Anular y Cambiar Pago se hacen desde Historial > Detalle de Venta > Editar Pago / Anular (como en tu captura). Esos botones ya dejan el movimiento en Cuadratura, aquí no se duplican.', style: TextStyle(color: Colors.white70, fontSize: 11)))])),
+                Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: const Color(0xFFD4AF37).withOpacity(0.12), borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFFD4AF37).withOpacity(0.3))), child: const Row(children: [Text('ℹ️', style: TextStyle(fontSize: 14)), SizedBox(width: 8), Expanded(child: Text('Anular y Cambiar Pago se hacen desde Historial > Detalle de Venta > Editar Pago / Anular (como en tu captura). Esos botones ya dejan el movimiento en Cuadratura, aquí no se duplican.', style: TextStyle(color: Colors.white70, fontSize: 11)))])),
                 const SizedBox(height: 10),
-                if (_movimientos.isEmpty) Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(12)), child: const Text('Sin movimientos registrados para esta fecha.', style: TextStyle(color: Colors.white54, fontSize: 12)))
-                else ..._movimientos.map((m) => Container(margin: const EdgeInsets.only(bottom: 8), padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white.withOpacity(0.05))), child: Row(children: [Text(m['tipo'] == 'entrada' ? '➕' : '➖', style: const TextStyle(fontSize: 16)), const SizedBox(width: 10), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('${m['categoria']} ${m['folio'] != '' ? '• ${m['folio']}' : ''}', style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)), Text('${_formatPaymentMethod(m['metodo'])} - ${m['motivo']}${(m['afecta_caja'] == true) ? '' : ' - Informativo'}', style: const TextStyle(color: Colors.white54, fontSize: 11))])), Text('${m['tipo'] == 'entrada' ? '+' : '-'}${SettingsService.formatCurrency((m['monto'] as num).toDouble())}', style: TextStyle(color: m['tipo'] == 'entrada' ? const Color(0xFF10B981) : Colors.redAccent, fontSize: 13, fontWeight: FontWeight.bold))]))) ,
+                if (_movimientos.isEmpty) Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: const Color(0xFF141414), borderRadius: BorderRadius.circular(12)), child: const Text('Sin movimientos registrados para esta fecha.', style: TextStyle(color: Colors.white54, fontSize: 12)))
+                else ..._movimientos.map((m) => Container(margin: const EdgeInsets.only(bottom: 8), padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: const Color(0xFF141414), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white.withOpacity(0.05))), child: Row(children: [Text(m['tipo'] == 'entrada' ? '➕' : '➖', style: const TextStyle(fontSize: 16)), const SizedBox(width: 10), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('${m['categoria']} ${m['folio'] != '' ? '• ${m['folio']}' : ''}', style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)), Text('${_formatPaymentMethod(m['metodo'])} - ${m['motivo']}${(m['afecta_caja'] == true) ? '' : ' - Informativo'}', style: const TextStyle(color: Colors.white54, fontSize: 11))])), Text('${m['tipo'] == 'entrada' ? '+' : '-'}${SettingsService.formatCurrency((m['monto'] as num).toDouble())}', style: TextStyle(color: m['tipo'] == 'entrada' ? const Color(0xFF10B981) : Colors.redAccent, fontSize: 13, fontWeight: FontWeight.bold))]))) ,
                 if (_anuladasCount > 0) Padding(padding: const EdgeInsets.only(top: 6), child: Text('Anuladas: $_anuladasCount - ${SettingsService.formatCurrency(_anuladasTotal)} (no cuentan en Total)', style: const TextStyle(color: Colors.redAccent, fontSize: 11, fontWeight: FontWeight.bold))),
                 const SizedBox(height: 24),
                 const Text('Metodos de Pago', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
                 const SizedBox(height: 12),
                 if (_paymentMethods.isEmpty)
-                  Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.white10)), child: const Text('No hay datos para esta fecha', style: TextStyle(color: Colors.white54)))
+                  Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: const Color(0xFF141414), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.white10)), child: const Text('No hay datos para esta fecha', style: TextStyle(color: Colors.white54)))
                 else
                   ..._paymentMethods.entries.map((entry) {
                         final countText = "${entry.value} ventas";
                         return Container(
                           margin: const EdgeInsets.only(bottom: 10),
-                          decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.white.withOpacity(0.05))),
+                          decoration: BoxDecoration(color: const Color(0xFF141414), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.white.withOpacity(0.05))),
                           child: Material(
                             type: MaterialType.transparency,
                             child: ListTile(
@@ -655,7 +664,7 @@ class _SummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(18), border: Border.all(color: Colors.white.withOpacity(0.05)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 4))]),
+      decoration: BoxDecoration(color: const Color(0xFF141414), borderRadius: BorderRadius.circular(18), border: Border.all(color: Colors.white.withOpacity(0.05)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 4))]),
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

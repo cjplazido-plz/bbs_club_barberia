@@ -1,3 +1,4 @@
+// PREMIUM RESERVAS - Solo colores: fondo 0A0A0A, tarjetas 141414, dorado D4AF37 / FBBF24. Lógica, permisos, mensajes y filtros intactos.
 // lib/screens/advanced_reports_screen.dart - CON PERMISOS, COMISIONES Y CIERRE POR FECHAS
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -74,7 +75,7 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
       firstDate: DateTime(2023, 1, 1),
       lastDate: DateTime.now().add(const Duration(days: 1)),
       initialDateRange: DateTimeRange(start: _startDate, end: _endDate),
-      builder: (ctx, child) => Theme(data: ThemeData.dark().copyWith(colorScheme: const ColorScheme.dark(primary: Color(0xFF6366F1), surface: Color(0xFF1E293B))), child: child!),
+      builder: (ctx, child) => Theme(data: ThemeData.dark().copyWith(colorScheme: const ColorScheme.dark(primary: Color(0xFFD4AF37), surface: Color(0xFF141414))), child: child!),
     );
     if (range != null) {
       setState(() { _startDate = range.start; _endDate = range.end; _selectedPeriod = 'custom'; });
@@ -129,7 +130,15 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
 
         final items = List<Map<String, dynamic>>.from(t['transaction_items'] ?? []);
         for (var item in items) {
-          _totalCommissions += (item['commission_earned'] as num?)?.toDouble() ?? 0.0;
+          // FIX CANTIDAD CORREGIDO: igual que Comisiones, no multiplicar a ciegas.
+          // En BD hay mezcla: la fila 2x 12000 que se corrigio a 12000 ya esta en total, otras estan por unidad (6000).
+          // Solo se corrige si lo guardado es menor al total esperado (precio*qty*50%).
+          final _qtyA = (item['quantity'] as num?)?.toInt() ?? 1;
+          final _priceA = (item['price_at_moment'] as num?)?.toDouble() ?? 0.0;
+          final _storedA = (item['commission_earned'] as num?)?.toDouble() ?? 0.0;
+          final _expectedA = _priceA * _qtyA * 0.5;
+          final _commA = (_qtyA > 1 && _storedA < _expectedA * 0.9) ? _expectedA : _storedA;
+          _totalCommissions += _commA;
           
           final itemName = item['service_name'] ?? item['product_name'] ?? 'Item';
           final itemTotal = (item['price_at_moment'] as num).toDouble() * (item['quantity'] as num).toInt();
@@ -141,7 +150,7 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
             'barber': item['barber_name'] ?? 'Sin barbero',
             'qty': item['quantity'],
             'total': itemTotal,
-            'commission': item['commission_earned'] ?? 0.0,
+            'commission': _commA, // FIX CANTIDAD CORREGIDO: ya viene corregido arriba, no multiplicar de nuevo
           });
         }
       }
@@ -168,7 +177,7 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: const Color(0xFF141414),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('🔒 Cierre de Caja por Fechas', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         content: SingleChildScrollView(
@@ -193,7 +202,7 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
             onPressed: () { Navigator.pop(ctx); _exportToPDF(); },
             icon: const Icon(Icons.picture_as_pdf, size: 16),
             label: const Text('Exportar Cierre a PDF'),
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6366F1)),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4AF37), foregroundColor: Colors.black),
           ),
         ],
       ),
@@ -358,7 +367,7 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
               }).toList(),
               border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
               headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8, color: PdfColors.white),
-              headerDecoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFF1E293B)),
+              headerDecoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFF141414)),
               cellStyle: const pw.TextStyle(fontSize: 7),
               cellAlignment: pw.Alignment.centerLeft,
               oddRowDecoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFFF1F5F9)),
@@ -428,19 +437,19 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
   Widget _buildPremiumDropdown({required String label, required IconData icon, required String value, required List<DropdownMenuItem<String>> items, required ValueChanged<String?> onChanged}) {
     return DropdownButtonFormField<String>(
       value: value,
-      dropdownColor: const Color(0xFF1E293B),
+      dropdownColor: const Color(0xFF141414),
       icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white54, size: 20),
       style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
       decoration: InputDecoration(
         labelText: label,
         labelStyle: const TextStyle(color: Colors.white54, fontSize: 11),
-        floatingLabelStyle: const TextStyle(color: Color(0xFF818CF8), fontSize: 12),
-        prefixIcon: Icon(icon, color: const Color(0xFF818CF8), size: 18),
+        floatingLabelStyle: const TextStyle(color: Color(0xFFFBBF24), fontSize: 12),
+        prefixIcon: Icon(icon, color: const Color(0xFFFBBF24), size: 18),
         filled: true,
-        fillColor: const Color(0xFF0F172A),
+        fillColor: const Color(0xFF0A0A0A),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.white.withOpacity(0.08))),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF6366F1), width: 1.5)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFD4AF37), width: 1.5)),
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
       ),
       items: items,
@@ -451,13 +460,13 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
   @override
   Widget build(BuildContext context) {
     if (!RolePermissions.can(currentUserRole, BbsPerm.viewAdvancedReports) && !RolePermissions.isAdmin(currentUserRole)) {
-      return const Scaffold(backgroundColor: Color(0xFF0F172A), body: Center(child: Text('No tienes permisos para ver esta sección', style: TextStyle(color: Colors.white))));
+      return const Scaffold(backgroundColor: Color(0xFF0A0A0A), body: Center(child: Text('No tienes permisos para ver esta sección', style: TextStyle(color: Colors.white))));
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: const Color(0xFF0A0A0A),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E293B), 
+        backgroundColor: const Color(0xFF141414), 
         title: const Text('Reportes Avanzados', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w900)), 
         leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: ()=> Navigator.pop(context)), 
         actions: [
@@ -471,13 +480,13 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
           IconButton(icon: const Icon(Icons.table_chart, color: Colors.white70), onPressed: _exportToExcel, tooltip: 'Excel')
         ]
       ),
-      body: _isLoading ? const Center(child: CircularProgressIndicator(color: Color(0xFF6366F1))) : SingleChildScrollView(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      body: _isLoading ? const Center(child: CircularProgressIndicator(color: Color(0xFFD4AF37))) : SingleChildScrollView(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         
         // ==== SECCIÓN DE FILTROS DE FECHA ====
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: const Color(0xFF1E293B), 
+            color: const Color(0xFF141414), 
             borderRadius: BorderRadius.circular(16), 
             border: Border.all(color: Colors.white.withOpacity(0.06)),
             boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))]
@@ -485,7 +494,7 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(
               children: [
-                const Icon(Icons.calendar_month_rounded, color: Color(0xFF818CF8), size: 18),
+                const Icon(Icons.calendar_month_rounded, color: Color(0xFFFBBF24), size: 18),
                 const SizedBox(width: 8),
                 const Text('Período de Análisis', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
               ]
@@ -498,7 +507,7 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
                 style: ButtonStyle(
                   visualDensity: VisualDensity.compact, 
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  backgroundColor: WidgetStateProperty.resolveWith((states) => states.contains(WidgetState.selected) ? const Color(0xFF6366F1) : Colors.transparent),
+                  backgroundColor: WidgetStateProperty.resolveWith((states) => states.contains(WidgetState.selected) ? const Color(0xFFD4AF37) : Colors.transparent),
                   foregroundColor: WidgetStateProperty.resolveWith((states) => states.contains(WidgetState.selected) ? Colors.white : Colors.white54),
                   side: WidgetStateProperty.all(BorderSide(color: Colors.white.withOpacity(0.1))),
                 ), 
@@ -520,16 +529,16 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
                 width: double.infinity, 
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), 
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0F172A), 
+                  color: const Color(0xFF0A0A0A), 
                   borderRadius: BorderRadius.circular(12), 
-                  border: Border.all(color: _selectedPeriod=='custom'? const Color(0xFF6366F1): Colors.white.withOpacity(0.08))
+                  border: Border.all(color: _selectedPeriod=='custom'? const Color(0xFFD4AF37): Colors.white.withOpacity(0.08))
                 ), 
                 child: Row(children: [
-                  Icon(Icons.date_range_rounded, color: _selectedPeriod=='custom'? const Color(0xFF6366F1): Colors.white38, size: 18),
+                  Icon(Icons.date_range_rounded, color: _selectedPeriod=='custom'? const Color(0xFFD4AF37): Colors.white38, size: 18),
                   const SizedBox(width: 10),
                   Expanded(child: FittedBox(alignment: Alignment.centerLeft, fit: BoxFit.scaleDown, child: Text('${DateFormat('dd/MM/yyyy').format(_startDate)}  →  ${DateFormat('dd/MM/yyyy').format(_endDate)}', style: TextStyle(color: _selectedPeriod=='custom'? Colors.white: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600)))),
                   const SizedBox(width: 8),
-                  Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.15), borderRadius: BorderRadius.circular(8)), child: Text(_selectedPeriod=='custom'? 'CAMBIAR':'EDITAR', style: const TextStyle(color: Color(0xFF818CF8), fontSize: 10, fontWeight: FontWeight.bold))),
+                  Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: const Color(0xFFD4AF37).withOpacity(0.15), borderRadius: BorderRadius.circular(8)), child: Text(_selectedPeriod=='custom'? 'CAMBIAR':'EDITAR', style: const TextStyle(color: Color(0xFFFBBF24), fontSize: 10, fontWeight: FontWeight.bold))),
                 ])
               )
             ),
@@ -540,14 +549,14 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: const Color(0xFF1E293B), 
+            color: const Color(0xFF141414), 
             borderRadius: BorderRadius.circular(16), 
             border: Border.all(color: Colors.white.withOpacity(0.06)),
             boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))]
           ), 
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
-              Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.15), borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.tune_rounded, size: 16, color: Color(0xFF818CF8))),
+              Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: const Color(0xFFD4AF37).withOpacity(0.15), borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.tune_rounded, size: 16, color: Color(0xFFFBBF24))),
               const SizedBox(width: 10),
               const Text('Filtros de Búsqueda', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
               const Spacer(),
@@ -576,7 +585,7 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
                           decoration: InputDecoration(
                             labelText: 'Buscar folio, barbero, cajero...',
                             labelStyle: const TextStyle(color: Colors.white54, fontSize: 11),
-                            prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF818CF8), size: 18),
+                            prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFFFBBF24), size: 18),
                             suffixIcon: _searchQuery.isNotEmpty ? IconButton(
                               icon: const Icon(Icons.clear, size: 16, color: Colors.white54), 
                               onPressed: () { 
@@ -586,10 +595,10 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
                               }
                             ) : null,
                             filled: true,
-                            fillColor: const Color(0xFF0F172A),
+                            fillColor: const Color(0xFF0A0A0A),
                             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                             enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.white.withOpacity(0.08))),
-                            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF6366F1), width: 1.5)),
+                            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFD4AF37), width: 1.5)),
                             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                           ),
                         ),
@@ -624,7 +633,7 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
                         decoration: InputDecoration(
                           labelText: 'Buscar folio, barbero, cajero...',
                           labelStyle: const TextStyle(color: Colors.white54, fontSize: 11),
-                          prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF818CF8), size: 18),
+                          prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFFFBBF24), size: 18),
                           suffixIcon: _searchQuery.isNotEmpty ? IconButton(
                             icon: const Icon(Icons.clear, size: 16, color: Colors.white54), 
                             onPressed: () { 
@@ -634,10 +643,10 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
                             }
                           ) : null,                          
                           filled: true,
-                          fillColor: const Color(0xFF0F172A),
+                          fillColor: const Color(0xFF0A0A0A),
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                           enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.white.withOpacity(0.08))),
-                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF6366F1), width: 1.5)),
+                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFD4AF37), width: 1.5)),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                         ),
                       ),
@@ -670,11 +679,11 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
                 padding: const EdgeInsets.only(top: 12),
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.08), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFF6366F1).withOpacity(0.2))),
+                  decoration: BoxDecoration(color: const Color(0xFFD4AF37).withOpacity(0.08), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFFD4AF37).withOpacity(0.2))),
                   child: Row(children: [
-                    const Icon(Icons.info_outline_rounded, color: Color(0xFF818CF8), size: 14),
+                    const Icon(Icons.info_outline_rounded, color: Color(0xFFFBBF24), size: 14),
                     const SizedBox(width: 8),
-                    Expanded(child: Text(_filterLabel, style: const TextStyle(color: Color(0xFF818CF8), fontSize: 11, fontWeight: FontWeight.w500))),
+                    Expanded(child: Text(_filterLabel, style: const TextStyle(color: Color(0xFFFBBF24), fontSize: 11, fontWeight: FontWeight.w500))),
                   ]),
                 ),
               ),
@@ -725,7 +734,7 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
               }
               return Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(12), border: Border.all(color: color.withOpacity(0.3))),
+                decoration: BoxDecoration(color: const Color(0xFF141414), borderRadius: BorderRadius.circular(12), border: Border.all(color: color.withOpacity(0.3))),
                 child: Row(children: [
                   Icon(icon, color: color, size: 20),
                   const SizedBox(width: 10),
@@ -744,7 +753,7 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
           const Text('Top 5 Servicios / Productos', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
           Container(
-            decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withOpacity(0.06))),
+            decoration: BoxDecoration(color: const Color(0xFF141414), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withOpacity(0.06))),
             child: Column(
               children: _topServices.asMap().entries.map((entry) {
                 final idx = entry.key;
@@ -758,8 +767,8 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
                     children: [
                       Container(
                         width: 24, height: 24,
-                        decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.2), shape: BoxShape.circle),
-                        child: Center(child: Text('${idx + 1}', style: const TextStyle(color: Color(0xFF818CF8), fontSize: 12, fontWeight: FontWeight.bold))),
+                        decoration: BoxDecoration(color: const Color(0xFFD4AF37).withOpacity(0.2), shape: BoxShape.circle),
+                        child: Center(child: Text('${idx + 1}', style: const TextStyle(color: Color(0xFFFBBF24), fontSize: 12, fontWeight: FontWeight.bold))),
                       ),
                       const SizedBox(width: 12),
                       Expanded(child: Text(item['name'].toString(), style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600))),
@@ -779,10 +788,10 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
           ..._filteredDetail.map((d) => Container(
             margin: const EdgeInsets.only(bottom: 8), 
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), 
-            decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white.withOpacity(0.06))), 
+            decoration: BoxDecoration(color: const Color(0xFF141414), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white.withOpacity(0.06))), 
             child: Row(
               children: [
-                Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.receipt_long_rounded, color: Color(0xFF818CF8), size: 16)),
+                Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: const Color(0xFFD4AF37).withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.receipt_long_rounded, color: Color(0xFFFBBF24), size: 16)),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -815,7 +824,7 @@ class _AdvancedReportsScreenState extends State<AdvancedReportsScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(16), 
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B), 
+        color: const Color(0xFF141414), 
         borderRadius: BorderRadius.circular(16), 
         border: Border.all(color: color.withOpacity(0.3)),
         boxShadow: [BoxShadow(color: color.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))]

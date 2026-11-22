@@ -1,5 +1,5 @@
 // PREMIUM RESERVAS - Solo colores: fondo 0A0A0A, tarjetas 141414, dorado D4AF37 / FBBF24. Lógica, permisos, mensajes y filtros intactos.
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
