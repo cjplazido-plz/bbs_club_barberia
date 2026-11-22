@@ -1,3 +1,4 @@
+// PREMIUM FINAL - Fondo 0A0A0A, tarjetas 141414, dorado D4AF37 / FBBF24. FIX CANTIDAD CORREGIDO intacto (no multiplicar a ciegas).
 // PREMIUM RESERVAS - Solo colores: fondo 0A0A0A, tarjetas 141414, dorado D4AF37 / FBBF24. Lógica, permisos, mensajes y filtros intactos.
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -541,18 +542,18 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     margin: const EdgeInsets.only(bottom: 16),
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF59E0B).withOpacity(0.1), 
+                      color: const Color(0xFFD4AF37).withOpacity(0.1), 
                       borderRadius: BorderRadius.circular(12), 
-                      border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.3))
+                      border: Border.all(color: const Color(0xFFD4AF37).withOpacity(0.3))
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.history_rounded, color: Color(0xFFF59E0B), size: 20),
+                        const Icon(Icons.history_rounded, color: Color(0xFFD4AF37), size: 20),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
                             'Mostrando datos históricos del: ${DateFormat('dd/MM/yyyy').format(_selectedDate)}', 
-                            style: const TextStyle(color: Color(0xFFF59E0B), fontSize: 13, fontWeight: FontWeight.bold)
+                            style: const TextStyle(color: Color(0xFFD4AF37), fontSize: 13, fontWeight: FontWeight.bold)
                           )
                         ),
                         TextButton(
@@ -560,8 +561,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
                             setState(() => _selectedDate = DateTime.now());
                             _loadReports();
                           },
-                          style: TextButton.styleFrom(backgroundColor: const Color(0xFFF59E0B).withOpacity(0.2), padding: const EdgeInsets.symmetric(horizontal: 10)),
-                          child: const Text('Volver a Hoy', style: TextStyle(color: Color(0xFFF59E0B), fontSize: 11, fontWeight: FontWeight.bold)),
+                          style: TextButton.styleFrom(backgroundColor: const Color(0xFFD4AF37).withOpacity(0.2), padding: const EdgeInsets.symmetric(horizontal: 10)),
+                          child: const Text('Volver a Hoy', style: TextStyle(color: Color(0xFFD4AF37), fontSize: 11, fontWeight: FontWeight.bold)),
                         )
                       ]
                     ),
@@ -570,7 +571,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 Row(children: [
                   Expanded(child: _SummaryCard(title: isToday ? 'Total del dia' : 'Total del ${DateFormat('dd/MM').format(_selectedDate)}', value: SettingsService.formatCurrency(_dayTotal), icon: '💵', color: const Color(0xFF10B981))),
                   const SizedBox(width: 12),
-                  Expanded(child: _SummaryCard(title: 'Ventas', value: transaccionesText, icon: '💲', color: const Color(0xFF3B82F6))),
+                  Expanded(child: _SummaryCard(title: 'Ventas', value: transaccionesText, icon: '💲', color: const Color(0xFFD4AF37))),
                 ]),
                 const SizedBox(height: 16),
                 Container(

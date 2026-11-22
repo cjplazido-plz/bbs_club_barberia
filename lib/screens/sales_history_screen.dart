@@ -1,3 +1,4 @@
+// PREMIUM - Fondo 0A0A0A, tarjetas 141414, dorado D4AF37 / FBBF24. Logica, reimpresion, anular, editar pago intactos.
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -136,7 +137,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
       firstDate: DateTime(2023), 
       lastDate: DateTime.now().add(const Duration(days: 1)), 
       initialDateRange: DateTimeRange(start: _startDate, end: _endDate), 
-      builder: (c, child) => Theme(data: ThemeData.dark().copyWith(colorScheme: const ColorScheme.dark(primary: Color(0xFF6366F1))), child: child!)
+      builder: (c, child) => Theme(data: ThemeData.dark().copyWith(colorScheme: const ColorScheme.dark(primary: Color(0xFFD4AF37))), child: child!)
     );
     if (picked != null) {
       setState(() { 
@@ -176,11 +177,11 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
         height: MediaQuery.of(context).size.height * 0.88,
-        decoration: const BoxDecoration(color: Color(0xFF0F172A), borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+        decoration: const BoxDecoration(color: Color(0xFF0A0A0A), borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
         child: Column(children: [
           Container(
             padding: const EdgeInsets.all(18),
-            decoration: const BoxDecoration(color: Color(0xFF6366F1), borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+            decoration: const BoxDecoration(color: Color(0xFFD4AF37), borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
             child: Row(children: [
               Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(10)), child: const Icon(Icons.receipt_long_rounded, color: Colors.white, size: 18)),
               const SizedBox(width: 12),
@@ -195,7 +196,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
             child: ListView(padding: const EdgeInsets.all(16), children: [
               Container(
                 padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withOpacity(0.06))),
+                decoration: BoxDecoration(color: const Color(0xFF141414), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withOpacity(0.06))),
                 child: Column(children: [
                   _infoRow('Folio', transaction['folio']?.toString() ?? transaction['id'].toString().substring(transaction['id'].toString().length - 6).toUpperCase()),
                   const Divider(color: Colors.white10, height: 18),
@@ -214,9 +215,9 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
               ...items.map((item) => Container(
                 margin: const EdgeInsets.only(bottom: 8),
                 padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white.withOpacity(0.04))),
+                decoration: BoxDecoration(color: const Color(0xFF141414), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white.withOpacity(0.04))),
                 child: Row(children: [
-                  Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: const Color(0xFF0F172A), borderRadius: BorderRadius.circular(8)), child: Icon(item['item_type'] == 'service' ? Icons.content_cut_rounded : Icons.inventory_2_rounded, size: 14, color: Colors.white54)),
+                  Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: const Color(0xFF0A0A0A), borderRadius: BorderRadius.circular(8)), child: Icon(item['item_type'] == 'service' ? Icons.content_cut_rounded : Icons.inventory_2_rounded, size: 14, color: Colors.white54)),
                   const SizedBox(width: 10),
                   Expanded(child: Text(item['service_name'] ?? item['product_name'] ?? 'Item', style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600))),
                   Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
@@ -228,7 +229,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
               const SizedBox(height: 16),
               Container(
                 padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.white.withOpacity(0.06))),
+                decoration: BoxDecoration(color: const Color(0xFF141414), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.white.withOpacity(0.06))),
                 child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                   const Text('TOTAL:', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 14)),
                   Text(SettingsService.formatCurrency((transaction['total'] as num).toDouble()), style: const TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.w900, fontSize: 22)),
@@ -237,7 +238,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
               const SizedBox(height: 20),
               if (RolePermissions.can(currentUserRole, BbsPerm.editPayment) || RolePermissions.can(currentUserRole, BbsPerm.voidSale)) ...[
                 Row(children: [
-                  if (RolePermissions.can(currentUserRole, BbsPerm.editPayment)) Expanded(child: OutlinedButton.icon(onPressed: () { Navigator.pop(context); _showEditPaymentDialog(transaction); }, icon: const Icon(Icons.edit_rounded, size: 16, color: Color(0xFF818CF8)), label: const Text('Editar Pago', style: TextStyle(color: Color(0xFF818CF8), fontSize: 12, fontWeight: FontWeight.bold)), style: OutlinedButton.styleFrom(side: const BorderSide(color: Color(0xFF6366F1)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 13)))),
+                  if (RolePermissions.can(currentUserRole, BbsPerm.editPayment)) Expanded(child: OutlinedButton.icon(onPressed: () { Navigator.pop(context); _showEditPaymentDialog(transaction); }, icon: const Icon(Icons.edit_rounded, size: 16, color: Color(0xFFFBBF24)), label: const Text('Editar Pago', style: TextStyle(color: Color(0xFFFBBF24), fontSize: 12, fontWeight: FontWeight.bold)), style: OutlinedButton.styleFrom(side: const BorderSide(color: Color(0xFFD4AF37)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 13)))),
                   const SizedBox(width: 8),
                   if (RolePermissions.can(currentUserRole, BbsPerm.voidSale)) Expanded(child: OutlinedButton.icon(onPressed: transaction['status'] == 'cancelled' ? null : () { Navigator.pop(context); _showAnularDialog(transaction, items); }, icon: const Icon(Icons.cancel_rounded, size: 16, color: Colors.redAccent), label: const Text('Anular', style: TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.bold)), style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.redAccent), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 13)))),
                 ]),
@@ -246,7 +247,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
               Row(children: [
                 Expanded(child: OutlinedButton.icon(onPressed: () => _printTicket(transaction, items), icon: const Icon(Icons.print_rounded, size: 18, color: Colors.white70), label: const Text('Imprimir 80mm', style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold)), style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.white24), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 14)))),
                 const SizedBox(width: 10),
-                Expanded(child: Container(decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF818CF8)]), borderRadius: BorderRadius.circular(12)), child: ElevatedButton.icon(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.check_rounded, size: 16), label: const Text('Cerrar', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)), style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, shadowColor: Colors.transparent, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 14))))),
+                Expanded(child: Container(decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFFD4AF37), Color(0xFFFBBF24)]), borderRadius: BorderRadius.circular(12)), child: ElevatedButton.icon(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.check_rounded, size: 16), label: const Text('Cerrar', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)), style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, shadowColor: Colors.transparent, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), padding: const EdgeInsets.symmetric(vertical: 14))))),
               ]),
             ]),
           ),
@@ -276,14 +277,14 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
     if (selected == 'mixto') selected = 'mixed';
 
     await showDialog(context: context, builder: (c) => AlertDialog(
-      backgroundColor: const Color(0xFF1E293B),
+      backgroundColor: const Color(0xFF141414),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       title: const Text('Editar Pago', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
       content: StatefulBuilder(builder: (ctx, setSt) => DropdownButtonFormField<String>(
         value: selected,
-        dropdownColor: const Color(0xFF1E293B),
+        dropdownColor: const Color(0xFF141414),
         style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-        decoration: InputDecoration(filled: true, fillColor: const Color(0xFF0F172A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)), labelText: 'Método', labelStyle: const TextStyle(color: Colors.white54)),
+        decoration: InputDecoration(filled: true, fillColor: const Color(0xFF0A0A0A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)), labelText: 'Método', labelStyle: const TextStyle(color: Colors.white54)),
         items: const [
           DropdownMenuItem(value: 'cash', child: Text('Efectivo')),
           DropdownMenuItem(value: 'transfer', child: Text('Transferencia')),
@@ -294,7 +295,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
       )),
       actions: [
         TextButton(onPressed: () => Navigator.pop(c), child: const Text('Cancelar', style: TextStyle(color: Colors.grey))),
-        Container(decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF818CF8)]), borderRadius: BorderRadius.circular(10)), child: ElevatedButton(onPressed: () async {
+        Container(decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFFD4AF37), Color(0xFFFBBF24)]), borderRadius: BorderRadius.circular(10)), child: ElevatedButton(onPressed: () async {
           Navigator.pop(c);
           try {
             await Supabase.instance.client.from('transactions').update({'payment_method': selected}).eq('id', transaction['id']);
@@ -312,13 +313,13 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
     final motivoCtrl = TextEditingController();
     bool devolverStock = true;
     await showDialog(context: context, builder: (c) => StatefulBuilder(builder: (ctx, setSt) => AlertDialog(
-      backgroundColor: const Color(0xFF1E293B),
+      backgroundColor: const Color(0xFF141414),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       title: Row(children: [Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: Colors.red.withOpacity(0.15), borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.warning_rounded, color: Colors.redAccent, size: 18)), const SizedBox(width: 10), const Text('Anular Venta', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16))]),
       content: Column(mainAxisSize: MainAxisSize.min, children: [
         Text('¿Anular ${SettingsService.formatCurrency((transaction['total'] as num).toDouble())}?', style: const TextStyle(color: Colors.white70, fontSize: 12)),
         const SizedBox(height: 14),
-        TextField(controller: motivoCtrl, style: const TextStyle(color: Colors.white, fontSize: 13), maxLines: 2, decoration: InputDecoration(labelText: 'Motivo *', labelStyle: const TextStyle(color: Colors.white54, fontSize: 12), filled: true, fillColor: const Color(0xFF0F172A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
+        TextField(controller: motivoCtrl, style: const TextStyle(color: Colors.white, fontSize: 13), maxLines: 2, decoration: InputDecoration(labelText: 'Motivo *', labelStyle: const TextStyle(color: Colors.white54, fontSize: 12), filled: true, fillColor: const Color(0xFF0A0A0A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
         const SizedBox(height: 10),
         Material(
           type: MaterialType.transparency,
@@ -385,19 +386,19 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
   Widget _buildPremiumDropdown({required String label, required IconData icon, required String value, required List<DropdownMenuItem<String>> items, required ValueChanged<String?> onChanged}) {
     return DropdownButtonFormField<String>(
       value: value,
-      dropdownColor: const Color(0xFF1E293B),
+      dropdownColor: const Color(0xFF141414),
       icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white54, size: 20),
       style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
       decoration: InputDecoration(
         labelText: label,
         labelStyle: const TextStyle(color: Colors.white54, fontSize: 11),
-        floatingLabelStyle: const TextStyle(color: Color(0xFF818CF8), fontSize: 12),
-        prefixIcon: Icon(icon, color: const Color(0xFF818CF8), size: 18),
+        floatingLabelStyle: const TextStyle(color: Color(0xFFFBBF24), fontSize: 12),
+        prefixIcon: Icon(icon, color: const Color(0xFFFBBF24), size: 18),
         filled: true,
-        fillColor: const Color(0xFF0F172A),
+        fillColor: const Color(0xFF0A0A0A),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.white.withOpacity(0.08))),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF6366F1), width: 1.5)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFD4AF37), width: 1.5)),
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
       ),
       items: items,
@@ -413,9 +414,9 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF6366F1) : const Color(0xFF0F172A),
+          color: isSelected ? const Color(0xFFD4AF37) : const Color(0xFF0A0A0A),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: isSelected ? const Color(0xFF6366F1) : Colors.white10),
+          border: Border.all(color: isSelected ? const Color(0xFFD4AF37) : Colors.white10),
         ),
         child: Text(
           label,
@@ -432,12 +433,12 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: const Color(0xFF0A0A0A),
       appBar: AppBar(
         leading: IconButton(icon: const Icon(Icons.arrow_back_rounded, color: Colors.white), onPressed: () => Navigator.pop(context)),
         title: const Text('Historial Premium', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16)),
         centerTitle: true,
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: const Color(0xFF141414),
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
@@ -446,7 +447,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
         ],
       ),
       body: _isLoading 
-        ? const Center(child: CircularProgressIndicator(color: Color(0xFF6366F1)))
+        ? const Center(child: CircularProgressIndicator(color: Color(0xFFD4AF37)))
         : CustomScrollView(
             slivers: [
               SliverToBoxAdapter(
@@ -454,7 +455,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
                   margin: const EdgeInsets.all(12),
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E293B), 
+                    color: const Color(0xFF141414), 
                     borderRadius: BorderRadius.circular(16), 
                     border: Border.all(color: Colors.white.withOpacity(0.06)),
                     boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))]
@@ -463,11 +464,11 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
                     // FILTRO UNIFICADO - mismo estilo que Reportes Avanzados (Período de Análisis)
                     Row(
                       children: [
-                        const Icon(Icons.calendar_month_rounded, color: Color(0xFF818CF8), size: 18),
+                        const Icon(Icons.calendar_month_rounded, color: Color(0xFFFBBF24), size: 18),
                         const SizedBox(width: 8),
                         const Text('Período de Análisis', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
                         const Spacer(),
-                        Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.2), borderRadius: BorderRadius.circular(20)), child: Text('${_transactions.length} ventas', style: const TextStyle(color: Color(0xFF818CF8), fontSize: 11, fontWeight: FontWeight.bold))),
+                        Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: const Color(0xFFD4AF37).withOpacity(0.2), borderRadius: BorderRadius.circular(20)), child: Text('${_transactions.length} ventas', style: const TextStyle(color: Color(0xFFFBBF24), fontSize: 11, fontWeight: FontWeight.bold))),
                       ]
                     ),
                     const SizedBox(height: 10),
@@ -478,7 +479,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
                         style: ButtonStyle(
                           visualDensity: VisualDensity.compact,
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          backgroundColor: WidgetStateProperty.resolveWith((states) => states.contains(WidgetState.selected) ? const Color(0xFF6366F1) : Colors.transparent),
+                          backgroundColor: WidgetStateProperty.resolveWith((states) => states.contains(WidgetState.selected) ? const Color(0xFFD4AF37) : Colors.transparent),
                           foregroundColor: WidgetStateProperty.resolveWith((states) => states.contains(WidgetState.selected) ? Colors.white : Colors.white54),
                           side: WidgetStateProperty.all(BorderSide(color: Colors.white.withOpacity(0.1))),
                         ),
@@ -499,16 +500,16 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
                         width: double.infinity,
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF0F172A),
+                          color: const Color(0xFF0A0A0A),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: _activeQuickFilter == 'custom' ? const Color(0xFF6366F1) : Colors.white.withOpacity(0.08)),
+                          border: Border.all(color: _activeQuickFilter == 'custom' ? const Color(0xFFD4AF37) : Colors.white.withOpacity(0.08)),
                         ),
                         child: Row(children: [
-                          Icon(Icons.date_range_rounded, color: _activeQuickFilter == 'custom' ? const Color(0xFF6366F1) : Colors.white38, size: 18),
+                          Icon(Icons.date_range_rounded, color: _activeQuickFilter == 'custom' ? const Color(0xFFD4AF37) : Colors.white38, size: 18),
                           const SizedBox(width: 10),
                           Expanded(child: FittedBox(alignment: Alignment.centerLeft, fit: BoxFit.scaleDown, child: Text('${DateFormat('dd/MM/yyyy').format(_startDate)}  →  ${DateFormat('dd/MM/yyyy').format(_endDate)}', style: TextStyle(color: _activeQuickFilter == 'custom' ? Colors.white : Colors.white70, fontSize: 13, fontWeight: FontWeight.w600)))),
                           const SizedBox(width: 8),
-                          Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.15), borderRadius: BorderRadius.circular(8)), child: Text(_activeQuickFilter == 'custom' ? 'CAMBIAR' : 'EDITAR', style: const TextStyle(color: Color(0xFF818CF8), fontSize: 10, fontWeight: FontWeight.bold))),
+                          Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: const Color(0xFFD4AF37).withOpacity(0.15), borderRadius: BorderRadius.circular(8)), child: Text(_activeQuickFilter == 'custom' ? 'CAMBIAR' : 'EDITAR', style: const TextStyle(color: Color(0xFFFBBF24), fontSize: 10, fontWeight: FontWeight.bold))),
                         ]),
                       ),
                     ),
@@ -521,14 +522,14 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
                   margin: const EdgeInsets.symmetric(horizontal: 12),
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E293B), 
+                    color: const Color(0xFF141414), 
                     borderRadius: BorderRadius.circular(16), 
                     border: Border.all(color: Colors.white.withOpacity(0.06)),
                     boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))]
                   ),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Row(children: [
-                      Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.15), borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.tune_rounded, size: 16, color: Color(0xFF818CF8))),
+                      Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: const Color(0xFFD4AF37).withOpacity(0.15), borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.tune_rounded, size: 16, color: Color(0xFFFBBF24))),
                       const SizedBox(width: 10),
                       const Text('Filtros de Búsqueda', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
                       const Spacer(),
@@ -549,7 +550,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
                       decoration: InputDecoration(
                         hintText: 'Buscar folio, barbero, cajero...', 
                         hintStyle: const TextStyle(color: Colors.white38, fontSize: 12), 
-                        prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF818CF8), size: 18), 
+                        prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFFFBBF24), size: 18), 
                         suffixIcon: _searchQuery.isNotEmpty ? IconButton(
                           icon: const Icon(Icons.clear, size: 16, color: Colors.white54), 
                           onPressed: () { 
@@ -558,10 +559,10 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
                           }
                         ) : null,
                         filled: true, 
-                        fillColor: const Color(0xFF0F172A), 
+                        fillColor: const Color(0xFF0A0A0A), 
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.white.withOpacity(0.08))),
-                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF6366F1), width: 1.5)),
+                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFD4AF37), width: 1.5)),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14)
                       )
                     ),
@@ -628,11 +629,11 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
                     const SizedBox(height: 12),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(color: const Color(0xFF6366F1).withOpacity(0.08), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFF6366F1).withOpacity(0.2))),
+                      decoration: BoxDecoration(color: const Color(0xFFD4AF37).withOpacity(0.08), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFFD4AF37).withOpacity(0.2))),
                       child: Row(children: [
-                        const Icon(Icons.info_outline_rounded, color: Color(0xFF818CF8), size: 14),
+                        const Icon(Icons.info_outline_rounded, color: Color(0xFFFBBF24), size: 14),
                         const SizedBox(width: 8),
-                        Expanded(child: Text('Mostrando ${_filteredTransactions.length} de ${_transactions.length} ventas • ${SettingsService.formatCurrency(_filteredTotal)}', style: const TextStyle(color: Color(0xFF818CF8), fontSize: 11, fontWeight: FontWeight.w500))),
+                        Expanded(child: Text('Mostrando ${_filteredTransactions.length} de ${_transactions.length} ventas • ${SettingsService.formatCurrency(_filteredTotal)}', style: const TextStyle(color: Color(0xFFFBBF24), fontSize: 11, fontWeight: FontWeight.w500))),
                       ]),
                     ),
                   ]),
@@ -649,13 +650,13 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> with TickerProv
                           final isCancelled = t['status'] == 'cancelled';
                           return Container(
                             margin: const EdgeInsets.only(bottom: 8, left: 12, right: 12),
-                            decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(14), border: Border.all(color: isCancelled ? Colors.red.withOpacity(0.2) : Colors.white.withOpacity(0.05))),
+                            decoration: BoxDecoration(color: const Color(0xFF141414), borderRadius: BorderRadius.circular(14), border: Border.all(color: isCancelled ? Colors.red.withOpacity(0.2) : Colors.white.withOpacity(0.05))),
                             child: Material(
                               type: MaterialType.transparency,
                               child: ListTile(
                                 onTap: () => _showTransactionDetail(t),
                                 contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                leading: Container(width: 38, height: 38, decoration: BoxDecoration(color: isCancelled ? Colors.red.withOpacity(0.15) : const Color(0xFF6366F1).withOpacity(0.15), shape: BoxShape.circle), child: Icon(isCancelled ? Icons.cancel_rounded : Icons.receipt_rounded, size: 18, color: isCancelled ? Colors.redAccent : const Color(0xFF818CF8))),
+                                leading: Container(width: 38, height: 38, decoration: BoxDecoration(color: isCancelled ? Colors.red.withOpacity(0.15) : const Color(0xFFD4AF37).withOpacity(0.15), shape: BoxShape.circle), child: Icon(isCancelled ? Icons.cancel_rounded : Icons.receipt_rounded, size: 18, color: isCancelled ? Colors.redAccent : const Color(0xFFFBBF24))),
                                 title: Text(DateFormat('dd/MM/yyyy HH:mm').format(DateTime.parse(t['created_at'])), style: TextStyle(fontWeight: FontWeight.bold, color: isCancelled ? Colors.white54 : Colors.white, fontSize: 13, decoration: isCancelled ? TextDecoration.lineThrough : null)),
                                 subtitle: Text('${_formatPayment(t['payment_method']?.toString())} • ${t['barber_name'] ?? ''} • ${t['cashier_name'] ?? ''}', style: const TextStyle(color: Colors.white38, fontSize: 11)),
                                 trailing: Text(SettingsService.formatCurrency((t['total'] as num).toDouble()), style: TextStyle(color: isCancelled ? Colors.white38 : const Color(0xFF10B981), fontWeight: FontWeight.w900, fontSize: 14, decoration: isCancelled ? TextDecoration.lineThrough : null)),
