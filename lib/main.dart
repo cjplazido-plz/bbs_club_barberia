@@ -1,4 +1,4 @@
-// PREMIUM INTRODUCCION - AuthGate con logo BBS CLUB dorado, fondo 0A0A0A. FIX 429 + SESION 8H intactos.
+// PREMIUM INTRODUCCION V2 - AuthGate con logo BBS CLUB dorado, fondo 0A0A0A. FIX 429 + SESION 8H intactos.
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -187,36 +187,51 @@ class _AuthGateState extends State<AuthGate> {
       return PublicBookingScreen();
     }
     if (_isLoading) {
-      // INTRODUCCION PREMIUM - misma que Login / Reservas: fondo 0A0A0A, dorado D4AF37 / FBBF24
+      // INTRODUCCION PREMIUM V2 - igual que captura 2 pero en Premium: fondo negro, brillo dorado, no morado
       return Scaffold(
         backgroundColor: const Color(0xFF0A0A0A),
         body: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // Logo circular igual que la foto: circulo negro, BBS rojo + CLUB dorado, BARBERIA blanco
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.white10)),
-                child: RichText(
-                  text: const TextSpan(
-                    children: [
-                      TextSpan(text: 'BBS', style: TextStyle(color: Color(0xFFE11D2E), fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: 1)),
-                      TextSpan(text: 'CLUB', style: TextStyle(color: Color(0xFFFBBF24), fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: 1)),
-                    ],
-                  ),
+                width: 140,
+                height: 140,
+                decoration: BoxDecoration(
+                  color: Colors.black,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: const Color(0xFFD4AF37).withOpacity(0.35), width: 1),
+                  boxShadow: [
+                    BoxShadow(color: const Color(0xFFD4AF37).withOpacity(0.28), blurRadius: 42, spreadRadius: 6),
+                    BoxShadow(color: Colors.black.withOpacity(0.6), blurRadius: 20),
+                  ],
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    RichText(
+                      text: const TextSpan(
+                        children: [
+                          TextSpan(text: 'BBS', style: TextStyle(color: Color(0xFFE11D2E), fontSize: 26, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
+                          TextSpan(text: 'CLUB', style: TextStyle(color: Color(0xFFFBBF24), fontSize: 26, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    const Text('BARBERIA', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 3)),
+                  ],
                 ),
               ),
-              const SizedBox(height: 12),
-              const Text('BBS CLUB BARBERIA', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1)),
-              const SizedBox(height: 4),
-              const Text('Barbería Premium', style: TextStyle(color: Color(0xFFD4AF37), fontSize: 12)),
+              const SizedBox(height: 24),
+              const Text('BBS CLUB', style: TextStyle(color: Color(0xFFD4AF37), fontSize: 26, fontWeight: FontWeight.w900, letterSpacing: 4)),
+              const SizedBox(height: 6),
+              const Text('BARBERIA PREMIUM', style: TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 4)),
               const SizedBox(height: 28),
-              Container(width: 48, height: 2, decoration: BoxDecoration(color: const Color(0xFFD4AF37).withOpacity(0.5), borderRadius: BorderRadius.circular(2))),
-              const SizedBox(height: 28),
-              const SizedBox(width: 28, height: 28, child: CircularProgressIndicator(color: Color(0xFFD4AF37), strokeWidth: 2.5)),
+              const SizedBox(width: 26, height: 26, child: CircularProgressIndicator(color: Color(0xFFD4AF37), strokeWidth: 2.5)),
               const SizedBox(height: 16),
               const Text('Cargando...', style: TextStyle(color: Colors.white70, fontSize: 13)),
-              const SizedBox(height: 28),
+              const SizedBox(height: 32),
               const Text('Manuel Montt 460 - local 6 - Coronel', style: TextStyle(color: Colors.white38, fontSize: 11)),
             ],
           ),
