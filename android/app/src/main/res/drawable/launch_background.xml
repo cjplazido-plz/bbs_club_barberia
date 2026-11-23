@@ -1,12 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- BBS CLUB - Fondo del splash nativo: negro 0A0A0A, sin azul ni morado -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Color de fondo oscuro (0F172A) -->
-    <item android:drawable="@color/launch_background_color" />
-    
-    <!-- Tu logo en el centro (debes tener un archivo logo_splash.png en la carpeta drawable) -->
+    <item android:drawable="#0A0A0A" />
+    <!-- Logo centrado: usa tu icono actual. Si tu icono es cuadrado negro con BBS CLUB, queda igual que en la foto, pero sobre fondo negro -->
     <item>
-        <bitmap
-            android:gravity="center"
-            android:src="@drawable/logo_splash" />
+        <bitmap android:gravity="center" android:src="@mipmap/ic_launcher" />
     </item>
 </layer-list>
