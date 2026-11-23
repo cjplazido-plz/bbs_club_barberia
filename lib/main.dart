@@ -1,4 +1,4 @@
-// PREMIUM INTRODUCCION ANIMADA V3 - AuthGate con logo BBS CLUB dorado, fondo 0A0A0A. FIX 429 + SESION 8H intactos.
+// PREMIUM INTRODUCCION CENTRADA V5 FIX TRASLAPE - AuthGate con logo BBS CLUB dorado, fondo 0A0A0A. FIX 429 + SESION 8H intactos.
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -182,56 +182,6 @@ class _AuthGateState extends State<AuthGate> {
 
   @override
   Widget build(BuildContext context) {
-    final uriPath = Uri.base.path;
-    if (uriPath == '/reservar' || uriPath == '/reservar/') {
-      return PublicBookingScreen();
-    }
-    if (_isLoading) {
-      return const _PremiumIntro();
-    }
-
-    final session = Supabase.instance.client.auth.currentSession;
-
-    if (session != null) {
-      return PosScreen();
-    }
-
-    return LoginScreen();
-  }
-}
-
-// INTRO PREMIUM ANIMADA - efecto al iniciar:
-// logo entra con zoom suave, brillo dorado que respira, linea dorada que se abre,
-// textos aparecen con fade, 3 puntitos dorados cargando.
-class _PremiumIntro extends StatefulWidget {
-  const _PremiumIntro();
-  @override
-  State<_PremiumIntro> createState() => _PremiumIntroState();
-}
-
-class _PremiumIntroState extends State<_PremiumIntro> with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-  late Animation<double> _scale;
-  late Animation<double> _fade;
-  late Animation<double> _glow;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1800))..forward();
-    _scale = Tween<double>(begin: 0.72, end: 1.0).animate(CurvedAnimation(parent: _ctrl, curve: const Interval(0.0, 0.65, curve: Curves.easeOutBack)));
-    _fade = Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(parent: _ctrl, curve: const Interval(0.15, 0.7, curve: Curves.easeIn)));
-    _glow = Tween<double>(begin: 0.12, end: 0.34).animate(CurvedAnimation(parent: _ctrl, curve: const Interval(0.0, 1.0, curve: Curves.easeInOut)));
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0A0A0A),
       body: AnimatedBuilder(
@@ -239,9 +189,11 @@ class _PremiumIntroState extends State<_PremiumIntro> with SingleTickerProviderS
         builder: (context, _) {
           final t = _ctrl.value;
           return Container(
+            width: double.infinity,
+            height: double.infinity,
             decoration: BoxDecoration(
               gradient: RadialGradient(
-                center: const Alignment(0, -0.25),
+                center: Alignment.center,
                 radius: 0.85,
                 colors: [
                   const Color(0xFFD4AF37).withOpacity(0.10),
@@ -250,12 +202,14 @@ class _PremiumIntroState extends State<_PremiumIntro> with SingleTickerProviderS
                 ],
               ),
             ),
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Logo con zoom + brillo dorado que respira
-                  ScaleTransition(
+            // STACK: logo clavado al centro exacto, textos colgando abajo del logo
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                // 1. LOGO - centro exacto de la pantalla (horizontal + vertical)
+                Align(
+                  alignment: Alignment.center,
+                  child: ScaleTransition(
                     scale: _scale,
                     child: FadeTransition(
                       opacity: _fade,
@@ -289,46 +243,49 @@ class _PremiumIntroState extends State<_PremiumIntro> with SingleTickerProviderS
                       ),
                     ),
                   ),
-                  const SizedBox(height: 24),
-                  // Textos con fade
-                  FadeTransition(
+                ),
+                // 2. TEXTOS - Alignment(0, 0.55) = centrados horizontal, y abajo del logo. Sin SizedBox que los suba.
+                Align(
+                  alignment: const Alignment(0, 0.55),
+                  child: FadeTransition(
                     opacity: _fade,
                     child: Column(
-                      children: const [
-                        Text('BBS CLUB', style: TextStyle(color: Color(0xFFD4AF37), fontSize: 26, fontWeight: FontWeight.w900, letterSpacing: 4)),
-                        SizedBox(height: 6),
-                        Text('BARBERIA PREMIUM', style: TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 4)),
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [ // 140/2 logo + 30 separacion = textos debajo del logo
+                        const Text('BBS CLUB', style: TextStyle(color: Color(0xFFD4AF37), fontSize: 26, fontWeight: FontWeight.w900, letterSpacing: 4)),
+                        const SizedBox(height: 6),
+                        const Text('BARBERIA PREMIUM', style: TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 4)),
+                        const SizedBox(height: 26),
+                        Container(
+                          width: 40 + (t * 90),
+                          height: 2,
+                          decoration: BoxDecoration(color: const Color(0xFFD4AF37).withOpacity(0.55), borderRadius: BorderRadius.circular(2)),
+                        ),
+                        const SizedBox(height: 26),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: List.generate(3, (i) {
+                            final phase = (t * 2 - i * 0.35).clamp(0.0, 1.0);
+                            final op = 0.25 + (0.75 * (1 - (phase - 0.5).abs() * 2).clamp(0.0, 1.0));
+                            return Container(
+                              margin: const EdgeInsets.symmetric(horizontal: 5),
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(color: const Color(0xFFD4AF37).withOpacity(op), shape: BoxShape.circle),
+                            );
+                          }),
+                        ),
+                        const SizedBox(height: 16),
+                        const Text('Cargando...', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                        const SizedBox(height: 32),
+                        const Text('Manuel Montt 460 - local 6 - Coronel', style: TextStyle(color: Colors.white38, fontSize: 11)),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 26),
-                  // Linea dorada que se abre
-                  Container(
-                    width: 40 + (t * 90),
-                    height: 2,
-                    decoration: BoxDecoration(color: const Color(0xFFD4AF37).withOpacity(0.55), borderRadius: BorderRadius.circular(2)),
-                  ),
-                  const SizedBox(height: 26),
-                  // 3 puntitos dorados que laten en secuencia
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: List.generate(3, (i) {
-                      final phase = (t * 2 - i * 0.35).clamp(0.0, 1.0);
-                      final op = 0.25 + (0.75 * (1 - (phase - 0.5).abs() * 2).clamp(0.0, 1.0));
-                      return Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 5),
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(color: const Color(0xFFD4AF37).withOpacity(op), shape: BoxShape.circle),
-                      );
-                    }),
-                  ),
-                  const SizedBox(height: 16),
-                  const Text('Cargando...', style: TextStyle(color: Colors.white70, fontSize: 13)),
-                  const SizedBox(height: 32),
-                  const Text('Manuel Montt 460 - local 6 - Coronel', style: TextStyle(color: Colors.white38, fontSize: 11)),
-                ],
-              ),
+                ),
+              ],
             ),
           );
         },
