@@ -1,4 +1,4 @@
-// PREMIUM INTRODUCCION CENTRADA V5 FIX TRASLAPE - AuthGate con logo BBS CLUB dorado, fondo 0A0A0A. FIX 429 + SESION 8H intactos.
+// PREMIUM INTRODUCCION CENTRADA V6 CORREGIDA - AuthGate con logo BBS CLUB dorado, fondo 0A0A0A. FIX 429 + SESION 8H intactos.
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -182,12 +182,62 @@ class _AuthGateState extends State<AuthGate> {
 
   @override
   Widget build(BuildContext context) {
+    final uriPath = Uri.base.path;
+    if (uriPath == '/reservar' || uriPath == '/reservar/') {
+      return PublicBookingScreen();
+    }
+    if (_isLoading) {
+      return const _PremiumIntro();
+    }
+
+    final session = Supabase.instance.client.auth.currentSession;
+
+    if (session != null) {
+      return PosScreen();
+    }
+
+    return LoginScreen();
+  }
+}
+
+// INTRO PREMIUM ANIMADA - efecto al iniciar:
+// logo entra con zoom suave, brillo dorado que respira, linea dorada que se abre,
+// textos aparecen con fade, 3 puntitos dorados cargando.
+class _PremiumIntro extends StatefulWidget {
+  const _PremiumIntro();
+  @override
+  State<_PremiumIntro> createState() => _PremiumIntroState();
+}
+
+class _PremiumIntroState extends State<_PremiumIntro> with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _scale;
+  late Animation<double> _fade;
+  late Animation<double> _glow;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1800))..forward();
+    _scale = Tween<double>(begin: 0.72, end: 1.0).animate(CurvedAnimation(parent: _ctrl, curve: const Interval(0.0, 0.65, curve: Curves.easeOutBack)));
+    _fade = Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(parent: _ctrl, curve: const Interval(0.15, 0.7, curve: Curves.easeIn)));
+    _glow = Tween<double>(begin: 0.12, end: 0.34).animate(CurvedAnimation(parent: _ctrl, curve: const Interval(0.0, 1.0, curve: Curves.easeInOut)));
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+    Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0A0A0A),
       body: AnimatedBuilder(
         animation: _ctrl,
         builder: (context, _) {
-          final t = _ctrl.value;
+          final double t = _ctrl.value;
           return Container(
             width: double.infinity,
             height: double.infinity,
@@ -202,11 +252,10 @@ class _AuthGateState extends State<AuthGate> {
                 ],
               ),
             ),
-            // STACK: logo clavado al centro exacto, textos colgando abajo del logo
             child: Stack(
               alignment: Alignment.center,
               children: [
-                // 1. LOGO - centro exacto de la pantalla (horizontal + vertical)
+                // 1. LOGO - centro exacto
                 Align(
                   alignment: Alignment.center,
                   child: ScaleTransition(
@@ -244,7 +293,7 @@ class _AuthGateState extends State<AuthGate> {
                     ),
                   ),
                 ),
-                // 2. TEXTOS - Alignment(0, 0.55) = centrados horizontal, y abajo del logo. Sin SizedBox que los suba.
+                // 2. TEXTOS - abajo del logo, mismo eje vertical, sin traslape
                 Align(
                   alignment: const Alignment(0, 0.55),
                   child: FadeTransition(
@@ -252,7 +301,7 @@ class _AuthGateState extends State<AuthGate> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [ // 140/2 logo + 30 separacion = textos debajo del logo
+                      children: [
                         const Text('BBS CLUB', style: TextStyle(color: Color(0xFFD4AF37), fontSize: 26, fontWeight: FontWeight.w900, letterSpacing: 4)),
                         const SizedBox(height: 6),
                         const Text('BARBERIA PREMIUM', style: TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 4)),
@@ -267,8 +316,8 @@ class _AuthGateState extends State<AuthGate> {
                           mainAxisSize: MainAxisSize.min,
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: List.generate(3, (i) {
-                            final phase = (t * 2 - i * 0.35).clamp(0.0, 1.0);
-                            final op = 0.25 + (0.75 * (1 - (phase - 0.5).abs() * 2).clamp(0.0, 1.0));
+                            final double phase = (t * 2 - i * 0.35).clamp(0.0, 1.0);
+                            final double op = 0.25 + (0.75 * (1 - (phase - 0.5).abs() * 2).clamp(0.0, 1.0));
                             return Container(
                               margin: const EdgeInsets.symmetric(horizontal: 5),
                               width: 8,
