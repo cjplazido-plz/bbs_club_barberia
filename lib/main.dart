@@ -1,4 +1,4 @@
-// PREMIUM INTRODUCCION LOGO IMAGEN V7 JPG - AuthGate con logo BBS CLUB dorado, fondo 0A0A0A. FIX 429 + SESION 8H intactos.
+// PREMIUM INTRODUCCION LOGO UNICO V8 - AuthGate con logo BBS CLUB dorado, fondo 0A0A0A. FIX 429 + SESION 8H intactos.
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -255,7 +255,7 @@ class _PremiumIntroState extends State<_PremiumIntro> with SingleTickerProviderS
             child: Stack(
               alignment: Alignment.center,
               children: [
-                // 1. LOGO - centro exacto
+                                // 1. LOGO - UN SOLO LOGO, grande, sin circulo extra ni texto duplicado
                 Align(
                   alignment: Alignment.center,
                   child: ScaleTransition(
@@ -263,23 +263,19 @@ class _PremiumIntroState extends State<_PremiumIntro> with SingleTickerProviderS
                     child: FadeTransition(
                       opacity: _fade,
                       child: Container(
-                        width: 140,
-                        height: 140,
+                        width: 230,
+                        height: 230,
                         decoration: BoxDecoration(
-                          color: Colors.black,
                           shape: BoxShape.circle,
-                          border: Border.all(color: const Color(0xFFD4AF37).withOpacity(0.35), width: 1),
                           boxShadow: [
                             BoxShadow(color: const Color(0xFFD4AF37).withOpacity(_glow.value), blurRadius: 48, spreadRadius: 8),
-                            BoxShadow(color: Colors.black.withOpacity(0.6), blurRadius: 20),
                           ],
                         ),
-                        // LOGO REAL - imagen, no texto. Asi queda igual que tu logo, centrado y sin cortes.
                         child: ClipOval(
                           child: Image.asset(
-                            'assets/images/logo_circular_premium.jpg',
-                            width: 140,
-                            height: 140,
+                            'assets/images/logo_circular_premium_V8.jpg',
+                            width: 230,
+                            height: 230,
                             fit: BoxFit.cover,
                           ),
                         ),
@@ -289,16 +285,13 @@ class _PremiumIntroState extends State<_PremiumIntro> with SingleTickerProviderS
                 ),
                 // 2. TEXTOS - abajo del logo, mismo eje vertical, sin traslape
                 Align(
-                  alignment: const Alignment(0, 0.55),
+                  alignment: const Alignment(0, 0.68),
                   child: FadeTransition(
                     opacity: _fade,
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        const Text('BBS CLUB', style: TextStyle(color: Color(0xFFD4AF37), fontSize: 26, fontWeight: FontWeight.w900, letterSpacing: 4)),
-                        const SizedBox(height: 6),
-                        const Text('BARBERIA PREMIUM', style: TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 4)),
                         const SizedBox(height: 26),
                         Container(
                           width: 40 + (t * 90),
