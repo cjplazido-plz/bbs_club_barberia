@@ -1,4 +1,4 @@
-// PREMIUM INTRODUCCION V2 - AuthGate con logo BBS CLUB dorado, fondo 0A0A0A. FIX 429 + SESION 8H intactos.
+// PREMIUM INTRODUCCION ANIMADA V3 - AuthGate con logo BBS CLUB dorado, fondo 0A0A0A. FIX 429 + SESION 8H intactos.
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -172,7 +172,7 @@ class _AuthGateState extends State<AuthGate> {
       debugPrint('Error recuperando sesión: $e');
     }
     
-    await Future.delayed(const Duration(milliseconds: 400));
+    await Future.delayed(const Duration(milliseconds: 1800)); // PREMIUM: 1.8s para que se vea la animación completa
 
     _isIniting = false;
     if (mounted) {
@@ -187,56 +187,7 @@ class _AuthGateState extends State<AuthGate> {
       return PublicBookingScreen();
     }
     if (_isLoading) {
-      // INTRODUCCION PREMIUM V2 - igual que captura 2 pero en Premium: fondo negro, brillo dorado, no morado
-      return Scaffold(
-        backgroundColor: const Color(0xFF0A0A0A),
-        body: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Logo circular igual que la foto: circulo negro, BBS rojo + CLUB dorado, BARBERIA blanco
-              Container(
-                width: 140,
-                height: 140,
-                decoration: BoxDecoration(
-                  color: Colors.black,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: const Color(0xFFD4AF37).withOpacity(0.35), width: 1),
-                  boxShadow: [
-                    BoxShadow(color: const Color(0xFFD4AF37).withOpacity(0.28), blurRadius: 42, spreadRadius: 6),
-                    BoxShadow(color: Colors.black.withOpacity(0.6), blurRadius: 20),
-                  ],
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    RichText(
-                      text: const TextSpan(
-                        children: [
-                          TextSpan(text: 'BBS', style: TextStyle(color: Color(0xFFE11D2E), fontSize: 26, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
-                          TextSpan(text: 'CLUB', style: TextStyle(color: Color(0xFFFBBF24), fontSize: 26, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    const Text('BARBERIA', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 3)),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-              const Text('BBS CLUB', style: TextStyle(color: Color(0xFFD4AF37), fontSize: 26, fontWeight: FontWeight.w900, letterSpacing: 4)),
-              const SizedBox(height: 6),
-              const Text('BARBERIA PREMIUM', style: TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 4)),
-              const SizedBox(height: 28),
-              const SizedBox(width: 26, height: 26, child: CircularProgressIndicator(color: Color(0xFFD4AF37), strokeWidth: 2.5)),
-              const SizedBox(height: 16),
-              const Text('Cargando...', style: TextStyle(color: Colors.white70, fontSize: 13)),
-              const SizedBox(height: 32),
-              const Text('Manuel Montt 460 - local 6 - Coronel', style: TextStyle(color: Colors.white38, fontSize: 11)),
-            ],
-          ),
-        ),
-      );
+      return const _PremiumIntro();
     }
 
     final session = Supabase.instance.client.auth.currentSession;
@@ -246,5 +197,142 @@ class _AuthGateState extends State<AuthGate> {
     }
 
     return LoginScreen();
+  }
+}
+
+// INTRO PREMIUM ANIMADA - efecto al iniciar:
+// logo entra con zoom suave, brillo dorado que respira, linea dorada que se abre,
+// textos aparecen con fade, 3 puntitos dorados cargando.
+class _PremiumIntro extends StatefulWidget {
+  const _PremiumIntro();
+  @override
+  State<_PremiumIntro> createState() => _PremiumIntroState();
+}
+
+class _PremiumIntroState extends State<_PremiumIntro> with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _scale;
+  late Animation<double> _fade;
+  late Animation<double> _glow;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1800))..forward();
+    _scale = Tween<double>(begin: 0.72, end: 1.0).animate(CurvedAnimation(parent: _ctrl, curve: const Interval(0.0, 0.65, curve: Curves.easeOutBack)));
+    _fade = Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(parent: _ctrl, curve: const Interval(0.15, 0.7, curve: Curves.easeIn)));
+    _glow = Tween<double>(begin: 0.12, end: 0.34).animate(CurvedAnimation(parent: _ctrl, curve: const Interval(0.0, 1.0, curve: Curves.easeInOut)));
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0A0A0A),
+      body: AnimatedBuilder(
+        animation: _ctrl,
+        builder: (context, _) {
+          final t = _ctrl.value;
+          return Container(
+            decoration: BoxDecoration(
+              gradient: RadialGradient(
+                center: const Alignment(0, -0.25),
+                radius: 0.85,
+                colors: [
+                  const Color(0xFFD4AF37).withOpacity(0.10),
+                  const Color(0xFF0A0A0A),
+                  const Color(0xFF0A0A0A),
+                ],
+              ),
+            ),
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Logo con zoom + brillo dorado que respira
+                  ScaleTransition(
+                    scale: _scale,
+                    child: FadeTransition(
+                      opacity: _fade,
+                      child: Container(
+                        width: 140,
+                        height: 140,
+                        decoration: BoxDecoration(
+                          color: Colors.black,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: const Color(0xFFD4AF37).withOpacity(0.35), width: 1),
+                          boxShadow: [
+                            BoxShadow(color: const Color(0xFFD4AF37).withOpacity(_glow.value), blurRadius: 48, spreadRadius: 8),
+                            BoxShadow(color: Colors.black.withOpacity(0.6), blurRadius: 20),
+                          ],
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            RichText(
+                              text: const TextSpan(
+                                children: [
+                                  TextSpan(text: 'BBS', style: TextStyle(color: Color(0xFFE11D2E), fontSize: 26, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
+                                  TextSpan(text: 'CLUB', style: TextStyle(color: Color(0xFFFBBF24), fontSize: 26, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            const Text('BARBERIA', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 3)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  // Textos con fade
+                  FadeTransition(
+                    opacity: _fade,
+                    child: Column(
+                      children: const [
+                        Text('BBS CLUB', style: TextStyle(color: Color(0xFFD4AF37), fontSize: 26, fontWeight: FontWeight.w900, letterSpacing: 4)),
+                        SizedBox(height: 6),
+                        Text('BARBERIA PREMIUM', style: TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 4)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 26),
+                  // Linea dorada que se abre
+                  Container(
+                    width: 40 + (t * 90),
+                    height: 2,
+                    decoration: BoxDecoration(color: const Color(0xFFD4AF37).withOpacity(0.55), borderRadius: BorderRadius.circular(2)),
+                  ),
+                  const SizedBox(height: 26),
+                  // 3 puntitos dorados que laten en secuencia
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: List.generate(3, (i) {
+                      final phase = (t * 2 - i * 0.35).clamp(0.0, 1.0);
+                      final op = 0.25 + (0.75 * (1 - (phase - 0.5).abs() * 2).clamp(0.0, 1.0));
+                      return Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 5),
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(color: const Color(0xFFD4AF37).withOpacity(op), shape: BoxShape.circle),
+                      );
+                    }),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('Cargando...', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                  const SizedBox(height: 32),
+                  const Text('Manuel Montt 460 - local 6 - Coronel', style: TextStyle(color: Colors.white38, fontSize: 11)),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 }
