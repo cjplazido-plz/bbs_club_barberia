@@ -13,16 +13,16 @@
   <style>
     html,body{margin:0;padding:0;background:#0A0A0A;height:100%;overflow:hidden;}
     /* SPLASH WEB PREMIUM - mismo que la intro Flutter: logo con zoom + brillo dorado + puntitos */
-    #splash{position:fixed;inset:0;background:#0A0A0A;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;font-family:Arial,sans-serif;}
-    #splash .halo{position:absolute;width:320px;height:320px;border-radius:50%;background:radial-gradient(circle, rgba(212,175,55,.22) 0%, rgba(212,175,55,0) 65%);animation:respira 1.8s ease-in-out infinite;}
+    #splash{position:fixed;inset:0;background:#0A0A0A;z-index:9999;font-family:Arial,sans-serif;overflow:hidden;}
+    #splash .halo{position:absolute;top:50%;left:50%;margin:-160px 0 0 -160px;width:320px;height:320px;border-radius:50%;background:radial-gradient(circle, rgba(212,175,55,.22) 0%, rgba(212,175,55,0) 65%);animation:respira 1.8s ease-in-out infinite;}
     @keyframes respira{0%,100%{transform:scale(.9);opacity:.7}50%{transform:scale(1.08);opacity:1}}
-    #splash .logo{width:140px;height:140px;background:#000;border:1px solid rgba(212,175,55,.35);border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 0 48px rgba(212,175,55,.32);animation:zoom 1.2s cubic-bezier(.2,.9,.3,1.4) both;}
+    #splash .logo{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:140px;height:140px;background:#000;border:1px solid rgba(212,175,55,.35);border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 0 48px rgba(212,175,55,.32);animation:zoom 1.2s cubic-bezier(.2,.9,.3,1.4) both;}
     @keyframes zoom{from{transform:scale(.72);opacity:0}to{transform:scale(1);opacity:1}}
     #splash .logo b{font-size:26px;font-weight:900;letter-spacing:.5px;line-height:1;}
     #splash .logo b i{font-style:normal;color:#E11D2E;}
     #splash .logo b em{font-style:normal;color:#FBBF24;}
     #splash .logo span{color:#fff;font-size:8px;font-weight:700;letter-spacing:3px;margin-top:3px;}
-    #splash h1{color:#D4AF37;font-size:26px;font-weight:900;letter-spacing:4px;margin:24px 0 6px;}
+    #splash h1{color:#D4AF37;font-size:26px;font-weight:900;letter-spacing:4px;margin:0 0 6px;text-align:center;}
     #splash p{color:rgba(255,255,255,.55);font-size:12px;letter-spacing:4px;font-weight:600;margin:0;}
     #splash .linea{width:130px;height:2px;background:rgba(212,175,55,.55);border-radius:2px;margin:26px 0;}
     #splash .puntos{display:flex;gap:10px;}
@@ -38,12 +38,12 @@
   <div id="splash">
     <div class="halo"></div>
     <div class="logo"><b><i>BBS</i><em>CLUB</em></b><span>BARBERIA</span></div>
-    <h1>BBS CLUB</h1>
+    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,0);margin-top:100px;display:flex;flex-direction:column;align-items:center;"><h1>BBS CLUB</h1>
     <p>BARBERIA PREMIUM</p>
     <div class="linea"></div>
     <div class="puntos"><i></i><i></i><i></i></div>
     <div class="cargando">Cargando...</div>
-    <div class="dir">Manuel Montt 460 - local 6 - Coronel</div>
+    <div class="dir">Manuel Montt 460 - local 6 - Coronel</div></div>
   </div>
   <script src="flutter_bootstrap.js" async></script>
   <script>

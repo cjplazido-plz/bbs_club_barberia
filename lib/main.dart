@@ -1,4 +1,4 @@
-// PREMIUM INTRODUCCION CENTRADA V6 CORREGIDA - AuthGate con logo BBS CLUB dorado, fondo 0A0A0A. FIX 429 + SESION 8H intactos.
+// PREMIUM INTRODUCCION LOGO IMAGEN V7 JPG - AuthGate con logo BBS CLUB dorado, fondo 0A0A0A. FIX 429 + SESION 8H intactos.
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -274,20 +274,14 @@ class _PremiumIntroState extends State<_PremiumIntro> with SingleTickerProviderS
                             BoxShadow(color: Colors.black.withOpacity(0.6), blurRadius: 20),
                           ],
                         ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            RichText(
-                              text: const TextSpan(
-                                children: [
-                                  TextSpan(text: 'BBS', style: TextStyle(color: Color(0xFFE11D2E), fontSize: 26, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
-                                  TextSpan(text: 'CLUB', style: TextStyle(color: Color(0xFFFBBF24), fontSize: 26, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 3),
-                            const Text('BARBERIA', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 3)),
-                          ],
+                        // LOGO REAL - imagen, no texto. Asi queda igual que tu logo, centrado y sin cortes.
+                        child: ClipOval(
+                          child: Image.asset(
+                            'assets/images/logo_circular_premium.jpg',
+                            width: 140,
+                            height: 140,
+                            fit: BoxFit.cover,
+                          ),
                         ),
                       ),
                     ),
