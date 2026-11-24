@@ -222,7 +222,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
         return AlertDialog(
           backgroundColor: const Color(0xFF1E293B),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text('\U0001f4b0 Propina', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+          title: const Text('💰 Propina', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
           content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
             const Text('Barbero que recibe la propina', style: TextStyle(color: Colors.white70, fontSize: 12)),
             const SizedBox(height: 6),
@@ -765,8 +765,6 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
                 _buildMenuItem(Icons.trending_up, 'Reporte Caja / Cuadratura', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ReportsScreen())); }),   
               if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewCommissions))
                 _buildMenuItem(Icons.monetization_on, 'Comisiones', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => CommissionsScreen())); }),
-                if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewCommissions))
-                _buildMenuItem(Icons.monetization_on, 'Propinas Acumuladas', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => TipsScreen())); }),
                  const Divider(color: Colors.white10),
               if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewAgenda))
                 _buildMenuItem(Icons.calendar_month, 'Agenda / Recervas', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => AppointmentsScreen())); }),  

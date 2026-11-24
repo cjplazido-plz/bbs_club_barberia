@@ -85,7 +85,7 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
       final endStr = _endDate.add(const Duration(days: 1)).toIso8601String();
       final response = await Supabase.instance.client
           .from('transaction_items')
-          .select("barber_id, barber_name, price_at_moment, quantity, commission_earned, transactions!inner(created_at, status)")
+          .select("barber_id, barber_name, service_name, price_at_moment, quantity, commission_earned, transactions!inner(folio, payment_method, created_at, status)")
           .eq('item_type', 'service')
           .gte('transactions.created_at', startStr)
           .lt('transactions.created_at', endStr)
@@ -104,6 +104,13 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
     final expectedTotal = price * quantity * 0.5;
     final commission = (quantity > 1 && storedCommission < expectedTotal * 0.9) ? expectedTotal : storedCommission;
         final totalItem = price * quantity;
+        // DETALLE - un movimiento por fila de transaction_items, para el comprobante.
+        // Folio y pago vienen de transactions (pueden venir null en ventas viejas).
+        final tx = item['transactions'] is Map ? (item['transactions'] as Map) : <String, dynamic>{};
+        final folioVenta = (tx['folio'] ?? '').toString();
+        final pagoVenta = (tx['payment_method'] ?? '').toString();
+        final fechaVenta = (tx['created_at'] ?? '').toString();
+        final servicioVenta = (item['service_name'] ?? '').toString();
         if (!barberMap.containsKey(barberId)) {
           barberMap[barberId] = {
             'barber_id': barberId,
@@ -111,13 +118,27 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
             'total_sales': 0.0,
             'total_commission': 0.0,
             'services_count': 0,
+            'detalle': <Map<String, dynamic>>[],
           };
         }
+        (barberMap[barberId]!['detalle'] as List<Map<String, dynamic>>).add({
+          'folio': folioVenta,
+          'pago': pagoVenta,
+          'fecha': fechaVenta,
+          'servicio': servicioVenta,
+          'cantidad': quantity,
+          'venta': totalItem,
+          'comision': commission,
+        });
         barberMap[barberId]!['total_sales'] = (barberMap[barberId]!['total_sales'] as double) + totalItem;
         barberMap[barberId]!['total_commission'] = (barberMap[barberId]!['total_commission'] as double) + commission;
         barberMap[barberId]!['services_count'] = (barberMap[barberId]!['services_count'] as int) + quantity;
       }
       final commissions = barberMap.values.toList();
+      for (final c in commissions) {
+        final det = (c['detalle'] as List<Map<String, dynamic>>);
+        det.sort((a, b) => (b['fecha'] as String).compareTo(a['fecha'] as String));
+      }
       commissions.sort((a, b) => (b['total_commission'] as double).compareTo(a['total_commission'] as double));
       final totalCommissions = commissions.fold(0.0, (sum, c) => sum + (c['total_commission'] as double));
       final totalSales = commissions.fold(0.0, (sum, c) => sum + (c['total_sales'] as double));
@@ -300,6 +321,25 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
     ));
   }
 
+  // Etiqueta corta de pago: cash -> Efectivo, card -> Tarjeta, transfer -> Transfer., mixed -> Mixto
+  String _labelPagoCorto(String m) {
+    final v = m.toLowerCase().trim();
+    if (v == 'cash' || v == 'efectivo') return 'Efectivo';
+    if (v == 'card' || v == 'tarjeta') return 'Tarjeta';
+    if (v == 'transfer' || v == 'transferencia') return 'Transfer.';
+    if (v == 'mixed' || v == 'mixto') return 'Mixto';
+    if (v.isEmpty) return '—';
+    return m;
+  }
+
+  String _fechaCorta(String iso) {
+    try {
+      if (iso.isEmpty) return '';
+      final d = DateTime.parse(iso);
+      return DateFormat('dd/MM HH:mm').format(d);
+    } catch (_) { return ''; }
+  }
+
   void _showComprobanteDialog(Map<String, dynamic> barber) {
     String metodoPago = 'cash';
     final name = barber['barber_name'] as String;
@@ -333,6 +373,31 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
             _comprobanteRow('Servicios:', '$count servicios'),
             _comprobanteRow('Ventas:', SettingsService.formatCurrency(sales)),
             _comprobanteRow('% Comisión:', '${rate.toStringAsFixed(1)}%'),
+            const SizedBox(height: 10),
+            // DETALLE - lista de movimientos, para revisar de donde salio el total.
+            // Columnas: Folio venta | Tipo pago | Venta -> Comision. Servicio abajo para que quepa en 340px.
+            Container(width: double.infinity, padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: const Color(0xFFF8F8F8), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFFE5E5E5))), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('DETALLE - Movimientos', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black)),
+              const SizedBox(height: 6),
+              Row(children: const [Expanded(flex: 2, child: Text('FOLIO', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.black54))), Expanded(flex: 2, child: Text('PAGO', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.black54))), Expanded(flex: 2, child: Text('VENTA', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.black54), textAlign: TextAlign.right)), Expanded(flex: 2, child: Text('COMISION', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.black54), textAlign: TextAlign.right))]),
+              const Divider(color: Colors.black26, height: 10),
+              ...((barber['detalle'] as List<Map<String, dynamic>>? ?? <Map<String, dynamic>>[]).map((d) {
+                final folioD = (d['folio'] as String).isEmpty ? '—' : '#${d['folio']}';
+                final servicioD = (d['servicio'] as String).isEmpty ? 'Servicio' : (d['servicio'] as String);
+                final cantD = (d['cantidad'] as int);
+                final fechaD = _fechaCorta(d['fecha'] as String);
+                return Padding(padding: const EdgeInsets.only(bottom: 7), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    Expanded(flex: 2, child: Text(folioD, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black))),
+                    Expanded(flex: 2, child: Text(_labelPagoCorto(d['pago'] as String), style: const TextStyle(fontSize: 10, color: Colors.black))),
+                    Expanded(flex: 2, child: Text(SettingsService.formatCurrency((d['venta'] as double)), style: const TextStyle(fontSize: 10, color: Colors.black), textAlign: TextAlign.right)),
+                    Expanded(flex: 2, child: Text(SettingsService.formatCurrency((d['comision'] as double)), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black), textAlign: TextAlign.right)),
+                  ]),
+                  const SizedBox(height: 1),
+                  Text('$servicioD${cantD > 1 ? ' x$cantD' : ''}${fechaD.isEmpty ? '' : ' • $fechaD'}', style: const TextStyle(fontSize: 9, color: Colors.black54)),
+                ]));
+              }).toList()),
+            ])),
             const SizedBox(height: 10),
             Container(width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12), decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(8)), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('TOTAL A PAGAR', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)), Text(SettingsService.formatCurrency(commission), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18))])),
             const SizedBox(height: 18),
@@ -384,6 +449,28 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
         pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Ventas:', style: const pw.TextStyle(fontSize: 10)), pw.Text(SettingsService.formatCurrency(sales), style: const pw.TextStyle(fontSize: 10))]),
         pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('% Comisión:', style: const pw.TextStyle(fontSize: 10)), pw.Text('${rate.toStringAsFixed(1)}%', style: const pw.TextStyle(fontSize: 10))]),
         pw.SizedBox(height: 3 * PdfPageFormat.mm),
+        // DETALLE termico - misma lista que el dialogo, para revisar en papel.
+        pw.Text('DETALLE - Movimientos', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+        pw.SizedBox(height: 1 * PdfPageFormat.mm),
+        pw.Row(children: [pw.Expanded(flex: 2, child: pw.Text('FOLIO', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold))), pw.Expanded(flex: 2, child: pw.Text('PAGO', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold))), pw.Expanded(flex: 2, child: pw.Text('VENTA', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold), textAlign: pw.TextAlign.right)), pw.Expanded(flex: 2, child: pw.Text('COMISION', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold), textAlign: pw.TextAlign.right))]),
+        pw.Divider(thickness: 0.5, borderStyle: pw.BorderStyle.dashed),
+        ...((barber['detalle'] as List<Map<String, dynamic>>? ?? <Map<String, dynamic>>[]).map((d) {
+          final folioD = (d['folio'] as String).isEmpty ? '-' : '#${d['folio']}';
+          final servicioD = (d['servicio'] as String).isEmpty ? 'Servicio' : (d['servicio'] as String);
+          final cantD = (d['cantidad'] as int);
+          final fechaD = _fechaCorta(d['fecha'] as String);
+          return pw.Padding(padding: const pw.EdgeInsets.only(bottom: 1.5 * PdfPageFormat.mm), child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+            pw.Row(children: [
+              pw.Expanded(flex: 2, child: pw.Text(folioD, style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold))),
+              pw.Expanded(flex: 2, child: pw.Text(_labelPagoCorto(d['pago'] as String), style: const pw.TextStyle(fontSize: 9))),
+              pw.Expanded(flex: 2, child: pw.Text(SettingsService.formatCurrency((d['venta'] as double)), style: const pw.TextStyle(fontSize: 9), textAlign: pw.TextAlign.right)),
+              pw.Expanded(flex: 2, child: pw.Text(SettingsService.formatCurrency((d['comision'] as double)), style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold), textAlign: pw.TextAlign.right)),
+            ]),
+            pw.Text('$servicioD${cantD > 1 ? ' x$cantD' : ''}${fechaD.isEmpty ? '' : ' - $fechaD'}', style: const pw.TextStyle(fontSize: 8)),
+          ]));
+        }).toList()),
+        pw.Divider(thickness: 0.5, borderStyle: pw.BorderStyle.dashed),
+        pw.SizedBox(height: 2 * PdfPageFormat.mm),
         pw.Container(padding: pw.EdgeInsets.symmetric(vertical: 3 * PdfPageFormat.mm, horizontal: 3 * PdfPageFormat.mm), decoration: pw.BoxDecoration(border: pw.Border.all(width: 1)), child: pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('TOTAL A PAGAR', style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold)), pw.Text(SettingsService.formatCurrency(commission), style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold))])),
         pw.SizedBox(height: 6 * PdfPageFormat.mm),
         pw.Row(children: [pw.Expanded(child: pw.Column(children: [pw.Divider(), pw.Text('Firma Barbero', style: const pw.TextStyle(fontSize: 9), textAlign: pw.TextAlign.center)])), pw.SizedBox(width: 4 * PdfPageFormat.mm), pw.Expanded(child: pw.Column(children: [pw.Divider(), pw.Text('Firma Admin', style: const pw.TextStyle(fontSize: 9), textAlign: pw.TextAlign.center)]))]),
