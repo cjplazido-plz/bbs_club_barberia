@@ -31,6 +31,7 @@ import 'login_screen.dart';
 import 'settings_screen.dart';
 import 'advanced_reports_screen.dart';
 import 'commissions_screen.dart';
+import 'tips_screen.dart'; // PROPINA - Pantalla Propinas Acumuladas
 import 'roles_screen.dart' as roles_screen; // <-- Restaurado
 import '../services/role_permissions.dart'; // <-- EL IMPORT QUE FALTABA Y CAUSABA EL ERROR
 
@@ -172,6 +173,126 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
       }
     });
     _snack('✅ ${service.name} agregado');
+  }
+
+  // --- PROPINA - Servicio virtual con valor editable - Patricio ---
+  // No necesita servicio fijo en Supabase. Se crea en el POS con el monto que diga el cliente.
+  // Comision = 0 porque la propina es 100% del barbero, no va al 50% de comision normal.
+  Widget _buildPropinaCard() {
+    final gold = const Color(0xFFFBBF24);
+    return InkWell(
+      onTap: _showPropinaDialog,
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFF1E293B),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: gold, width: 1.5),
+          boxShadow: [BoxShadow(color: gold.withOpacity(0.25), blurRadius: 10, offset: const Offset(0, 3))],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Container(padding: const EdgeInsets.all(7), decoration: BoxDecoration(color: gold.withOpacity(0.2), shape: BoxShape.circle), child: const Icon(Icons.monetization_on_rounded, size: 16, color: Color(0xFFFBBF24))),
+              const Spacer(),
+              Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: gold.withOpacity(0.2), borderRadius: BorderRadius.circular(20)), child: const Text('Editable', style: TextStyle(color: Color(0xFFFBBF24), fontSize: 11, fontWeight: FontWeight.bold))),
+            ]),
+            const SizedBox(height: 8),
+            const Flexible(child: Text('Propina', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold, height: 1.05))),
+            const SizedBox(height: 3),
+            const Text('Monto a mano \u2022 100% barbero', style: TextStyle(color: Colors.white38, fontSize: 10)),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  void _showPropinaDialog() {
+    // Misma regla que servicios: sin permiso Vender no entra propina
+    if (!RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.sell)) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('\u26d4 No tienes permiso para vender.'), backgroundColor: Colors.redAccent));
+      return;
+    }
+    if (_selectedBarber == null) { _showBarberRequiredDialog(); return; }
+    final ctrl = TextEditingController();
+    LocalBarber? barbero = _selectedBarber;
+    showDialog(
+      context: context,
+      builder: (c) => StatefulBuilder(builder: (ctx, setModal) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1E293B),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('\U0001f4b0 Propina', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+          content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('Barbero que recibe la propina', style: TextStyle(color: Colors.white70, fontSize: 12)),
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              decoration: BoxDecoration(color: const Color(0xFF0F172A), borderRadius: BorderRadius.circular(10)),
+              child: DropdownButton<LocalBarber>(
+                value: barbero, isExpanded: true, dropdownColor: const Color(0xFF1E293B), underline: const SizedBox(),
+                style: const TextStyle(color: Colors.white, fontSize: 13),
+                items: _barbers.map((b) => DropdownMenuItem(value: b, child: Text(b.name))).toList(),
+                onChanged: (v) => setModal(() => barbero = v),
+              ),
+            ),
+            const SizedBox(height: 14),
+            const Text('Monto de la propina', style: TextStyle(color: Colors.white70, fontSize: 12)),
+            const SizedBox(height: 6),
+            TextField(
+              controller: ctrl, keyboardType: TextInputType.number, autofocus: true,
+              style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+              decoration: InputDecoration(
+                prefixText: '\$ ', prefixStyle: const TextStyle(color: Color(0xFFFBBF24), fontSize: 18, fontWeight: FontWeight.bold),
+                hintText: 'Ej: 5000', hintStyle: const TextStyle(color: Colors.white38),
+                filled: true, fillColor: const Color(0xFF0F172A),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Wrap(spacing: 8, children: [1000, 2000, 5000, 10000].map((m) => ActionChip(
+              label: Text('\$${m.toString()}', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+              backgroundColor: const Color(0xFFFBBF24).withOpacity(0.15),
+              side: const BorderSide(color: Color(0xFFFBBF24)),
+              onPressed: () => setModal(() => ctrl.text = m.toString()),
+            )).toList()),
+            const SizedBox(height: 8),
+            const Text('La propina suma al total de la venta y a caja, pero NO genera comision al 50%. Es 100% del barbero.', style: TextStyle(color: Colors.white38, fontSize: 11)),
+          ]),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(c), child: const Text('Cancelar', style: TextStyle(color: Colors.grey))),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFBBF24)),
+              onPressed: () {
+                final monto = double.tryParse(ctrl.text.replaceAll('.', '').replaceAll(',', '.')) ?? 0;
+                if (monto <= 0) { _snack('\u26a0\ufe0f Ingresa un monto mayor a 0'); return; }
+                if (barbero == null) { _snack('\u26a0\ufe0f Selecciona el barbero'); return; }
+                Navigator.pop(c);
+                _addPropinaToCart(monto, barbero!);
+              },
+              child: const Text('Agregar', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      }),
+    );
+  }
+
+  void _addPropinaToCart(double monto, LocalBarber barbero) {
+    setState(() {
+      // Siempre fila nueva, no suma cantidad, para varias propinas con montos distintos en la misma venta.
+      _cart.add(LocalTransactionItem()
+        ..type = 'service'
+        ..serviceId = 'propina'
+        ..serviceName = 'Propina'
+        ..barberId = barbero.remoteId ?? ''
+        ..barberName = barbero.name
+        ..priceAtMoment = monto
+        ..quantity = 1
+        ..commissionEarned = 0);
+      _selectedBarber = barbero;
+    });
+    _snack('\u2705 Propina \$${monto.toStringAsFixed(0)} para ${barbero.name}');
   }
 
   void _addProductToCart(LocalProduct product) {
@@ -644,6 +765,8 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
                 _buildMenuItem(Icons.trending_up, 'Reporte Caja / Cuadratura', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => ReportsScreen())); }),   
               if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewCommissions))
                 _buildMenuItem(Icons.monetization_on, 'Comisiones', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => CommissionsScreen())); }),
+                if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewCommissions))
+                _buildMenuItem(Icons.monetization_on, 'Propinas Acumuladas', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => TipsScreen())); }),
                  const Divider(color: Colors.white10),
               if (RolePermissions.can(_myRole ?? currentUserRole, BbsPerm.viewAgenda))
                 _buildMenuItem(Icons.calendar_month, 'Agenda / Recervas', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => AppointmentsScreen())); }),  
@@ -745,7 +868,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
       body: isMobile
           ? Column(children: [
               Expanded(child: TabBarView(controller: _tabController, children: [
-                _services.isEmpty ? const Center(child: Text('No hay servicios', style: TextStyle(color: Colors.white54, fontSize: 13))) : GridView.builder(padding: const EdgeInsets.all(10), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, childAspectRatio: 1.02, crossAxisSpacing: 10, mainAxisSpacing: 10), itemCount: _services.length, itemBuilder: (c,i)=>_buildServiceCard(_services[i])),
+                GridView.builder(padding: const EdgeInsets.all(10), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, childAspectRatio: 1.02, crossAxisSpacing: 10, mainAxisSpacing: 10), itemCount: _services.length + 1, itemBuilder: (c,i)=> i == 0 ? _buildPropinaCard() : _buildServiceCard(_services[i - 1])),
                 _products.isEmpty ? const Center(child: Text('No hay productos', style: TextStyle(color: Colors.white54, fontSize: 13))) : GridView.builder(padding: const EdgeInsets.all(10), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, childAspectRatio: 1.02, crossAxisSpacing: 10, mainAxisSpacing: 10), itemCount: _products.length, itemBuilder: (c,i)=>_buildProductCard(_products[i])),
               ])),
               _buildMobileBottomBar(),
@@ -753,7 +876,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
           : Row(children: [
               Expanded(child: Column(children: [
                 Expanded(child: TabBarView(controller: _tabController, children: [
-                  _services.isEmpty ? const Center(child: Text('No hay servicios', style: TextStyle(color: Colors.white54))) : GridView.builder(padding: const EdgeInsets.all(16), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, childAspectRatio: 1.08, crossAxisSpacing: 12, mainAxisSpacing: 12), itemCount: _services.length, itemBuilder: (c,i)=>_buildServiceCard(_services[i])),
+                  GridView.builder(padding: const EdgeInsets.all(16), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, childAspectRatio: 1.08, crossAxisSpacing: 12, mainAxisSpacing: 12), itemCount: _services.length + 1, itemBuilder: (c,i)=> i == 0 ? _buildPropinaCard() : _buildServiceCard(_services[i - 1])),
                   _products.isEmpty ? const Center(child: Text('No hay productos', style: TextStyle(color: Colors.white54))) : GridView.builder(padding: const EdgeInsets.all(16), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, childAspectRatio: 1.08, crossAxisSpacing: 12, mainAxisSpacing: 12), itemCount: _products.length, itemBuilder: (c,i)=>_buildProductCard(_products[i])),
                 ]))
               ])),

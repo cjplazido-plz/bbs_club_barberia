@@ -1,4 +1,5 @@
 // PREMIUM INTRODUCCION LOGO UNICO V8 - AuthGate con logo BBS CLUB dorado, fondo 0A0A0A. FIX 429 + SESION 8H intactos.
+import 'screens/tips_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -77,6 +78,7 @@ class _BarberFlowAppState extends State<BarberFlowApp> {
           '/reservar': (context) => PublicBookingScreen(),
           '/agenda': (context) => AppointmentsScreen(),
           '/pos': (context) => PosScreen(),
+          '/propinas': (context) => TipsScreen(),
         },
       ),
     );
