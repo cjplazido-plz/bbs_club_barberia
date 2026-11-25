@@ -644,7 +644,7 @@ class _PosScreenState extends State<PosScreen> with SingleTickerProviderStateMix
         debugPrint('Error ticket Easton: $e');
         try { await _printer.printTicket(transaction); } catch (_) {}
       }
-      if(mounted){ setState((){ _cart.clear(); _selectedClient=null; _selectedAppointment=null; _discount=0; _mixedPayments.clear(); }); _snack('✅ Venta registrada - Folio $folioStr'); await _loadData(); }
+      if(mounted){ setState((){ _cart.clear(); _selectedClient=null; _selectedAppointment=null; _discount=0; _mixedPayments.clear(); _selectedBarber=null; }); _snack('✅ Venta registrada - Folio $folioStr'); await _loadData(); }
     }catch(e){ if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red)); }
   }
 

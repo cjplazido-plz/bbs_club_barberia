@@ -227,29 +227,55 @@ class _TipsScreenState extends State<TipsScreen> {
       backgroundColor: const Color(0xFF0A0A0A),
       appBar: AppBar(backgroundColor: const Color(0xFF0A0A0A), title: const Text('💰 Propinas Acumuladas', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), iconTheme: const IconThemeData(color: Colors.white), actions: [IconButton(icon: const Icon(Icons.refresh), onPressed: _loadTips)]),
       body: _isLoading ? const Center(child: CircularProgressIndicator(color: Color(0xFFD4AF37))) : SingleChildScrollView(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        // FILTROS - igual estilo que Comisiones / Avanzados
-        Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: const Color(0xFF141414), borderRadius: BorderRadius.circular(14), border: Border.all(color: gold.withOpacity(0.3))), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Filtros', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-          const SizedBox(height: 8),
-          Wrap(spacing: 8, children: [
-            _chip('Hoy', 'today'), _chip('Esta Semana', 'week'), _chip('Este Mes', 'month'), _chip('Personalizado', 'custom'),
+        // FILTROS - IGUAL QUE COMISIONES PREMIUM
+        // Misma estructura que Comisiones: titulo + Periodo de Analisis + segmentado Hoy/Semana/Mes + fecha con EDITAR + Filtrar por Barbero
+        Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: const Color(0xFF141414), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.white.withOpacity(0.08))), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: gold.withOpacity(0.15), borderRadius: BorderRadius.circular(10)), child: Icon(Icons.tune_rounded, color: gold, size: 18)),
+            const SizedBox(width: 10),
+            const Text('Filtros de Búsqueda', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+          ]),
+          const SizedBox(height: 16),
+          Row(children: [
+            Icon(Icons.calendar_month_rounded, color: gold, size: 18),
+            const SizedBox(width: 8),
+            const Text('Período de Análisis', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
           ]),
           const SizedBox(height: 10),
-          Row(children: [
-            Expanded(child: InkWell(onTap: () => _pickDate(true), child: Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: const Color(0xFF0A0A0A), borderRadius: BorderRadius.circular(10)), child: Text('Desde: ${DateFormat('dd/MM/yyyy').format(_startDate)}', style: const TextStyle(color: Colors.white, fontSize: 12))))),
+          // Segmentado Hoy / Semana / Mes - igual que Comisiones
+          Container(decoration: BoxDecoration(color: const Color(0xFF0A0A0A), borderRadius: BorderRadius.circular(30), border: Border.all(color: Colors.white.withOpacity(0.08))), child: Row(children: [
+            _segmentButton('Hoy', 'today', isFirst: true),
+            _segmentButton('Semana', 'week'),
+            _segmentButton('Mes', 'month', isLast: true),
+          ])),
+          const SizedBox(height: 12),
+          // Fecha + EDITAR (abre rango Personalizado) - igual que Comisiones
+          Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10), decoration: BoxDecoration(color: const Color(0xFF0A0A0A), borderRadius: BorderRadius.circular(14)), child: Row(children: [
+            const Icon(Icons.calendar_today_rounded, color: Colors.white54, size: 18),
+            const SizedBox(width: 10),
+            Expanded(child: Text("${DateFormat('dd/MM/yyyy').format(_startDate)}  →  ${DateFormat('dd/MM/yyyy').format(_endDate)}", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13))),
+            if (_activeQuickFilter == 'custom') Container(margin: const EdgeInsets.only(right: 8), padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: gold.withOpacity(0.15), borderRadius: BorderRadius.circular(20)), child: Text('Personalizado', style: TextStyle(color: gold, fontSize: 10, fontWeight: FontWeight.bold))),
+            InkWell(onTap: _pickDateRange, borderRadius: BorderRadius.circular(20), child: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5), decoration: BoxDecoration(color: gold.withOpacity(0.15), borderRadius: BorderRadius.circular(20)), child: Text('EDITAR', style: TextStyle(color: gold, fontSize: 11, fontWeight: FontWeight.bold)))),
+          ])),
+          const SizedBox(height: 14),
+          Text('Filtrar por Barbero', style: TextStyle(color: gold, fontSize: 11, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 6),
+          Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2), decoration: BoxDecoration(color: const Color(0xFF0A0A0A), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.white.withOpacity(0.08))), child: Row(children: [
+            Icon(Icons.person_rounded, color: gold, size: 18),
+            const SizedBox(width: 4),
+            const Icon(Icons.group_rounded, color: Color(0xFF38BDF8), size: 18),
             const SizedBox(width: 8),
-            Expanded(child: InkWell(onTap: () => _pickDate(false), child: Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: const Color(0xFF0A0A0A), borderRadius: BorderRadius.circular(10)), child: Text('Hasta: ${DateFormat('dd/MM/yyyy').format(_endDate)}', style: const TextStyle(color: Colors.white, fontSize: 12))))),
-          ]),
-          const SizedBox(height: 10),
-          Row(children: [
-            Expanded(child: Container(padding: const EdgeInsets.symmetric(horizontal: 10), decoration: BoxDecoration(color: const Color(0xFF0A0A0A), borderRadius: BorderRadius.circular(10)), child: DropdownButton<String>(value: _selectedBarberId, isExpanded: true, dropdownColor: const Color(0xFF141414), underline: const SizedBox(), style: const TextStyle(color: Colors.white, fontSize: 12), items: [const DropdownMenuItem(value: 'all', child: Text('Todos los barberos'))] + _tipsPerBarber.map((b) => DropdownMenuItem(value: (b['barber_id'] ?? '').toString(), child: Text(b['barber_name']))).toList(), onChanged: (v) => setState(() => _selectedBarberId = v ?? 'all')))),
+            Expanded(child: DropdownButtonHideUnderline(child: DropdownButton<String>(value: _selectedBarberId, isExpanded: true, dropdownColor: const Color(0xFF1A1A1A), icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white54), style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500), items: [const DropdownMenuItem(value: 'all', child: Text('Todos los barberos'))] + _tipsPerBarber.map((b) => DropdownMenuItem(value: (b['barber_id'] ?? '').toString(), child: Text(b['barber_name']))).toList(), onChanged: (v) => setState(() => _selectedBarberId = v ?? 'all')))),
+          ])),
+          const SizedBox(height: 12),
+          Text('Filtrar por Estado', style: TextStyle(color: gold, fontSize: 11, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 6),
+          Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2), decoration: BoxDecoration(color: const Color(0xFF0A0A0A), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.white.withOpacity(0.08))), child: Row(children: [
+            Icon(Icons.filter_list_rounded, color: gold, size: 18),
             const SizedBox(width: 8),
-            Expanded(child: Container(padding: const EdgeInsets.symmetric(horizontal: 10), decoration: BoxDecoration(color: const Color(0xFF0A0A0A), borderRadius: BorderRadius.circular(10)), child: DropdownButton<String>(value: _filterEstado, isExpanded: true, dropdownColor: const Color(0xFF141414), underline: const SizedBox(), style: const TextStyle(color: Colors.white, fontSize: 12), items: const [DropdownMenuItem(value: 'todos', child: Text('Todos')), DropdownMenuItem(value: 'pendiente', child: Text('Pendientes')), DropdownMenuItem(value: 'pagado', child: Text('Pagadas'))], onChanged: (v) => setState(() => _filterEstado = v ?? 'todos')))),
-          ]),
-          const SizedBox(height: 8),
-          Text('Periodo: $period', style: const TextStyle(color: Colors.white54, fontSize: 11)),
+            Expanded(child: DropdownButtonHideUnderline(child: DropdownButton<String>(value: _filterEstado, isExpanded: true, dropdownColor: const Color(0xFF1A1A1A), icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white54), style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500), items: const [DropdownMenuItem(value: 'todos', child: Text('Todos')), DropdownMenuItem(value: 'pendiente', child: Text('Pendientes')), DropdownMenuItem(value: 'pagado', child: Text('Pagadas'))], onChanged: (v) => setState(() => _filterEstado = v ?? 'todos')))),
+          ])),
         ])),
-        const SizedBox(height: 14),
         // TOTALES
         Row(children: [
           Expanded(child: _totalCard('Total Propinas', SettingsService.formatCurrency(_filteredTotal), gold)),
@@ -284,11 +310,24 @@ class _TipsScreenState extends State<TipsScreen> {
         const SizedBox(height: 8),
         Container(decoration: BoxDecoration(color: const Color(0xFF141414), borderRadius: BorderRadius.circular(14)), child: _filteredDetail.isEmpty ? const Padding(padding: EdgeInsets.all(16), child: Text('Sin detalle en este filtro.', style: TextStyle(color: Colors.white54))) : Column(children: _filteredDetail.map((d) => ListTile(leading: CircleAvatar(backgroundColor: gold.withOpacity(0.15), child: Icon(Icons.monetization_on, color: gold, size: 16)), title: Text(d['barber_name'], style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)), subtitle: Text('Folio ${d['folio']} • ${d['created_at'].toString().isNotEmpty ? DateFormat('dd/MM/yyyy HH:mm').format(DateTime.tryParse(d['created_at'].toString()) ?? DateTime.now()) : ''}', style: const TextStyle(color: Colors.white54, fontSize: 11)), trailing: Text(SettingsService.formatCurrency(d['amount'] as double), style: TextStyle(color: gold, fontWeight: FontWeight.bold, fontSize: 13)))).toList())),
         const SizedBox(height: 12),
-        const Text('Tip: Para pagar semanal, elige Esta Semana y paga por barbero. Si un barbero lo pide antes, elige Personalizado con el rango desde el último pago hasta hoy y paga solo ese rango.', style: TextStyle(color: Colors.white38, fontSize: 11)),
+        const Text('Tip: Para pagar semanal, elige Semana y paga por barbero. Si un barbero lo pide antes, dale EDITAR y elige el rango desde el último pago hasta hoy y paga solo ese rango.', style: TextStyle(color: Colors.white38, fontSize: 11)),
       ])),
     );
   }
 
-  Widget _chip(String label, String key) => ChoiceChip(label: Text(label, style: const TextStyle(fontSize: 11)), selected: _activeQuickFilter == key, selectedColor: const Color(0xFFD4AF37), backgroundColor: const Color(0xFF0A0A0A), labelStyle: TextStyle(color: _activeQuickFilter == key ? Colors.black : Colors.white), onSelected: (_) => _setQuick(key));
+  // Segmentado Hoy / Semana / Mes - mismo que Comisiones Premium
+  Widget _segmentButton(String label, String key, {bool isFirst = false, bool isLast = false}) {
+    final active = _activeQuickFilter == key;
+    return Expanded(child: InkWell(onTap: () => _setQuick(key), borderRadius: BorderRadius.circular(30), child: Container(padding: const EdgeInsets.symmetric(vertical: 9), decoration: BoxDecoration(color: active ? const Color(0xFFD4AF37) : Colors.transparent, borderRadius: BorderRadius.circular(30)), child: Text(label, textAlign: TextAlign.center, style: TextStyle(color: active ? Colors.black : Colors.white54, fontWeight: active ? FontWeight.bold : FontWeight.normal, fontSize: 13)))));
+  }
+
+  // EDITAR - abre rango Personalizado, igual que Comisiones (DateRangePicker)
+  Future<void> _pickDateRange() async {
+    final picked = await showDateRangePicker(context: context, initialDateRange: DateTimeRange(start: _startDate, end: _endDate), firstDate: DateTime(2024), lastDate: DateTime.now().add(const Duration(days: 1)), helpText: 'Elige el periodo', cancelText: 'Cancelar', confirmText: 'Aplicar', saveText: 'Aplicar');
+    if (picked != null) {
+      setState(() { _startDate = DateTime(picked.start.year, picked.start.month, picked.start.day); _endDate = DateTime(picked.end.year, picked.end.month, picked.end.day); _activeQuickFilter = 'custom'; });
+      _loadTips();
+    }
+  }
   Widget _totalCard(String label, String value, Color color) => Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: const Color(0xFF141414), borderRadius: BorderRadius.circular(12), border: Border.all(color: color.withOpacity(0.3))), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: const TextStyle(color: Colors.white54, fontSize: 11)), const SizedBox(height: 4), Text(value, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 15))]));
 }
