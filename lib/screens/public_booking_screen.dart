@@ -336,52 +336,65 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
                         Text(SettingsService.shopName.toUpperCase(), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 1.2), textAlign: TextAlign.center),
                         const SizedBox(height: 4),
                         Text('Barbería Premium', style: TextStyle(fontSize: 12, color: _goldColor.withOpacity(0.8), fontWeight: FontWeight.w500)),
-                        // --- DIRECCION + UBICACION PREMIUM ---
-                        // Usa la direccion que esta en Settings (Configuracion > Direccion).
-                        // Si esta vacia, muestra solo el boton de Maps.
+                        // --- DIRECCION + UBICACION PREMIUM - FIX MOVIL ---
+                        // FIX: Antes era un Row con [icono + texto Expanded + boton Como llegar].
+                        // En celular de ~360px el boton (130px) + icono dejaban solo ~80px para el texto,
+                        // por eso ENCUENTRANOS EN se partia en ENCUE / NTRAN / OS EN y la direccion en silabas.
+                        // Ahora es Columna: arriba icono + texto con todo el ancho, abajo boton a todo el ancho.
+                        // Asi se ve bien en celular y en PC.
                         const SizedBox(height: 12),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                           decoration: BoxDecoration(
                             color: Colors.white.withOpacity(0.03),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(color: _goldColor.withOpacity(0.2)),
                           ),
-                          child: Row(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(color: _goldColor.withOpacity(0.12), borderRadius: BorderRadius.circular(10)),
-                                child: const Icon(Icons.location_on_rounded, color: _goldColor, size: 18),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text('ENCUENTRANOS EN', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white38, letterSpacing: 1.2)),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      SettingsService.shopAddress.isNotEmpty ? SettingsService.shopAddress : 'Ver ubicacion en Google Maps',
-                                      style: const TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w600),
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(color: _goldColor.withOpacity(0.12), borderRadius: BorderRadius.circular(10)),
+                                    child: const Icon(Icons.location_on_rounded, color: _goldColor, size: 18),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Text('ENCUENTRANOS EN', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white38, letterSpacing: 1.2)),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          SettingsService.shopAddress.isNotEmpty ? SettingsService.shopAddress : 'Ver ubicacion en Google Maps',
+                                          style: const TextStyle(fontSize: 14, color: Colors.white, fontWeight: FontWeight.w600),
+                                        ),
+                                      ],
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(width: 8),
-                              InkWell(
-                                onTap: _openMaps,
-                                borderRadius: BorderRadius.circular(10),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                  decoration: BoxDecoration(color: _goldColor, borderRadius: BorderRadius.circular(10)),
-                                  child: const Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text('Como llegar', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black)),
-                                      SizedBox(width: 4),
-                                      Icon(Icons.navigation_rounded, size: 14, color: Colors.black),
-                                    ],
+                              const SizedBox(height: 10),
+                              SizedBox(
+                                width: double.infinity,
+                                child: InkWell(
+                                  onTap: _openMaps,
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                                    decoration: BoxDecoration(color: _goldColor, borderRadius: BorderRadius.circular(10)),
+                                    child: const Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text('Como llegar', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black)),
+                                        SizedBox(width: 6),
+                                        Icon(Icons.navigation_rounded, size: 16, color: Colors.black),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
@@ -391,7 +404,6 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
                       ])
                     ),
                     const SizedBox(height: 24),
-                    
                     // --- SERVICIOS ---
                     _buildSectionTitle('1. Selecciona los servicios'),
                     const SizedBox(height: 10),
