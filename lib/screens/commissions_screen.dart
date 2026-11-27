@@ -778,7 +778,7 @@ class _CommissionsScreenState extends State<CommissionsScreen> {
         backgroundColor: const Color(0xFF141414),
         foregroundColor: Colors.white,
         elevation: 0,
-        actions: [IconButton(icon: const Icon(Icons.receipt_long_rounded, color: Color(0xFFD4AF37)), tooltip: 'Ticket Térmica - según filtro', onPressed: _printInformeTicket), IconButton(icon: const Icon(Icons.sync_rounded, color: Colors.white70), tooltip: 'Sincronizar', onPressed: _loadCommissions)],
+        actions: [IconButton(icon: const Icon(Icons.print_rounded, color: Color(0xFFD4AF37)), tooltip: 'Ticket Térmica - según filtro', onPressed: _printInformeTicket), IconButton(icon: const Icon(Icons.sync_rounded, color: Colors.white70), tooltip: 'Sincronizar', onPressed: _loadCommissions)],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Color(0xFFD4AF37)))
