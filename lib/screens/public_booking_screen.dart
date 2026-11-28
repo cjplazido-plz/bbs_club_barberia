@@ -80,10 +80,21 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
   Future<void> _loadData() async {
     setState(() { _isLoading = true; });
     try {
-      final services = await Supabase.instance.client.from('services').select('*').eq('is_active', true).order('name');
+      // FIX SERVICIOS VACIOS: Antes .eq('is_active', true) dejaba fuera servicios con is_active = null
+      // y si RLS de anon bloqueaba, quedaba lista vacia sin aviso. Ahora traemos todos y filtramos en Dart.
+      // Tambien excluimos Propina: la propina no se reserva, solo se cobra en POS.
+      final servicesRaw = await Supabase.instance.client.from('services').select('*').order('name');
       final barbers = await Supabase.instance.client.from('barbers').select('*').eq('is_active', true).order('name');
+      final servicesFiltered = (servicesRaw as List).where((s) {
+        final m = Map<String, dynamic>.from(s as Map);
+        final active = m['is_active'];
+        final name = (m['name'] ?? '').toString().toLowerCase().trim();
+        final id = (m['id'] ?? '').toString().toLowerCase().trim();
+        if (name == 'propina' || id == 'propina') return false;
+        return active != false; // true o null = visible
+      }).toList();
       setState(() {
-        _services = List<Map<String, dynamic>>.from(services);
+        _services = List<Map<String, dynamic>>.from(servicesFiltered);
         _barbers = List<Map<String, dynamic>>.from(barbers);
         _isLoading = false;
       });
@@ -407,6 +418,28 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
                     // --- SERVICIOS ---
                     _buildSectionTitle('1. Selecciona los servicios'),
                     const SizedBox(height: 10),
+                    if (_services.isEmpty)
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(color: Colors.red.withOpacity(0.08), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.red.withOpacity(0.3))),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('No hay servicios disponibles en este momento.', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                            const SizedBox(height: 4),
+                            const Text('Revisa en Supabase: services con is_active = true y que anon pueda leer services. Toca Reintentar.', style: TextStyle(color: Colors.white60, fontSize: 12)),
+                            const SizedBox(height: 10),
+                            InkWell(
+                              onTap: _loadData,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                decoration: BoxDecoration(color: _goldColor, borderRadius: BorderRadius.circular(10)),
+                                child: const Text('Reintentar', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 13)),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ..._services.map((s) => _buildServiceCardMulti(s)),
                     if (_selectedServiceIds.isNotEmpty) 
                       Container(

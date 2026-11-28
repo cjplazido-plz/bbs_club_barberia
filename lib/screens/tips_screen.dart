@@ -212,9 +212,128 @@ class _TipsScreenState extends State<TipsScreen> {
           }, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4AF37)), child: const Text('Pagar Propinas', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)))),
           const SizedBox(height: 8),
         ],
-        SizedBox(width: double.infinity, child: OutlinedButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cerrar'))),
+        Row(children: [
+          Expanded(child: OutlinedButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cerrar'))),
+          const SizedBox(width: 10),
+          Expanded(child: ElevatedButton.icon(onPressed: () { Navigator.pop(ctx); _printComprobanteTip(barber, folio, period); }, icon: const Icon(Icons.print_rounded, size: 16), label: const Text('Solo Imprimir (sin pagar)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981)))),
+        ]),
       ])),
     )));
+  }
+
+  // IMPRIMIR INFORME - igual que en Comisiones: imprime el filtro actual (periodo + barbero + estado)
+  // 80mm termico, no A4. Si no hay propinas en el filtro, avisa y no imprime en blanco.
+  Future<void> _printInformeTicket() async {
+    final list = _filteredPerBarber;
+    if (list.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No hay propinas en este filtro'), backgroundColor: Colors.orange));
+      return;
+    }
+    const double widthMm = 80.0;
+    const double titleSize = 16.0;
+    const double rowSize = 10.0;
+    const double totalSize = 13.0;
+    final monoBold = pw.Font.courierBold();
+    final period = '${DateFormat('dd/MM/yyyy').format(_startDate)} - ${DateFormat('dd/MM/yyyy').format(_endDate)}';
+    final totalTips = _filteredTotal;
+    final totalCount = _filteredCount;
+    final pdf = pw.Document();
+    pdf.addPage(pw.Page(
+      pageFormat: PdfPageFormat(widthMm * PdfPageFormat.mm, double.infinity,
+          marginLeft: 2 * PdfPageFormat.mm, marginRight: 2 * PdfPageFormat.mm,
+          marginTop: 3 * PdfPageFormat.mm, marginBottom: 3 * PdfPageFormat.mm),
+      build: (_) => pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.center, children: [
+        pw.Text((SettingsService.shopName.isNotEmpty ? SettingsService.shopName : 'BBS CLUB').toUpperCase(),
+            style: pw.TextStyle(font: monoBold, fontSize: titleSize, fontWeight: pw.FontWeight.bold), textAlign: pw.TextAlign.center),
+        if (SettingsService.shopRif.isNotEmpty) pw.Text('RUT: ${SettingsService.shopRif}', style: pw.TextStyle(font: monoBold, fontSize: rowSize)),
+        if (SettingsService.shopAddress.isNotEmpty) pw.Text(SettingsService.shopAddress, style: pw.TextStyle(font: monoBold, fontSize: rowSize), textAlign: pw.TextAlign.center),
+        if (SettingsService.shopPhone.isNotEmpty) pw.Text('Tel: ${SettingsService.shopPhone}', style: pw.TextStyle(font: monoBold, fontSize: rowSize)),
+        pw.Divider(thickness: 1, borderStyle: pw.BorderStyle.dashed),
+        pw.Text('INFORME PROPINAS', style: pw.TextStyle(font: monoBold, fontSize: rowSize + 1, fontWeight: pw.FontWeight.bold)),
+        pw.Text('Periodo: $period', style: pw.TextStyle(font: monoBold, fontSize: rowSize)),
+        pw.Text('Impreso: ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}', style: pw.TextStyle(font: monoBold, fontSize: rowSize)),
+        pw.Divider(thickness: 1, borderStyle: pw.BorderStyle.dashed),
+        ...list.map((b) {
+          final n = (b['barber_name'] ?? 'Desconocido').toString();
+          final cnt = (b['count'] as int?) ?? 0;
+          final tot = (b['total_tips'] as double?) ?? 0.0;
+          final paid = _paidFolios.containsKey((b['barber_id'] ?? '').toString());
+          final shortName = n.length > 22 ? n.substring(0, 22) : n;
+          return pw.Column(children: [
+            pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+              pw.Text(shortName, style: pw.TextStyle(font: monoBold, fontSize: rowSize, fontWeight: pw.FontWeight.bold)),
+              pw.Text('$cnt prop.', style: pw.TextStyle(font: monoBold, fontSize: rowSize)),
+            ]),
+            pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+              pw.Text('Total:', style: pw.TextStyle(font: monoBold, fontSize: rowSize, fontWeight: pw.FontWeight.bold)),
+              pw.Text(SettingsService.formatCurrency(tot), style: pw.TextStyle(font: monoBold, fontSize: rowSize, fontWeight: pw.FontWeight.bold)),
+            ]),
+            pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+              pw.Text('Estado:', style: pw.TextStyle(font: monoBold, fontSize: rowSize)),
+              pw.Text(paid ? 'PAGADO' : 'PENDIENTE', style: pw.TextStyle(font: monoBold, fontSize: rowSize)),
+            ]),
+            pw.Divider(thickness: 0.5, borderStyle: pw.BorderStyle.dashed),
+          ]);
+        }),
+        pw.SizedBox(height: 2 * PdfPageFormat.mm),
+        pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+          pw.Text('TOTAL PROPINAS', style: pw.TextStyle(font: monoBold, fontSize: rowSize, fontWeight: pw.FontWeight.bold)),
+          pw.Text(SettingsService.formatCurrency(totalTips), style: pw.TextStyle(font: monoBold, fontSize: rowSize, fontWeight: pw.FontWeight.bold)),
+        ]),
+        pw.Container(
+            padding: pw.EdgeInsets.symmetric(vertical: 3 * PdfPageFormat.mm, horizontal: 3 * PdfPageFormat.mm),
+            decoration: pw.BoxDecoration(border: pw.Border.all(width: 1)),
+            child: pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
+              pw.Text('TOTAL A PAGAR', style: pw.TextStyle(font: monoBold, fontSize: totalSize, fontWeight: pw.FontWeight.bold)),
+              pw.Text(SettingsService.formatCurrency(totalTips), style: pw.TextStyle(font: monoBold, fontSize: totalSize, fontWeight: pw.FontWeight.bold)),
+            ])),
+        pw.SizedBox(height: 2 * PdfPageFormat.mm),
+        pw.Text('Propinas: $totalCount  |  Barberos: ${list.length}', style: pw.TextStyle(font: monoBold, fontSize: rowSize), textAlign: pw.TextAlign.center),
+        pw.SizedBox(height: 4 * PdfPageFormat.mm),
+        pw.Row(children: [
+          pw.Expanded(child: pw.Column(children: [pw.Divider(), pw.Text('Firma Barbero', style: pw.TextStyle(font: monoBold, fontSize: rowSize), textAlign: pw.TextAlign.center)])),
+          pw.SizedBox(width: 4 * PdfPageFormat.mm),
+          pw.Expanded(child: pw.Column(children: [pw.Divider(), pw.Text('Firma Admin', style: pw.TextStyle(font: monoBold, fontSize: rowSize), textAlign: pw.TextAlign.center)])),
+        ]),
+        pw.SizedBox(height: 3 * PdfPageFormat.mm),
+        pw.Text(SettingsService.ticketFooter.isNotEmpty ? SettingsService.ticketFooter : '¡Gracias por su visita!',
+            style: pw.TextStyle(font: monoBold, fontSize: rowSize), textAlign: pw.TextAlign.center),
+      ]),
+    ));
+    await Printing.layoutPdf(onLayout: (f) async => pdf.save(), name: 'Informe-Propinas-Ticket.pdf');
+  }
+
+  // COMPROBANTE INDIVIDUAL - igual que en Comisiones: Solo Imprimir sin pagar
+  Future<void> _printComprobanteTip(Map<String, dynamic> barber, String folio, String period) async {
+    final name = barber['barber_name'] as String;
+    final total = barber['total_tips'] as double;
+    final count = barber['count'] as int;
+    final pdf = pw.Document();
+    pdf.addPage(pw.Page(
+      pageFormat: const PdfPageFormat(80 * PdfPageFormat.mm, double.infinity, marginLeft: 2 * PdfPageFormat.mm, marginRight: 2 * PdfPageFormat.mm, marginTop: 3 * PdfPageFormat.mm, marginBottom: 3 * PdfPageFormat.mm),
+      build: (_) => pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.center, children: [
+        pw.Text((SettingsService.shopName.isNotEmpty ? SettingsService.shopName : 'BBS CLUB').toUpperCase(), style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold), textAlign: pw.TextAlign.center),
+        pw.Text('COMPROBANTE DE PAGO', style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
+        pw.Text('Propinas Acumuladas', style: const pw.TextStyle(fontSize: 9)),
+        pw.Divider(thickness: 1, borderStyle: pw.BorderStyle.dashed),
+        pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Folio:', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)), pw.Text(folio, style: const pw.TextStyle(fontSize: 9))]),
+        pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Fecha:', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)), pw.Text(DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now()), style: const pw.TextStyle(fontSize: 10))]),
+        pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Periodo:', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)), pw.Text(period, style: const pw.TextStyle(fontSize: 9))]),
+        pw.Divider(thickness: 1, borderStyle: pw.BorderStyle.dashed),
+        pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Barbero:', style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)), pw.Text(name, style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold))]),
+        pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Propinas:', style: const pw.TextStyle(fontSize: 10)), pw.Text('$count propinas', style: const pw.TextStyle(fontSize: 10))]),
+        pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('Total propinas:', style: const pw.TextStyle(fontSize: 10)), pw.Text(SettingsService.formatCurrency(total), style: const pw.TextStyle(fontSize: 10))]),
+        pw.SizedBox(height: 3 * PdfPageFormat.mm),
+        pw.Container(padding: pw.EdgeInsets.symmetric(vertical: 3 * PdfPageFormat.mm, horizontal: 3 * PdfPageFormat.mm), decoration: pw.BoxDecoration(border: pw.Border.all(width: 1)), child: pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [pw.Text('TOTAL A PAGAR', style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold)), pw.Text(SettingsService.formatCurrency(total), style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold))])),
+        pw.SizedBox(height: 6 * PdfPageFormat.mm),
+        pw.Row(children: [pw.Expanded(child: pw.Column(children: [pw.Divider(), pw.Text('Firma Barbero', style: const pw.TextStyle(fontSize: 9), textAlign: pw.TextAlign.center)])), pw.SizedBox(width: 4 * PdfPageFormat.mm), pw.Expanded(child: pw.Column(children: [pw.Divider(), pw.Text('Firma Admin', style: const pw.TextStyle(fontSize: 9), textAlign: pw.TextAlign.center)]))]),
+        pw.SizedBox(height: 3 * PdfPageFormat.mm),
+        pw.Text('Recibí conforme ${SettingsService.formatCurrency(total)} por propinas del periodo.', style: const pw.TextStyle(fontSize: 8), textAlign: pw.TextAlign.center),
+        pw.SizedBox(height: 2 * PdfPageFormat.mm),
+        pw.Text('¡Gracias!', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold), textAlign: pw.TextAlign.center),
+      ]),
+    ));
+    await Printing.layoutPdf(onLayout: (f) async => pdf.save(), name: 'Comprobante-Propina-$name.pdf');
   }
 
   Widget _row(String k, String v) => Padding(padding: const EdgeInsets.symmetric(vertical: 2), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(k, style: const TextStyle(fontSize: 12, color: Colors.black54)), Text(v, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black))]));
@@ -225,57 +344,31 @@ class _TipsScreenState extends State<TipsScreen> {
     final period = "${DateFormat('dd/MM/yyyy').format(_startDate)} - ${DateFormat('dd/MM/yyyy').format(_endDate)}";
     return Scaffold(
       backgroundColor: const Color(0xFF0A0A0A),
-      appBar: AppBar(backgroundColor: const Color(0xFF0A0A0A), title: const Text('💰 Propinas Acumuladas', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), iconTheme: const IconThemeData(color: Colors.white), actions: [IconButton(icon: const Icon(Icons.refresh), onPressed: _loadTips)]),
+      appBar: AppBar(backgroundColor: const Color(0xFF0A0A0A), title: const Text('💰 Propinas Acumuladas', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), iconTheme: const IconThemeData(color: Colors.white), actions: [IconButton(icon: const Icon(Icons.receipt_long_rounded, color: Color(0xFFD4AF37)), tooltip: 'Imprimir Informe - según filtro', onPressed: _printInformeTicket), IconButton(icon: const Icon(Icons.refresh), onPressed: _loadTips)]),
       body: _isLoading ? const Center(child: CircularProgressIndicator(color: Color(0xFFD4AF37))) : SingleChildScrollView(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        // FILTROS - IGUAL QUE COMISIONES PREMIUM
-        // Misma estructura que Comisiones: titulo + Periodo de Analisis + segmentado Hoy/Semana/Mes + fecha con EDITAR + Filtrar por Barbero
-        Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: const Color(0xFF141414), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.white.withOpacity(0.08))), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: gold.withOpacity(0.15), borderRadius: BorderRadius.circular(10)), child: Icon(Icons.tune_rounded, color: gold, size: 18)),
-            const SizedBox(width: 10),
-            const Text('Filtros de Búsqueda', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-          ]),
-          const SizedBox(height: 16),
-          Row(children: [
-            Icon(Icons.calendar_month_rounded, color: gold, size: 18),
-            const SizedBox(width: 8),
-            const Text('Período de Análisis', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+        // FILTROS - igual estilo que Comisiones / Avanzados
+        Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: const Color(0xFF141414), borderRadius: BorderRadius.circular(14), border: Border.all(color: gold.withOpacity(0.3))), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Filtros', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+          const SizedBox(height: 8),
+          Wrap(spacing: 8, children: [
+            _chip('Hoy', 'today'), _chip('Esta Semana', 'week'), _chip('Este Mes', 'month'), _chip('Personalizado', 'custom'),
           ]),
           const SizedBox(height: 10),
-          // Segmentado Hoy / Semana / Mes - igual que Comisiones
-          Container(decoration: BoxDecoration(color: const Color(0xFF0A0A0A), borderRadius: BorderRadius.circular(30), border: Border.all(color: Colors.white.withOpacity(0.08))), child: Row(children: [
-            _segmentButton('Hoy', 'today', isFirst: true),
-            _segmentButton('Semana', 'week'),
-            _segmentButton('Mes', 'month', isLast: true),
-          ])),
-          const SizedBox(height: 12),
-          // Fecha + EDITAR (abre rango Personalizado) - igual que Comisiones
-          Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10), decoration: BoxDecoration(color: const Color(0xFF0A0A0A), borderRadius: BorderRadius.circular(14)), child: Row(children: [
-            const Icon(Icons.calendar_today_rounded, color: Colors.white54, size: 18),
-            const SizedBox(width: 10),
-            Expanded(child: Text("${DateFormat('dd/MM/yyyy').format(_startDate)}  →  ${DateFormat('dd/MM/yyyy').format(_endDate)}", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13))),
-            if (_activeQuickFilter == 'custom') Container(margin: const EdgeInsets.only(right: 8), padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: gold.withOpacity(0.15), borderRadius: BorderRadius.circular(20)), child: Text('Personalizado', style: TextStyle(color: gold, fontSize: 10, fontWeight: FontWeight.bold))),
-            InkWell(onTap: _pickDateRange, borderRadius: BorderRadius.circular(20), child: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5), decoration: BoxDecoration(color: gold.withOpacity(0.15), borderRadius: BorderRadius.circular(20)), child: Text('EDITAR', style: TextStyle(color: gold, fontSize: 11, fontWeight: FontWeight.bold)))),
-          ])),
-          const SizedBox(height: 14),
-          Text('Filtrar por Barbero', style: TextStyle(color: gold, fontSize: 11, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 6),
-          Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2), decoration: BoxDecoration(color: const Color(0xFF0A0A0A), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.white.withOpacity(0.08))), child: Row(children: [
-            Icon(Icons.person_rounded, color: gold, size: 18),
-            const SizedBox(width: 4),
-            const Icon(Icons.group_rounded, color: Color(0xFF38BDF8), size: 18),
+          Row(children: [
+            Expanded(child: InkWell(onTap: () => _pickDate(true), child: Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: const Color(0xFF0A0A0A), borderRadius: BorderRadius.circular(10)), child: Text('Desde: ${DateFormat('dd/MM/yyyy').format(_startDate)}', style: const TextStyle(color: Colors.white, fontSize: 12))))),
             const SizedBox(width: 8),
-            Expanded(child: DropdownButtonHideUnderline(child: DropdownButton<String>(value: _selectedBarberId, isExpanded: true, dropdownColor: const Color(0xFF1A1A1A), icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white54), style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500), items: [const DropdownMenuItem(value: 'all', child: Text('Todos los barberos'))] + _tipsPerBarber.map((b) => DropdownMenuItem(value: (b['barber_id'] ?? '').toString(), child: Text(b['barber_name']))).toList(), onChanged: (v) => setState(() => _selectedBarberId = v ?? 'all')))),
-          ])),
-          const SizedBox(height: 12),
-          Text('Filtrar por Estado', style: TextStyle(color: gold, fontSize: 11, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 6),
-          Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2), decoration: BoxDecoration(color: const Color(0xFF0A0A0A), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.white.withOpacity(0.08))), child: Row(children: [
-            Icon(Icons.filter_list_rounded, color: gold, size: 18),
+            Expanded(child: InkWell(onTap: () => _pickDate(false), child: Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: const Color(0xFF0A0A0A), borderRadius: BorderRadius.circular(10)), child: Text('Hasta: ${DateFormat('dd/MM/yyyy').format(_endDate)}', style: const TextStyle(color: Colors.white, fontSize: 12))))),
+          ]),
+          const SizedBox(height: 10),
+          Row(children: [
+            Expanded(child: Container(padding: const EdgeInsets.symmetric(horizontal: 10), decoration: BoxDecoration(color: const Color(0xFF0A0A0A), borderRadius: BorderRadius.circular(10)), child: DropdownButton<String>(value: _selectedBarberId, isExpanded: true, dropdownColor: const Color(0xFF141414), underline: const SizedBox(), style: const TextStyle(color: Colors.white, fontSize: 12), items: [const DropdownMenuItem(value: 'all', child: Text('Todos los barberos'))] + _tipsPerBarber.map((b) => DropdownMenuItem(value: (b['barber_id'] ?? '').toString(), child: Text(b['barber_name']))).toList(), onChanged: (v) => setState(() => _selectedBarberId = v ?? 'all')))),
             const SizedBox(width: 8),
-            Expanded(child: DropdownButtonHideUnderline(child: DropdownButton<String>(value: _filterEstado, isExpanded: true, dropdownColor: const Color(0xFF1A1A1A), icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white54), style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500), items: const [DropdownMenuItem(value: 'todos', child: Text('Todos')), DropdownMenuItem(value: 'pendiente', child: Text('Pendientes')), DropdownMenuItem(value: 'pagado', child: Text('Pagadas'))], onChanged: (v) => setState(() => _filterEstado = v ?? 'todos')))),
-          ])),
+            Expanded(child: Container(padding: const EdgeInsets.symmetric(horizontal: 10), decoration: BoxDecoration(color: const Color(0xFF0A0A0A), borderRadius: BorderRadius.circular(10)), child: DropdownButton<String>(value: _filterEstado, isExpanded: true, dropdownColor: const Color(0xFF141414), underline: const SizedBox(), style: const TextStyle(color: Colors.white, fontSize: 12), items: const [DropdownMenuItem(value: 'todos', child: Text('Todos')), DropdownMenuItem(value: 'pendiente', child: Text('Pendientes')), DropdownMenuItem(value: 'pagado', child: Text('Pagadas'))], onChanged: (v) => setState(() => _filterEstado = v ?? 'todos')))),
+          ]),
+          const SizedBox(height: 8),
+          Text('Periodo: $period', style: const TextStyle(color: Colors.white54, fontSize: 11)),
         ])),
+        const SizedBox(height: 14),
         // TOTALES
         Row(children: [
           Expanded(child: _totalCard('Total Propinas', SettingsService.formatCurrency(_filteredTotal), gold)),
@@ -310,24 +403,11 @@ class _TipsScreenState extends State<TipsScreen> {
         const SizedBox(height: 8),
         Container(decoration: BoxDecoration(color: const Color(0xFF141414), borderRadius: BorderRadius.circular(14)), child: _filteredDetail.isEmpty ? const Padding(padding: EdgeInsets.all(16), child: Text('Sin detalle en este filtro.', style: TextStyle(color: Colors.white54))) : Column(children: _filteredDetail.map((d) => ListTile(leading: CircleAvatar(backgroundColor: gold.withOpacity(0.15), child: Icon(Icons.monetization_on, color: gold, size: 16)), title: Text(d['barber_name'], style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)), subtitle: Text('Folio ${d['folio']} • ${d['created_at'].toString().isNotEmpty ? DateFormat('dd/MM/yyyy HH:mm').format(DateTime.tryParse(d['created_at'].toString()) ?? DateTime.now()) : ''}', style: const TextStyle(color: Colors.white54, fontSize: 11)), trailing: Text(SettingsService.formatCurrency(d['amount'] as double), style: TextStyle(color: gold, fontWeight: FontWeight.bold, fontSize: 13)))).toList())),
         const SizedBox(height: 12),
-        const Text('Tip: Para pagar semanal, elige Semana y paga por barbero. Si un barbero lo pide antes, dale EDITAR y elige el rango desde el último pago hasta hoy y paga solo ese rango.', style: TextStyle(color: Colors.white38, fontSize: 11)),
+        const Text('Tip: Para pagar semanal, elige Esta Semana y paga por barbero. Si un barbero lo pide antes, elige Personalizado con el rango desde el último pago hasta hoy y paga solo ese rango.', style: TextStyle(color: Colors.white38, fontSize: 11)),
       ])),
     );
   }
 
-  // Segmentado Hoy / Semana / Mes - mismo que Comisiones Premium
-  Widget _segmentButton(String label, String key, {bool isFirst = false, bool isLast = false}) {
-    final active = _activeQuickFilter == key;
-    return Expanded(child: InkWell(onTap: () => _setQuick(key), borderRadius: BorderRadius.circular(30), child: Container(padding: const EdgeInsets.symmetric(vertical: 9), decoration: BoxDecoration(color: active ? const Color(0xFFD4AF37) : Colors.transparent, borderRadius: BorderRadius.circular(30)), child: Text(label, textAlign: TextAlign.center, style: TextStyle(color: active ? Colors.black : Colors.white54, fontWeight: active ? FontWeight.bold : FontWeight.normal, fontSize: 13)))));
-  }
-
-  // EDITAR - abre rango Personalizado, igual que Comisiones (DateRangePicker)
-  Future<void> _pickDateRange() async {
-    final picked = await showDateRangePicker(context: context, initialDateRange: DateTimeRange(start: _startDate, end: _endDate), firstDate: DateTime(2024), lastDate: DateTime.now().add(const Duration(days: 1)), helpText: 'Elige el periodo', cancelText: 'Cancelar', confirmText: 'Aplicar', saveText: 'Aplicar');
-    if (picked != null) {
-      setState(() { _startDate = DateTime(picked.start.year, picked.start.month, picked.start.day); _endDate = DateTime(picked.end.year, picked.end.month, picked.end.day); _activeQuickFilter = 'custom'; });
-      _loadTips();
-    }
-  }
+  Widget _chip(String label, String key) => ChoiceChip(label: Text(label, style: const TextStyle(fontSize: 11)), selected: _activeQuickFilter == key, selectedColor: const Color(0xFFD4AF37), backgroundColor: const Color(0xFF0A0A0A), labelStyle: TextStyle(color: _activeQuickFilter == key ? Colors.black : Colors.white), onSelected: (_) => _setQuick(key));
   Widget _totalCard(String label, String value, Color color) => Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: const Color(0xFF141414), borderRadius: BorderRadius.circular(12), border: Border.all(color: color.withOpacity(0.3))), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: const TextStyle(color: Colors.white54, fontSize: 11)), const SizedBox(height: 4), Text(value, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 15))]));
 }
