@@ -344,7 +344,7 @@ class _TipsScreenState extends State<TipsScreen> {
     final period = "${DateFormat('dd/MM/yyyy').format(_startDate)} - ${DateFormat('dd/MM/yyyy').format(_endDate)}";
     return Scaffold(
       backgroundColor: const Color(0xFF0A0A0A),
-      appBar: AppBar(backgroundColor: const Color(0xFF0A0A0A), title: const Text('💰 Propinas Acumuladas', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), iconTheme: const IconThemeData(color: Colors.white), actions: [IconButton(icon: const Icon(Icons.receipt_long_rounded, color: Color(0xFFD4AF37)), tooltip: 'Imprimir Informe - según filtro', onPressed: _printInformeTicket), IconButton(icon: const Icon(Icons.refresh), onPressed: _loadTips)]),
+      appBar: AppBar(backgroundColor: const Color(0xFF0A0A0A), title: const Text('💰 Propinas Acumuladas', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), iconTheme: const IconThemeData(color: Colors.white), actions: [IconButton(icon: const Icon(Icons.print_rounded, color: Color(0xFFD4AF37)), tooltip: 'Imprimir Informe - según filtro', onPressed: _printInformeTicket), IconButton(icon: const Icon(Icons.refresh), onPressed: _loadTips)]),
       body: _isLoading ? const Center(child: CircularProgressIndicator(color: Color(0xFFD4AF37))) : SingleChildScrollView(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         // FILTROS - igual estilo que Comisiones / Avanzados
         Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: const Color(0xFF141414), borderRadius: BorderRadius.circular(14), border: Border.all(color: gold.withOpacity(0.3))), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
