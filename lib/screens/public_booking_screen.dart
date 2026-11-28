@@ -269,7 +269,7 @@ class _PublicBookingScreenState extends State<PublicBookingScreen> {
       final abonoTxt = _depositMethod == 'Transferencia'
           ? '\n\n💰 Abono: ${SettingsService.formatCurrency(_depositAmount)} por Transferencia - ${_depositAlreadyTransferred ? 'Cliente dice que ya transfirio, verificar comprobante' : 'Pendiente - cliente avisara por WhatsApp'}'
           : '\n\n💰 Abono: Pagara en el local';
-      final rawMsg = 'Hola! Nueva reserva en BBS Club Barberia.\n\n👤 Cliente: ${_nameController.text.trim()}\n📞 Telefono: ${_phoneController.text.trim()}\n📅 Fecha: $dateStr\n⏰ Hora: $timeStr\n✂️ Servicio: $services\n💇 Barbero: $barberName\n💰 Total: ${SettingsService.formatCurrency(_totalPrice)}$abonoTxt';
+      final rawMsg = 'Hola! Nueva reserva en BBS Club Barberia.\n\n👤 Cliente: ${_nameController.text.trim()}\n📞 Telefono: ${_phoneController.text.trim()}\n📅 Fecha: $dateStr\n⏰ Hora: $timeStr\n✂️ Servicio: $services\n💈 Barbero: $barberName\n💰 Total: ${SettingsService.formatCurrency(_totalPrice)}$abonoTxt';
       final url = Uri.parse("https://wa.me/$phone?text=${Uri.encodeComponent(rawMsg)}");
       if (await canLaunchUrl(url)) await launchUrl(url, mode: LaunchMode.externalApplication);
     } catch (_) {}
